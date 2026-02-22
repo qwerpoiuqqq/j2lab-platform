@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./settings.json:/app/settings.json:ro
+      - ./data:/app/data
+    environment:
+      - SETTINGS_PATH=/app/settings.json
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://app:8000
+    depends_on:
+      - app
+    restart: unless-stopped

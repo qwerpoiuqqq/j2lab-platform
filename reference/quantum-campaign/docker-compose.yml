@@ -1,0 +1,50 @@
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=sqlite:///./data/quantum.db
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
+      - DEBUG=${DEBUG:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+
+  # Cloudflare Tunnel (외부 접속) - 필요 시 활성화
+  # 방법 1: Quick Tunnel (계정 불필요, URL이 매번 변경됨)
+  # docker compose run --rm cloudflared-quick
+  cloudflared-quick:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://frontend:80
+    depends_on:
+      - frontend
+    profiles:
+      - tunnel-quick
+
+  # 방법 2: Named Tunnel (고정 URL, Cloudflare 계정 필요)
+  # CLOUDFLARE_TUNNEL_TOKEN을 .env에 설정 후:
+  # docker compose --profile tunnel up -d
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - frontend
+    restart: always
+    profiles:
+      - tunnel

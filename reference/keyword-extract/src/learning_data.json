@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "last_updated": "2026-01-04T22:13:50.360217",
+  "categories": {
+    "restaurant": {
+      "blocked_keywords": []
+    },
+    "hospital": {
+      "blocked_keywords": []
+    },
+    "general": {
+      "blocked_keywords": [
+        {
+          "keyword": "순대만국밥 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "섞어국밥 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "돼지고기",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "곱창 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맥주",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "수육 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "돼지고기 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "수육/순대수육(中)(大) 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기순대 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "라면 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "버섯만두전골 대",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기 순대 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "소주 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "백순대 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "고기",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기 순대",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "고기 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "국밥 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "버섯만두전골 소 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "소주",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "수육/순대수육(中)(大)",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대곱창볶음(小)(大) 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "백반 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "깍두기 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기순대",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대만국밥",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "깍두기",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "버섯만두전골 소",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "사골떡만두국밥",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "곱창",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "라면",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "국밥",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "섞어국밥",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "돼지국밥",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "만두 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "수육",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맥주 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "사골떡만두국밥 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대곱창볶음(小)(大)",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "백반",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "돼지국밥 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "만두",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대곱창전골(小)(大)",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기수육 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "버섯만두전골 대 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "백순대",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "순대곱창전골(小)(大) 맛집",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛보기수육",
+          "added_date": "2026-01-04T19:35:16.966853",
+          "hit_count": 1
+        },
+        {
+          "keyword": "김치볶음밥",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "찌개",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "오리고기",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "안심",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "배추김치",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "청도미나리삼겹살",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "맛집",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "된장찌개",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "오리",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "막걸리",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "생고기",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "비빔밥",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "장아찌",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        },
+        {
+          "keyword": "삼합",
+          "added_date": "2026-01-04T22:13:50.360217",
+          "hit_count": 1
+        }
+      ]
+    }
+  }
+}

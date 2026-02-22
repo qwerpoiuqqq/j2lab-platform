@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>키워드 추출 서비스</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="login-screen" class="screen">
+        <div class="login-card">
+            <div class="login-logo">키워드 추출 서비스</div>
+            <p class="login-subtitle">네이버 플레이스 키워드 분석 도구</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">사용자명</label>
+                    <input type="text" id="login-username" placeholder="사용자명을 입력하세요" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">비밀번호</label>
+                    <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-login">로그인</button>
+                <p id="login-error" class="error-text" style="display:none;"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- 메인 화면 -->
+    <div id="main-screen" class="screen" style="display:none;">
+        <!-- 헤더 -->
+        <header class="top-header">
+            <div class="header-left">
+                <h1 class="header-title">키워드 추출 서비스</h1>
+            </div>
+            <div class="header-right">
+                <span id="user-info" class="user-badge"></span>
+                <button id="logout-btn" class="btn-header">로그아웃</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 1. 작업 등록 섹션 -->
+            <section class="card" id="input-section">
+                <div class="card-header">
+                    <h2>작업 등록</h2>
+                </div>
+                <div class="card-body">
+                    <textarea id="url-input" rows="3" placeholder="네이버 플레이스 URL을 입력하세요 (한 줄에 하나씩, 여러 개 동시 등록 가능)&#10;예: https://m.place.naver.com/restaurant/12345&#10;    https://m.place.naver.com/restaurant/67890"></textarea>
+                    <div class="options-grid">
+                        <div class="option-item">
+                            <label for="count-input">목표 개수</label>
+                            <input type="number" id="count-input" value="100" min="10" max="500">
+                        </div>
+                        <div class="option-item">
+                            <label for="max-rank-input">최대 순위</label>
+                            <input type="number" id="max-rank-input" value="50" min="1" max="200">
+                        </div>
+                        <div class="option-item">
+                            <label for="min-rank-input">최소 순위</label>
+                            <input type="number" id="min-rank-input" value="1" min="1" max="100">
+                        </div>
+                        <div class="option-item">
+                            <label for="name-ratio-input">상호명 비율(%)</label>
+                            <input type="number" id="name-ratio-input" value="30" min="0" max="100">
+                        </div>
+                        <div class="option-item option-action">
+                            <button id="add-job-btn" class="btn-primary">추가</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 작업 목록 섹션 -->
+            <section class="card" id="queue-section">
+                <div class="card-header">
+                    <h2>작업 목록</h2>
+                </div>
+                <div class="card-body table-responsive">
+                    <table id="job-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>업체명</th>
+                                <th>URL</th>
+                                <th>목표</th>
+                                <th>상태</th>
+                                <th>발견</th>
+                                <th>최근 진행</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="job-tbody"></tbody>
+                    </table>
+                    <div id="job-empty" class="empty-state">등록된 작업이 없습니다. 위에서 URL을 입력하고 추가 버튼을 누르세요.</div>
+                </div>
+            </section>
+
+            <!-- 3. 결과 섹션 -->
+            <section class="card" id="result-section" style="display:none;">
+                <div class="card-header">
+                    <h2>결과</h2>
+                    <span id="result-summary" class="result-summary-text"></span>
+                </div>
+                <div class="card-body">
+                    <div id="result-tabs" class="tab-bar tab-bar-result"></div>
+                    <div class="result-toolbar">
+                        <div class="toolbar-group">
+                            <button id="copy-all-comma-btn" class="btn-sm btn-outline">전체 복사 (쉼표)</button>
+                            <button id="copy-all-line-btn" class="btn-sm btn-outline">전체 복사 (줄바꿈)</button>
+                            <button id="copy-sel-comma-btn" class="btn-sm btn-outline">선택 복사 (쉼표)</button>
+                            <button id="copy-sel-line-btn" class="btn-sm btn-outline">선택 복사 (줄바꿈)</button>
+                        </div>
+                        <div class="toolbar-group">
+                            <button id="csv-download-btn" class="btn-sm btn-primary-sm">CSV 다운로드</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="result-table" class="data-table result-data-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-check"><input type="checkbox" id="select-all-cb" title="전체 선택"></th>
+                                    <th class="col-num">#</th>
+                                    <th>키워드</th>
+                                    <th>순위</th>
+                                    <th>키워드 유형</th>
+                                    <th>상태</th>
+                                </tr>
+                            </thead>
+                            <tbody id="result-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. 계정 관리 섹션 (어드민 전용) -->
+            <section class="card" id="admin-section" style="display:none;">
+                <div class="card-header">
+                    <h2>계정 관리</h2>
+                </div>
+                <div class="card-body">
+                    <div class="admin-create-form">
+                        <h3>새 사용자 생성</h3>
+                        <div class="admin-form-row">
+                            <div class="form-group">
+                                <label for="admin-new-username">사용자명</label>
+                                <input type="text" id="admin-new-username" placeholder="새 사용자명">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-new-password">비밀번호</label>
+                                <input type="password" id="admin-new-password" placeholder="비밀번호">
+                            </div>
+                            <div class="form-group form-action">
+                                <button id="admin-create-btn" class="btn-primary">사용자 생성</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="admin-user-list">
+                        <h3>사용자 목록</h3>
+                        <div class="table-responsive">
+                            <table id="admin-user-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>사용자명</th>
+                                        <th>관리자</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-user-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 클립보드 폴백용 숨김 textarea -->
+    <textarea id="clipboard-fallback" style="position:fixed;left:-9999px;top:-9999px;"></textarea>
+
+    <!-- 토스트 알림 컨테이너 -->
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
