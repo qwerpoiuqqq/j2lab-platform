@@ -21,32 +21,32 @@
 ## Phase 1A: 기반 인프라 + 인증 (`phase-1a/auth`)
 
 ### 1A.1 프로젝트 셋업
-- [ ] FastAPI 프로젝트 초기화 (`api-server/`)
-- [ ] SQLAlchemy 2.0 async 설정
-- [ ] Alembic 초기화
-- [ ] PostgreSQL Docker 컨테이너 (docker-compose.dev.yml)
-- [ ] Pydantic Settings (.env 로딩)
+- [x] FastAPI 프로젝트 초기화 (`api-server/`)
+- [x] SQLAlchemy 2.0 async 설정
+- [x] Alembic 초기화
+- [x] PostgreSQL Docker 컨테이너 (docker-compose.dev.yml)
+- [x] Pydantic Settings (.env 로딩)
 
 ### 1A.2 핵심 모델
-- [ ] companies (회사/테넌트: 일류기획, 제이투랩)
-- [ ] users (5단계 역할: system_admin~sub_account, company_id)
-- [ ] refresh_tokens (JWT 관리)
+- [x] companies (회사/테넌트: 일류기획, 제이투랩)
+- [x] users (5단계 역할: system_admin~sub_account, company_id)
+- [x] refresh_tokens (JWT 관리)
 
 ### 1A.3 인증
-- [ ] JWT 발급 (login) + 리프레시 + 로그아웃 (블랙리스트)
-- [ ] bcrypt 비밀번호 해싱
-- [ ] 역할 기반 접근 제어 (RoleChecker dependency)
-- [ ] 공통 페이지네이션 스키마
+- [x] JWT 발급 (login) + 리프레시 + 로그아웃 (블랙리스트)
+- [x] bcrypt 비밀번호 해싱
+- [x] 역할 기반 접근 제어 (RoleChecker dependency)
+- [x] 공통 페이지네이션 스키마
 
 ### 1A.4 CRUD + 테스트
-- [ ] Companies CRUD (system_admin 전용)
-- [ ] Users CRUD + 역할별 권한 + 하위 유저 트리
-- [ ] pytest 설정 + 인증/유저 테스트
-- [ ] Swagger 문서 확인
+- [x] Companies CRUD (system_admin 전용)
+- [x] Users CRUD + 역할별 권한 + 하위 유저 트리
+- [x] pytest 설정 + 인증/유저 테스트 (121개 테스트 통과)
+- [x] Swagger 문서 확인
 
 ### 1A.5 검증
-- [ ] Agent B 검증 완료
-- [ ] Agent C 재검증 완료
+- [x] Agent B 검증 완료
+- [x] Agent C 재검증 완료 (2026-02-23)
 - [ ] main 브랜치 merge
 
 ---
