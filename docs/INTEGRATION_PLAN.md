@@ -84,7 +84,7 @@
 
 ### 2.1 Keyword Extract (키워드 추출)
 
-**위치**: `Keyword_extract_program_backup/`
+**위치**: `reference/keyword-extract/`
 
 **핵심 기능**: 네이버 플레이스 URL 입력 → 4단계 파이프라인으로 키워드 추출 + 랭킹 확인
 
@@ -126,7 +126,7 @@ httpx>=0.25.0
 
 ### 2.2 Quantum Campaign (캠페인 자동화)
 
-**위치**: `quantum-campaign-automation/`
+**위치**: `reference/quantum-campaign/`
 
 **핵심 기능**: 슈퍼앱(superap.io) 캠페인 자동 등록 + 일일 키워드 로테이션
 
@@ -555,7 +555,7 @@ CREATE INDEX idx_order_items_status ON order_items(status);
 
 #### 테이블 6: `places` (플레이스)
 > **핵심**: Keyword Extract의 `PlaceData` 클래스를 완전히 반영
-> 소스: `Keyword_extract_program_backup/src/models.py` (PlaceData, RegionInfo)
+> 소스: `reference/keyword-extract/src/models.py` (PlaceData, RegionInfo)
 
 ```sql
 CREATE TABLE places (
@@ -698,7 +698,7 @@ CREATE INDEX idx_rank_history_recorded_date ON keyword_rank_history(recorded_dat
 ---
 
 #### 테이블 9: `extraction_jobs` (키워드 추출 작업)
-> 소스: `Keyword_extract_program_backup/web/session_manager.py` Job 클래스
+> 소스: `reference/keyword-extract/web/session_manager.py` Job 클래스
 
 ```sql
 CREATE TABLE extraction_jobs (
@@ -749,7 +749,7 @@ CREATE INDEX idx_extraction_jobs_order_item_id ON extraction_jobs(order_item_id)
 ---
 
 #### 테이블 10: `superap_accounts` (슈퍼앱 계정)
-> 소스: `quantum-campaign-automation/backend/app/models/account.py`
+> 소스: `reference/quantum-campaign/backend/app/models/account.py`
 
 ```sql
 CREATE TABLE superap_accounts (
@@ -790,7 +790,7 @@ CREATE INDEX idx_superap_accounts_network_preset_id ON superap_accounts(network_
 ---
 
 #### 테이블 11: `campaigns` (캠페인)
-> 소스: `quantum-campaign-automation/backend/app/models/campaign.py`
+> 소스: `reference/quantum-campaign/backend/app/models/campaign.py`
 
 ```sql
 CREATE TABLE campaigns (
@@ -845,8 +845,8 @@ CREATE TABLE campaigns (
     -- 현재 단계 메시지
 
     -- === 연장 ===
-    extend_target_id INT,
-    -- 연장 대상 캠페인 ID
+    extend_target_id BIGINT,
+    -- 연장 대상 캠페인 ID (campaigns.id와 동일 타입)
     extension_history JSONB,
     -- 연장 이력: [{round, date, keywords_added, ...}, ...]
 
@@ -877,7 +877,7 @@ CREATE INDEX idx_campaigns_network_preset_id ON campaigns(network_preset_id);
 ---
 
 #### 테이블 12: `campaign_keyword_pool` (캠페인 키워드 풀)
-> 소스: `quantum-campaign-automation/backend/app/models/keyword.py`
+> 소스: `reference/quantum-campaign/backend/app/models/keyword.py`
 
 ```sql
 CREATE TABLE campaign_keyword_pool (
@@ -902,7 +902,7 @@ CREATE INDEX idx_campaign_kw_pool_is_used ON campaign_keyword_pool(is_used);
 ---
 
 #### 테이블 13: `campaign_templates` (캠페인 템플릿)
-> 소스: `quantum-campaign-automation/backend/app/models/template.py`
+> 소스: `reference/quantum-campaign/backend/app/models/template.py`
 >
 > **네트워크 프리셋과의 차이**:
 > - 캠페인 템플릿 = superap.io **폼 내용** (설명문구, 힌트, 이미지, 모듈)
@@ -1838,7 +1838,7 @@ unified-platform/
 
 ### Phase 2: keyword-worker 연동
 
-- [ ] `Keyword_extract_program_backup/` 코드를 `keyword-worker/`로 복사
+- [ ] `reference/keyword-extract/` 코드를 `keyword-worker/`로 복사
 - [ ] `web/app.py` → `/internal/` 엔드포인트로 리팩토링
 - [ ] `SessionManager` → PostgreSQL `extraction_jobs` 테이블로 대체
 - [ ] `Job` 완료 시 → `places`, `keywords` 테이블에 결과 저장
@@ -1852,7 +1852,7 @@ unified-platform/
 
 ### Phase 3: campaign-worker 연동
 
-- [ ] `quantum-campaign-automation/backend/` 코드를 `campaign-worker/`로 복사
+- [ ] `reference/quantum-campaign/backend/` 코드를 `campaign-worker/`로 복사
 - [ ] `database.py` SQLite → PostgreSQL 연결 변경
 - [ ] 외부 라우터 → `/internal/` 내부 API로 변환
 - [ ] 기존 React 프론트엔드 제거
@@ -2073,7 +2073,7 @@ CORS_ORIGINS=https://yourdomain.com
 ```python
 # scripts/migrate_quantum_data.py
 """
-quantum-campaign-automation의 SQLite DB에서 PostgreSQL로 마이그레이션
+reference/quantum-campaign의 SQLite DB에서 PostgreSQL로 마이그레이션
 
 대상 테이블:
 - accounts → superap_accounts
@@ -2085,7 +2085,7 @@ import sqlite3
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 
-SQLITE_PATH = "quantum-campaign-automation/data/quantum.db"
+SQLITE_PATH = "reference/quantum-campaign/data/quantum.db"
 POSTGRES_URL = "postgresql+asyncpg://..."
 
 async def migrate():
@@ -2106,13 +2106,13 @@ async def migrate():
 ```python
 # scripts/migrate_keyword_data.py
 """
-Keyword_extract_program_backup/data/jobs/ 폴더의 JSON 파일들을
+reference/keyword-extract/data/jobs/ 폴더의 JSON 파일들을
 extraction_jobs + places + keywords 테이블로 마이그레이션
 """
 import json
 import glob
 
-JOBS_DIR = "Keyword_extract_program_backup/data/jobs/"
+JOBS_DIR = "reference/keyword-extract/data/jobs/"
 
 async def migrate():
     for json_file in glob.glob(f"{JOBS_DIR}/**/*.json"):

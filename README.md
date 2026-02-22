@@ -17,11 +17,12 @@
                     └─────────┬─────────┘
                               ▼
                     [PostgreSQL 15 통합 DB]
-                       16개 테이블
+                       20개 테이블
+                    멀티테넌트 (일류기획, 제이투랩)
 ```
 
-- **api-server**가 DB 소유자 (모든 CRUD 담당)
-- **worker**들은 내부 HTTP (`/internal/`) 호출로 작업 수신/결과 반환
+- **api-server**가 외부 CRUD 담당 (사용자 요청은 모두 api-server를 거침)
+- **worker**들은 내부 HTTP (`/internal/`) 호출로 작업 수신, DB에 직접 결과 저장 후 콜백으로 api-server에 알림
 - **React SPA**는 api-server만 호출
 - Docker Compose로 AWS EC2 배포
 
@@ -120,7 +121,7 @@ open http://localhost:8000/docs
 | 문서 | 설명 |
 |------|------|
 | [CLAUDE.md](CLAUDE.md) | 세션 자동 로드 - 전체 맥락 요약 |
-| [통합 계획서](docs/INTEGRATION_PLAN.md) | DB 스키마 16개 테이블, API 50+ 명세, 아키텍처 상세 |
+| [통합 계획서](docs/INTEGRATION_PLAN.md) | DB 스키마 20개 테이블, API 60+ 명세, 아키텍처 상세 |
 | [개발 워크플로우](docs/DEVELOPMENT_WORKFLOW.md) | Agent A/B/C 구체적 프롬프트, 오케스트레이션 가이드 |
 | [Phase 체크리스트](docs/PHASE_CHECKLIST.md) | Phase 0~5 진행 상태 추적 |
 
