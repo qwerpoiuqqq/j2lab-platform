@@ -18,7 +18,9 @@
 | Phase | 내용 | 상태 |
 |-------|------|------|
 | 0 | 문서/구조/reference 코드 정리 | 완료 |
-| 1 | DB 스키마 + api-server 골격 | **← 현재** |
+| 1A | 기반 인프라 + 인증 (companies, users, JWT) | **← 현재** |
+| 1B | 주문/상품/정산 (orders, products, balance) | 미시작 |
+| 1C | 파이프라인/통합 모델 (places, campaigns, 자동배정) | 미시작 |
 | 2 | keyword-worker 연동 | 미시작 |
 | 3 | campaign-worker 연동 | 미시작 |
 | 4 | React 프론트엔드 | 미시작 |
@@ -40,7 +42,8 @@
                     └─────────┬─────────┘
                               ▼
                     [PostgreSQL 15 통합 DB]
-                       16개 테이블
+                       19개 테이블
+                    멀티테넌트 (일류기획, 제이투랩)
 ```
 
 ## Repo 구조

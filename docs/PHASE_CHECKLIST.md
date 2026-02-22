@@ -18,64 +18,91 @@
 
 ---
 
-## Phase 1: 통합 DB + api-server 골격
+## Phase 1A: 기반 인프라 + 인증
 
-### 1.1 프로젝트 셋업
+### 1A.1 프로젝트 셋업
 - [ ] FastAPI 프로젝트 초기화 (`api-server/`)
 - [ ] SQLAlchemy 2.0 async 설정
 - [ ] Alembic 초기화
-- [ ] PostgreSQL Docker 컨테이너 (개발용 docker-compose.dev.yml)
+- [ ] PostgreSQL Docker 컨테이너 (docker-compose.dev.yml)
 - [ ] Pydantic Settings (.env 로딩)
-- [ ] 프로젝트 구조 (models/, routers/, schemas/, services/, utils/)
 
-### 1.2 DB 모델 (16개 테이블)
-- [ ] users (유저/인증)
-- [ ] products (상품)
+### 1A.2 핵심 모델
+- [ ] companies (회사/테넌트: 일류기획, 제이투랩)
+- [ ] users (5단계 역할: system_admin~sub_account, company_id)
+- [ ] refresh_tokens (JWT 관리)
+
+### 1A.3 인증
+- [ ] JWT 발급 (login) + 리프레시 + 로그아웃 (블랙리스트)
+- [ ] bcrypt 비밀번호 해싱
+- [ ] 역할 기반 접근 제어 (RoleChecker dependency)
+- [ ] 공통 페이지네이션 스키마
+
+### 1A.4 CRUD + 테스트
+- [ ] Companies CRUD (system_admin 전용)
+- [ ] Users CRUD + 역할별 권한 + 하위 유저 트리
+- [ ] pytest 설정 + 인증/유저 테스트
+- [ ] Swagger 문서 확인
+
+### 1A.5 검증
+- [ ] Agent B 검증 완료
+- [ ] Agent C 재검증 완료
+- [ ] main 브랜치 merge
+
+---
+
+## Phase 1B: 주문/상품/정산
+
+### 1B.1 모델
+- [ ] products (상품 + daily_deadline 마감시간)
 - [ ] price_policies (가격 정책)
-- [ ] orders (주문)
-- [ ] order_items (주문 항목)
-- [ ] places (플레이스) ← Keyword Extract PlaceData 기반
-- [ ] keywords (키워드)
-- [ ] keyword_rank_history (랭킹 이력)
-- [ ] extraction_jobs (추출 작업)
-- [ ] superap_accounts (슈퍼앱 계정)
-- [ ] campaigns (캠페인)
-- [ ] campaign_keyword_pool (키워드 풀)
-- [ ] campaign_templates (캠페인 템플릿)
+- [ ] orders (주문: draft→submitted→payment_confirmed)
+- [ ] order_items (주문 항목 + assigned_account_id 계정배정)
 - [ ] balance_transactions (잔액 거래)
-- [ ] pipeline_states (파이프라인 상태)
-- [ ] pipeline_logs (파이프라인 로그)
-- [ ] Alembic 마이그레이션 생성 + 실행 확인
+- [ ] system_settings (시스템 설정)
 
-### 1.3 인증
-- [ ] JWT 발급 (login)
-- [ ] JWT 갱신 (refresh)
-- [ ] JWT 블랙리스트 (logout)
-- [ ] 비밀번호 해싱 (bcrypt)
-- [ ] 역할 기반 접근 제어 (role-based dependency)
+### 1B.2 CRUD + 비즈니스 로직
+- [ ] Products CRUD + 마감시간 체크
+- [ ] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
+- [ ] Orders CRUD + 상태 전이 (submit, confirm-payment, reject)
+- [ ] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드
+- [ ] BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
+- [ ] 테스트
 
-### 1.4 CRUD API
-- [ ] Users CRUD + 역할별 권한
-- [ ] Products CRUD
-- [ ] Price Policies CRUD
-- [ ] Orders + OrderItems CRUD
-- [ ] Places CRUD
-- [ ] Keywords CRUD + Rank History
-- [ ] Extraction Jobs CRUD
-- [ ] Superap Accounts CRUD (AES 암호화)
+### 1B.3 검증
+- [ ] Agent B 검증 완료
+- [ ] Agent C 재검증 완료
+- [ ] main 브랜치 merge
+
+---
+
+## Phase 1C: 파이프라인/통합 모델
+
+### 1C.1 모델
+- [ ] places (플레이스 + virtual_phone)
+- [ ] keywords + keyword_rank_history
+- [ ] extraction_jobs (추출 작업)
+- [ ] superap_accounts (슈퍼앱 계정 + company_id + 자동배정 필드)
+- [ ] campaigns (campaign_type 영문 + module_context)
+- [ ] campaign_keyword_pool (중복 제외 로직)
+- [ ] campaign_templates
+- [ ] pipeline_states (cancelled 포함) + pipeline_logs
+
+### 1C.2 CRUD + 서비스
+- [ ] Places/Keywords/RankHistory CRUD
+- [ ] ExtractionJobs CRUD
+- [ ] SuperapAccounts CRUD (company_admin 전용, AES 암호화)
 - [ ] Campaigns CRUD
-- [ ] Campaign Keyword Pool CRUD
-- [ ] Campaign Templates CRUD
-- [ ] Balance Transactions CRUD
-- [ ] Pipeline States + Logs CRUD
+- [ ] CampaignKeywordPool CRUD (UNIQUE 제약 중복 제외)
+- [ ] CampaignTemplates CRUD
+- [ ] PipelineStates + Logs CRUD
+- [ ] 계정 자동 배정 서비스 (AssignmentService)
+- [ ] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
+- [ ] 워커 콜백 API (/internal/callback/*)
+- [ ] Alembic 마이그레이션 (전체 19개 테이블)
+- [ ] 테스트
 
-### 1.5 테스트
-- [ ] pytest 설정
-- [ ] 인증 테스트
-- [ ] 각 CRUD 엔드포인트 테스트
-- [ ] Swagger 문서 확인 (/docs)
-
-### 1.6 검증
+### 1C.3 검증
 - [ ] Agent B 검증 완료
 - [ ] Agent C 재검증 완료
 - [ ] main 브랜치 merge

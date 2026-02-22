@@ -1,9 +1,10 @@
 # J2LAB 통합 플랫폼 구축 계획서
 
-> **문서 버전**: v1.0
-> **작성일**: 2026-02-17
+> **문서 버전**: v2.0
+> **작성일**: 2026-02-17 | **최종 수정**: 2026-02-23
 > **목표**: 접수 → 키워드 추출 → 캠페인 세팅 → 관리 전체 파이프라인 통합
 > **기술 스택**: FastAPI 통일 + PostgreSQL + React + Docker + AWS
+> **운영 회사**: 일류기획, 제이투랩 (멀티 테넌트)
 
 ---
 
@@ -39,11 +40,33 @@
 ### 1.2 목표
 
 - 3개 시스템을 **FastAPI 기반 하나의 플랫폼**으로 통합
-- **접수 → 키워드 추출 → 캠페인 세팅 → 관리 → +α** 전체 자동화 파이프라인 구축
+- **접수 → 키워드 추출 → 계정 자동 배정 → 캠페인 세팅 → 관리** 전체 자동화 파이프라인 구축
 - **AWS EC2**에 Docker Compose로 배포
 - 단일 **PostgreSQL** 데이터베이스로 모든 데이터 통합 관리
+- **멀티 테넌트**: 일류기획, 제이투랩 2개 회사가 독립적으로 운영
 
-### 1.3 기술 스택 결정
+### 1.3 운영 구조
+
+```
+시스템 관리자 (system_admin)
+│
+├── 일류기획 (company)
+│   ├── 메인 관리자 (company_admin) ─ 정산, 입금확인, 계정배정
+│   ├── 접수 담당자 (order_handler) ─ 세팅, 영업
+│   ├── 총판 A (distributor) ─ 하부계정 관리, 접수건 확인
+│   │   ├── 하부 a1 (sub_account) ─ 접수만
+│   │   └── 하부 a2 (sub_account)
+│   └── 총판 B (distributor)
+│       └── 하부 b1 (sub_account)
+│
+└── 제이투랩 (company)
+    ├── 메인 관리자 (company_admin)
+    ├── 접수 담당자 (order_handler)
+    └── 총판 C (distributor)
+        └── 하부 c1 (sub_account)
+```
+
+### 1.4 기술 스택 결정
 
 | 항목 | 선택 | 이유 |
 |------|------|------|
@@ -253,6 +276,10 @@ aiofiles
 ### 4.1 ER 다이어그램 (관계도)
 
 ```
+companies ──── superap_accounts
+  │                  │
+  │ (1:N)            │
+  ▼                  │
 users ─────────────────┐
   │                     │
   │ (1:N)               │ (1:N)
@@ -264,10 +291,10 @@ orders              balance_transactions
 order_items ────────── products
   │         ────────── price_policies ── users
   │
-  │ (1:1)
-  ▼
-pipeline_states
-  │         │
+  │ (1:1)              assigned_account_id
+  ▼                     │
+pipeline_states         ▼
+  │         │      superap_accounts
   │ (1:1)   │ (1:1)
   ▼         ▼
 extraction_jobs    campaigns ────── superap_accounts
@@ -284,12 +311,34 @@ keywords
   │ (1:N)
   ▼
 keyword_rank_history
+
+별도: refresh_tokens (JWT 관리)
 ```
+
+> **테이블 수: 19개** (기존 16 + companies, refresh_tokens, system_settings 신규)
 
 ### 4.2 전체 테이블 정의
 
+#### 테이블 0: `companies` (회사/테넌트)
+> 신규: 멀티 테넌트 지원
+
+```sql
+CREATE TABLE companies (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    -- 예: '일류기획', '제이투랩'
+    code VARCHAR(50) UNIQUE NOT NULL,
+    -- 예: 'ilryu', 'j2lab'
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
+);
+```
+
+---
+
 #### 테이블 1: `users` (유저/인증)
-> 소스: jtwolablife의 accounts.User 모델 참고
+> 소스: jtwolablife 참고 + 멀티 테넌트 역할 구조 반영
 
 ```sql
 CREATE TABLE users (
@@ -298,33 +347,48 @@ CREATE TABLE users (
     hashed_password VARCHAR(255) NOT NULL,
     name VARCHAR(50) NOT NULL,
     phone VARCHAR(20),
-    company_name VARCHAR(100),
-    role VARCHAR(20) NOT NULL DEFAULT 'user',
-    -- 역할: admin(최고관리자), accountant(회계), manager(매니저),
-    --       agency(대행사), seller(셀러)
+
+    company_id INT REFERENCES companies(id) ON DELETE SET NULL,
+    -- 소속 회사 (system_admin은 NULL)
+
+    role VARCHAR(20) NOT NULL DEFAULT 'sub_account',
+    -- 역할 계층:
+    -- system_admin   : 시스템 최고 관리자 (company_id = NULL)
+    -- company_admin  : 회사별 메인 관리자 (정산, 입금확인, 계정배정)
+    -- order_handler  : 접수 담당자/영업 (세팅, 캠페인 관리)
+    -- distributor    : 총판 (거래처, 하부계정 생성 가능)
+    -- sub_account    : 하부 계정 (접수만 가능)
+
     parent_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    -- 계층 구조: admin → manager → agency → seller
+    -- 계층 구조: distributor → sub_account (총판의 하부계정)
+
     balance NUMERIC(12,0) DEFAULT 0,
-    -- 현재 잔액 (원 단위, 소수점 없음)
+    -- 현재 잔액 (원 단위)
+    -- ⚠ 동시성 주의: 잔액 변경 시 반드시 SELECT FOR UPDATE 사용
+    -- balance_transactions 테이블이 source of truth
+
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_company_id ON users(company_id);
 CREATE INDEX idx_users_parent_id ON users(parent_id);
 CREATE INDEX idx_users_is_active ON users(is_active);
 ```
 
 **역할 권한 매트릭스:**
 
-| 역할 | 전체 유저 | 하위 유저 | 주문 접수 | 캠페인 관리 | 정산 | 시스템 설정 |
-|------|---------|---------|---------|-----------|------|-----------|
-| admin | R/W | R/W | R/W | R/W | R/W | R/W |
-| accountant | R | R | R | R | R/W | R |
-| manager | - | R/W | R/W | R/W | R | - |
-| agency | - | R/W | R/W | R | R (본인) | - |
-| seller | - | - | R/W (본인) | R (본인) | R (본인) | - |
+| 역할 | 접수 | 하부접수 확인 | 입금확인 | 세팅/캠페인 | 계정배정 보기 | 정산 | 하부계정 관리 | 시스템 설정 |
+|------|------|------------|---------|-----------|-------------|------|------------|-----------|
+| system_admin | R/W | R/W | R/W | R/W | ✅ | R/W | R/W | R/W |
+| company_admin | R/W | R/W (본사) | ✅ | R/W | ✅ | R/W (본사) | R/W (본사) | - |
+| order_handler | R/W | R (본사) | - | R/W | ❌ | R (본인) | - | - |
+| distributor | R/W | R/W (본인 하부) | - | R (본인건) | ❌ | R (본인) | R/W (하부) | - |
+| sub_account | R/W (접수만) | - | - | R (본인건) | ❌ | - | - | - |
+
+> ❌ = 슈퍼앱 계정 배정 정보는 company_admin, system_admin에게만 노출
 
 ---
 
@@ -352,6 +416,13 @@ CREATE TABLE products (
     -- 기본 가격 (원)
     min_work_days INT,
     max_work_days INT,
+
+    daily_deadline TIME NOT NULL DEFAULT '18:00',
+    -- 상품별 일일 접수 마감 시간 (KST)
+    -- 이 시간까지 총판이 접수건을 올려야 함
+    -- 예: 트래픽 = 18:00, 저장하기 = 17:00
+    deadline_timezone VARCHAR(30) DEFAULT 'Asia/Seoul',
+
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ
@@ -393,23 +464,37 @@ CREATE TABLE orders (
     order_number VARCHAR(30) UNIQUE NOT NULL,
     -- 자동 생성 형식: "ORD-20260217-0001"
     user_id UUID NOT NULL REFERENCES users(id),
-    -- 주문한 유저 (agency 또는 seller)
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    -- pending(접수) → confirmed(확인) → processing(처리중)
-    -- → completed(완료) / cancelled(취소)
+    -- 주문한 유저 (distributor 또는 sub_account)
+    company_id INT REFERENCES companies(id),
+    -- 소속 회사 (유저에서 자동 설정)
+
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    -- draft(하부계정 임시저장) → submitted(총판이 올림)
+    -- → payment_confirmed(입금확인) → processing(처리중)
+    -- → completed(완료) / cancelled(취소) / rejected(반려)
+
+    payment_status VARCHAR(20) DEFAULT 'unpaid',
+    -- unpaid(미입금) → confirmed(입금확인) → settled(정산완료)
+
     total_amount NUMERIC(12,0) DEFAULT 0,
-    -- 총 결제 금액
+    -- 총 결제 금액 (물량 × 단가)
     vat_amount NUMERIC(12,0) DEFAULT 0,
     -- VAT (10%)
     notes TEXT,
     -- 관리자 메모
     source VARCHAR(20) DEFAULT 'web',
-    -- web(웹 접수), excel(엑셀 업로드), api(API 연동)
-    approved_by UUID REFERENCES users(id),
-    -- 승인자
+    -- web(웹 시트), excel(엑셀 업로드)
+
+    submitted_by UUID REFERENCES users(id),
+    -- 총판이 올린 경우 총판 ID
+    submitted_at TIMESTAMPTZ,
+
+    payment_confirmed_by UUID REFERENCES users(id),
+    -- 입금 확인한 company_admin
+    payment_confirmed_at TIMESTAMPTZ,
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
-    confirmed_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ
 );
 
@@ -437,12 +522,24 @@ CREATE TABLE order_items (
     subtotal NUMERIC(12,0) NOT NULL,
     -- unit_price × quantity
     item_data JSONB,
-    -- 동적 폼 데이터 (product.form_schema에 맞춘 입력값)
-    -- 예: {"place_url": "https://map.naver.com/...", "campaign_days": 30, "daily_limit": 100}
+    -- 동적 폼 데이터
+    -- 예: {"place_url": "https://map.naver.com/...", "start_date": "2026-03-01",
+    --       "end_date": "2026-03-31", "daily_limit": 300, "campaign_type": "traffic"}
+    -- 주의: 키워드는 접수 폼에서 받지 않음 (추출 후 자동 배정)
+
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     -- pending → processing → completed / failed
     result_message TEXT,
-    -- 처리 결과 메시지
+
+    -- === 슈퍼앱 계정 배정 (company_admin만 볼 수 있음) ===
+    assigned_account_id INT REFERENCES superap_accounts(id),
+    -- 자동 배정된 슈퍼앱 계정
+    assignment_status VARCHAR(20) DEFAULT 'pending',
+    -- pending(미배정) → auto_assigned(자동배정) → confirmed(확인됨) → overridden(수동변경)
+    assigned_at TIMESTAMPTZ,
+    assigned_by UUID REFERENCES users(id),
+    -- 배정 확인/변경한 company_admin
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ
 );
@@ -491,8 +588,10 @@ CREATE TABLE places (
     stations JSONB DEFAULT '[]',
     -- 인근 지하철역 목록 (예: ["강남역", "역삼역"])
 
-    -- === 기본 정보 ===
+    -- === 연락처 ===
     phone VARCHAR(20),
+    virtual_phone VARCHAR(20),
+    -- 가상 전화번호 (네이버 제공)
     introduction TEXT,
     -- 업체 소개글
     naver_url VARCHAR(500),
@@ -659,14 +758,30 @@ CREATE TABLE superap_accounts (
     -- AES 암호화된 비밀번호
     agency_name VARCHAR(100),
     -- 대행사명
-    campaign_type_preference VARCHAR(50),
-    -- 이 계정이 주로 담당하는 캠페인 유형 (traffic, save 등)
+
+    -- === 멀티 테넌트 + 자동 배정 ===
+    company_id INT REFERENCES companies(id),
+    -- 이 계정이 소속된 회사 (일류기획 or 제이투랩)
+
+    campaign_type VARCHAR(20),
+    -- 'traffic' 또는 'save' (전용 계정)
+    -- NULL이면 양쪽 다 가능
+
+    max_concurrent_campaigns INT DEFAULT 50,
+    -- 동시 활성 캠페인 한도
+
+    daily_registration_limit INT DEFAULT 20,
+    -- 일일 등록 한도 (슈퍼앱 rate limit 고려)
+
+    priority INT DEFAULT 0,
+    -- 배정 우선순위 (높을수록 먼저 배정)
+
     is_active BOOLEAN DEFAULT TRUE,
-    max_campaigns INT DEFAULT 50,
-    -- 이 계정의 최대 동시 캠페인 수
-    current_campaign_count INT DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_superap_accounts_company_id ON superap_accounts(company_id);
+CREATE INDEX idx_superap_accounts_campaign_type ON superap_accounts(campaign_type);
 ```
 
 ---
@@ -693,7 +808,8 @@ CREATE TABLE campaigns (
     place_name VARCHAR(200) NOT NULL DEFAULT '',
     place_url TEXT NOT NULL,
     campaign_type VARCHAR(50) NOT NULL,
-    -- "트래픽"(traffic) 또는 "저장하기"(save)
+    -- 'traffic' 또는 'save' (영문 통일, products.code와 일치)
+    -- 한국어 표시명은 campaign_templates.type_name 참조
 
     -- === 기간/한도 ===
     registered_at TIMESTAMPTZ,
@@ -708,6 +824,8 @@ CREATE TABLE campaigns (
     -- 랜드마크 모듈 결과
     step_count INT,
     -- 도보 스텝 모듈 결과
+    module_context JSONB,
+    -- 모듈 실행 결과 전체 (디버깅 + 연장 시 재활용)
 
     -- === 키워드 ===
     original_keywords TEXT,
@@ -845,18 +963,22 @@ CREATE TABLE pipeline_states (
     order_item_id BIGINT NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
     -- 주문 항목과 1:1 대응
 
-    current_stage VARCHAR(30) NOT NULL DEFAULT 'intake',
+    current_stage VARCHAR(30) NOT NULL DEFAULT 'draft',
     -- 현재 단계:
-    -- intake              : 접수 완료
+    -- draft               : 하부계정 임시저장
+    -- submitted           : 총판이 올림
+    -- payment_confirmed   : 입금 확인됨
     -- extraction_queued   : 키워드 추출 대기
     -- extraction_running  : 키워드 추출 진행중
     -- extraction_done     : 키워드 추출 완료
-    -- campaign_setup      : 캠페인 세팅 준비
+    -- account_assigned    : 슈퍼앱 계정 자동 배정됨
+    -- assignment_confirmed: 계정 배정 확인 (company_admin)
     -- campaign_registering: 캠페인 등록 진행중
     -- campaign_active     : 캠페인 활성
     -- management          : 관리/모니터링 단계
     -- completed           : 전체 완료
     -- failed              : 실패
+    -- cancelled           : 취소
 
     previous_stage VARCHAR(30),
     extraction_job_id BIGINT REFERENCES extraction_jobs(id),
@@ -895,26 +1017,72 @@ CREATE INDEX idx_pipeline_logs_state_id ON pipeline_logs(pipeline_state_id);
 
 ---
 
+#### 테이블 17: `refresh_tokens` (JWT 리프레시 토큰)
+> 신규: JWT 토큰 관리 및 블랙리스트
+
+```sql
+CREATE TABLE refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) UNIQUE NOT NULL,
+    -- 리프레시 토큰의 SHA-256 해시
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    -- NULL이면 유효, 값 있으면 폐기됨
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+```
+
+---
+
+#### 테이블 18: `system_settings` (시스템 설정)
+> 신규: 런타임 변경 가능한 설정값
+
+```sql
+CREATE TABLE system_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 초기 데이터 예시:
+-- INSERT INTO system_settings VALUES
+--   ('max_concurrent_extractions', '5', '동시 키워드 추출 작업 수'),
+--   ('default_target_keyword_count', '200', '기본 키워드 추출 목표 수'),
+--   ('extraction_target_count', '200', '접수당 추출 키워드 수');
+```
+
+---
+
 ### 4.3 테이블 요약
 
-| # | 테이블명 | 레코드 소스 | 주요 용도 |
-|---|---------|-----------|----------|
-| 1 | users | jtwolablife | 유저/인증/역할 관리 |
-| 2 | products | jtwolablife | 상품(캠페인 유형) 정의 |
+| # | 테이블명 | 소스 | 주요 용도 |
+|---|---------|------|----------|
+| 0 | **companies** | **신규** | **회사/테넌트 (일류기획, 제이투랩)** |
+| 1 | users | jtwolablife + 신규 역할 | 유저/인증/5단계 역할 관리 |
+| 2 | products | jtwolablife | 상품 정의 + 일일 마감시간 |
 | 3 | price_policies | jtwolablife | 유저/역할별 가격 정책 |
-| 4 | orders | jtwolablife | 주문 접수 |
-| 5 | order_items | jtwolablife | 주문 항목 (플레이스별) |
+| 4 | orders | jtwolablife + 신규 상태 | 주문 접수 (draft→submitted→payment_confirmed) |
+| 5 | order_items | jtwolablife + 계정배정 | 주문 항목 + 슈퍼앱 계정 자동 배정 |
 | 6 | places | Keyword Extract | 네이버 플레이스 정보 |
 | 7 | keywords | Keyword Extract | 추출된 키워드 + 랭킹 |
 | 8 | keyword_rank_history | Keyword Extract | 키워드 랭킹 변동 이력 |
 | 9 | extraction_jobs | Keyword Extract | 키워드 추출 작업 관리 |
-| 10 | superap_accounts | Quantum Campaign | 슈퍼앱 계정 |
-| 11 | campaigns | Quantum Campaign | 캠페인 정보 |
+| 10 | superap_accounts | Quantum + 자동배정 | 슈퍼앱 계정 + 회사별/유형별 배정 |
+| 11 | campaigns | Quantum Campaign | 캠페인 정보 (campaign_type 영문 통일) |
 | 12 | campaign_keyword_pool | Quantum Campaign | 캠페인별 키워드 로테이션 |
 | 13 | campaign_templates | Quantum Campaign | 캠페인 폼 템플릿 |
 | 14 | balance_transactions | jtwolablife | 잔액/정산 |
-| 15 | pipeline_states | 신규 | 파이프라인 상태 추적 |
+| 15 | pipeline_states | 신규 | 파이프라인 상태 추적 (cancelled 포함) |
 | 16 | pipeline_logs | 신규 | 파이프라인 로그 |
+| 17 | **refresh_tokens** | **신규** | **JWT 리프레시 토큰 관리** |
+| 18 | **system_settings** | **신규** | **런타임 시스템 설정** |
 
 ---
 
@@ -924,40 +1092,66 @@ CREATE INDEX idx_pipeline_logs_state_id ON pipeline_logs(pipeline_state_id);
 
 ```
 [1단계: 접수 (Intake)]
-│  고객/대행사가 주문 입력
-│  ├── 웹 폼: 플레이스 URL + 상품 선택 + 기간 + 예산
-│  └── 엑셀 벌크 업로드: 여러 플레이스 일괄 접수
+│  sub_account 또는 distributor가 주문 입력
+│  ├── 웹 시트(그리드) UI: 플레이스 URL + 유형 + 기간 + 일일한도
+│  └── 엑셀 벌크 업로드: 여러 플레이스 일괄 접수 (미리보기 → 확인)
+│  ⚠ 키워드는 접수 폼에서 받지 않음 (추출 후 자동 배정)
+│  ⚠ 상품별 마감시간 체크 (예: 트래픽 18:00 KST)
+│
+│  접수 폼 필드:
+│  ├── 플레이스 URL (필수)
+│  ├── 캠페인 유형 (traffic / save)
+│  ├── 작업 시작일 (필수)
+│  ├── 작업 만료일 (필수)
+│  ├── 일일 작업량 (기본값 300)
+│  └── 접수일 (자동 기록)
 │
 │  DB 동작:
-│  ├── Order 생성 (order_number 자동 부여)
+│  ├── Order 생성 (status: draft, order_number 자동 부여)
 │  ├── OrderItem 생성 (플레이스별 1건)
-│  ├── PipelineState 생성 (stage: intake)
-│  └── BalanceTransaction 생성 (잔액 차감)
+│  └── PipelineState 생성 (stage: draft)
 │
 ▼
-[2단계: 키워드 추출 (Extraction)]
-│  관리자가 주문 확인 후 추출 시작 (또는 자동)
+[2단계: 총판 확인 → 제출]
+│  distributor가 하부계정 접수건 확인
+│  ├── 하부계정별 접수 현황 조회
+│  ├── 검토 후 총 접수건으로 올림
+│  └── Order status: draft → submitted
+│
+▼
+[3단계: 입금 확인 (company_admin)]
+│  company_admin 화면에 총 합산 도착
+│  ├── 총 물량 × 단가 = 총 금액 확인
+│  ├── 입금 확인 버튼 클릭 (수동)
+│  └── Order status: submitted → payment_confirmed
+│      payment_status: unpaid → confirmed
+│
+│  DB 동작:
+│  ├── BalanceTransaction 생성 (잔액 차감, 입금확인 시점)
+│  └── PipelineState 업데이트 (payment_confirmed)
+│
+│  입금 미확인 시:
+│  └── Order status: submitted → rejected (반려)
+│
+▼
+[4단계: 키워드 추출 (Extraction)]
+│  입금 확인 후 자동 시작
 │
 │  api-server → keyword-worker:
 │  POST /internal/jobs
-│  {
-│    "naver_url": "https://map.naver.com/p/entry/place/12345",
-│    "target_count": 100,
-│    "max_rank": 50,
-│    "order_item_id": 42
-│  }
+│  { "naver_url": "...", "target_count": 200, "order_item_id": 42 }
 │
 │  keyword-worker 실행:
 │  ├── Phase 0: Playwright로 PlaceData 수집
-│  │   └── 이름, 카테고리, 주소, 리뷰, 메뉴, 편의시설 등
-│  ├── Phase 1: 샘플 키워드 1개로 노출 검증
-│  │   └── 신지도/구지도 판별
-│  ├── Phase 2: 키워드 생성 (500~2,000개)
-│  │   ├── 지역 조합: 시 × 구 × 동 × 역 × 도로명
-│  │   ├── 업종 키워드: 카테고리 + 메뉴 + 진료과목
-│  │   └── 수식어: 맛집, 추천, 유명한곳, 주차, 예약 등
-│  └── Phase 3: 랭킹 체크 (GraphQL API)
-│      └── 각 키워드별 1~50위 랭킹 확인
+│  ├── Phase 1: 샘플 키워드로 노출 검증 (신지도/구지도)
+│  ├── Phase 2: 키워드 생성 (1,000~3,000개 풀)
+│  └── Phase 3: 상위 200개 랭킹 체크 (GraphQL API)
+│
+│  키워드 전략:
+│  ├── 접수당 200개 키워드 추출
+│  ├── 같은 플레이스 재접수 시 → 기존 풀에 추가 (중복 제외)
+│  ├── 중복 체크: UNIQUE(campaign_id, keyword) DB 제약으로 자동 처리
+│  └── 기존 수기 키워드 입력과 비슷한 양, 자동화된 방식
 │
 │  DB 동작:
 │  ├── Place 레코드 생성/업데이트
@@ -966,43 +1160,59 @@ CREATE INDEX idx_pipeline_logs_state_id ON pipeline_logs(pipeline_state_id);
 │  └── PipelineState 업데이트 (extraction_done)
 │
 ▼
-[3단계: 캠페인 세팅 (Campaign Setup)]
-│  관리자가 추출 결과 검토 + 캠페인 파라미터 설정
-│  ├── 키워드 선택 (상위 N개 자동 또는 수동)
-│  ├── 캠페인 유형 선택 (트래픽/저장하기)
-│  ├── 슈퍼앱 계정 배정
-│  ├── 기간/한도 설정
-│  └── 템플릿 선택
+[5단계: 계정 자동 배정 (Auto Assignment)]
+│  추출 완료 후 자동 실행
 │
+│  자동 배정 알고리즘:
+│  ├── Step 1: 후보 계정 필터
+│  │   WHERE company_id = 해당 회사
+│  │     AND campaign_type = 해당 유형 (또는 NULL)
+│  │     AND is_active = TRUE
+│  ├── Step 2: 용량 체크
+│  │   WHERE active_count < max_concurrent_campaigns
+│  │     AND today_registered < daily_registration_limit
+│  └── Step 3: 로드밸런싱 정렬
+│      ORDER BY priority DESC, active_count ASC, today_registered ASC
+│
+│  DB 동작:
+│  ├── OrderItem.assigned_account_id = 선택된 계정
+│  ├── OrderItem.assignment_status = 'auto_assigned'
+│  └── PipelineState 업데이트 (account_assigned)
+│
+│  ⚠ 배정 결과는 company_admin/system_admin에게만 표시
+│
+▼
+[6단계: 배정 확인 (company_admin)]
+│  company_admin 화면에서 배정 결과 확인
+│  ├── 자동 배정된 계정 확인/변경 가능
+│  ├── 계정별 용량 현황 표시
+│  ├── [변경]: 다른 계정으로 수동 변경
+│  └── [최종 세팅 시작]: 캠페인 등록 트리거
+│
+│  DB 동작:
+│  ├── OrderItem.assignment_status = 'confirmed' (또는 'overridden')
+│  └── PipelineState 업데이트 (assignment_confirmed)
+│
+▼
+[7단계: 캠페인 등록 (Campaign Registration)]
 │  api-server → campaign-worker:
 │  POST /internal/campaigns/register
-│  {
-│    "campaign_id": 123,
-│    "account_id": 1,
-│    "template_id": 1
-│  }
+│  { "campaign_id": 123, "account_id": 1, "template_id": 1 }
 │
 │  campaign-worker 실행:
 │  ├── Step 1: 슈퍼앱 로그인 (Playwright)
-│  ├── Step 2: 모듈 실행
-│  │   ├── landmark: 네이버 맵에서 랜드마크 추출
-│  │   ├── place_info: 플레이스 정보 수집
-│  │   └── steps: 랜드마크→플레이스 도보 스텝 계산
-│  ├── Step 3: 캠페인 폼 입력 (템플릿 기반)
-│  │   ├── 캠페인 유형, 링크, 해시태그
-│  │   ├── 이미지 업로드
-│  │   ├── 참여 방법 설명
-│  │   └── 키워드, 기간, 한도
+│  ├── Step 2: 모듈 실행 (landmark, place_info, steps)
+│  ├── Step 3: 캠페인 폼 입력 (템플릿 기반, 키워드 자동 배정)
 │  ├── Step 4: 제출
 │  └── Step 5: 캠페인 코드 추출
 │
 │  DB 동작:
-│  ├── Campaign 레코드 업데이트 (campaign_code, status: active)
-│  ├── CampaignKeywordPool 벌크 생성
+│  ├── Campaign 업데이트 (campaign_code, status: active)
+│  ├── CampaignKeywordPool 벌크 생성 (추출된 200개에서)
 │  └── PipelineState 업데이트 (campaign_active)
 │
 ▼
-[4단계: 관리 (Management)]
+[8단계: 관리 (Management)]
 │  APScheduler (campaign-worker, 10분 간격):
 │  ├── 활성 캠페인 순회
 │  ├── 키워드 사용량 체크
@@ -1011,49 +1221,49 @@ CREATE INDEX idx_pipeline_logs_state_id ON pipeline_logs(pipeline_state_id);
 │  ├── 키워드 풀 소진 시 → 자동 재활용 (is_used 리셋)
 │  └── 캠페인 상태 동기화
 │
-│  대시보드 (프론트엔드):
-│  ├── 전체 주문 현황
-│  ├── 파이프라인 단계별 진행 상태
-│  ├── 캠페인별 전환 수/키워드 상태
-│  ├── 키워드 랭킹 변동 차트
-│  └── 정산/매출 현황
-│
 ▼
-[5단계: 완료/연장]
+[9단계: 완료/연장]
   ├── 캠페인 종료 → status: completed
   ├── 연장 요청 → campaign_extension 서비스
+  │   └── 연장 시 키워드 재추출 200개 → 기존 풀에 추가 (중복 제외)
   └── PipelineState: completed
 ```
 
 ### 5.2 파이프라인 상태 전이도
 
 ```
-intake
+draft (하부계정 임시저장)
   │
-  ├── (관리자 확인) ──→ extraction_queued
-  │                        │
-  │                        ├── (워커 시작) ──→ extraction_running
-  │                        │                      │
-  │                        │                      ├── (성공) ──→ extraction_done
-  │                        │                      │                  │
-  │                        │                      │                  ├── (세팅) ──→ campaign_setup
-  │                        │                      │                  │                  │
-  │                        │                      │                  │                  ├── (등록) ──→ campaign_registering
-  │                        │                      │                  │                  │                  │
-  │                        │                      │                  │                  │                  ├── (성공) ──→ campaign_active
-  │                        │                      │                  │                  │                  │                  │
-  │                        │                      │                  │                  │                  │                  ├── ──→ management
-  │                        │                      │                  │                  │                  │                  │         │
-  │                        │                      │                  │                  │                  │                  │         └── ──→ completed
-  │                        │                      │                  │                  │                  │
-  │                        │                      │                  │                  │                  └── (실패) ──→ failed
-  │                        │                      │                  │                  │
-  │                        │                      │                  │
-  │                        │                      └── (실패) ──→ failed
+  ├── (총판 확인) ──→ submitted
+  │                     │
+  │                     ├── (입금 확인) ──→ payment_confirmed
+  │                     │                      │
+  │                     │                      ├── (자동) ──→ extraction_queued
+  │                     │                      │                  │
+  │                     │                      │                  ├── (워커 시작) ──→ extraction_running
+  │                     │                      │                  │                      │
+  │                     │                      │                  │                      ├── (성공) ──→ extraction_done
+  │                     │                      │                  │                      │                  │
+  │                     │                      │                  │                      │                  ├── (자동) ──→ account_assigned
+  │                     │                      │                  │                      │                  │                  │
+  │                     │                      │                  │                      │                  │                  ├── (확인) ──→ assignment_confirmed
+  │                     │                      │                  │                      │                  │                  │                  │
+  │                     │                      │                  │                      │                  │                  │                  ├── (등록) ──→ campaign_registering
+  │                     │                      │                  │                      │                  │                  │                  │                  │
+  │                     │                      │                  │                      │                  │                  │                  │                  ├── (성공) ──→ campaign_active ──→ management ──→ completed
+  │                     │                      │                  │                      │                  │                  │                  │                  │
+  │                     │                      │                  │                      │                  │                  │                  │                  └── (실패) ──→ failed
+  │                     │                      │                  │                      │                  │                  │
+  │                     │                      │                  │                      │                  │
+  │                     │                      │                  │                      └── (실패) ──→ failed
+  │                     │                      │
+  │                     │
+  │                     └── (반려) ──→ cancelled (rejected)
   │
   └── (취소) ──→ cancelled
 
   * failed 상태에서 재시도 가능 (이전 단계로 복귀)
+  * cancelled/rejected에서 재접수 가능 (새 주문 생성)
 ```
 
 ---
@@ -1075,35 +1285,52 @@ intake
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/users` | 유저 목록 | admin, manager |
-| POST | `/api/v1/users` | 유저 생성 | admin, manager |
-| GET | `/api/v1/users/{id}` | 유저 상세 | admin, manager, 본인 |
-| PATCH | `/api/v1/users/{id}` | 유저 수정 | admin, manager |
-| DELETE | `/api/v1/users/{id}` | 유저 삭제 | admin |
+| GET | `/api/v1/users` | 유저 목록 | system_admin, company_admin, order_handler |
+| POST | `/api/v1/users` | 유저 생성 | system_admin, company_admin, distributor (하부만) |
+| GET | `/api/v1/users/{id}` | 유저 상세 | 본인 + 상위 역할 |
+| PATCH | `/api/v1/users/{id}` | 유저 수정 | system_admin, company_admin |
+| DELETE | `/api/v1/users/{id}` | 유저 삭제 | system_admin |
 | GET | `/api/v1/users/me` | 내 정보 | 모두 |
-| GET | `/api/v1/users/{id}/descendants` | 하위 유저 트리 | admin, manager |
+| GET | `/api/v1/users/{id}/descendants` | 하위 유저 트리 | system_admin, company_admin, distributor |
 
 #### 상품
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
 | GET | `/api/v1/products` | 상품 목록 | 모두 |
-| POST | `/api/v1/products` | 상품 생성 | admin |
-| GET | `/api/v1/products/{id}` | 상품 상세 | 모두 |
-| PATCH | `/api/v1/products/{id}` | 상품 수정 | admin |
+| POST | `/api/v1/products` | 상품 생성 | system_admin |
+| GET | `/api/v1/products/{id}` | 상품 상세 + 마감시간 | 모두 |
+| PATCH | `/api/v1/products/{id}` | 상품 수정 | system_admin |
 
 #### 주문 접수
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/orders` | 주문 목록 (필터링) | 역할별 범위 |
-| POST | `/api/v1/orders` | 주문 생성 | agency, seller |
+| GET | `/api/v1/orders` | 주문 목록 (필터링, 페이지네이션) | 역할별 범위 |
+| POST | `/api/v1/orders` | 주문 생성 (status: draft) | distributor, sub_account |
 | GET | `/api/v1/orders/{id}` | 주문 상세 | 역할별 범위 |
-| PATCH | `/api/v1/orders/{id}` | 주문 수정 | admin, manager |
-| POST | `/api/v1/orders/{id}/confirm` | 주문 확인 | admin, manager |
-| POST | `/api/v1/orders/{id}/cancel` | 주문 취소 | admin, manager |
-| POST | `/api/v1/orders/upload-excel` | 엑셀 벌크 업로드 | agency, seller |
+| GET | `/api/v1/orders/{id}/items` | 주문 항목 목록 | 역할별 범위 |
+| PATCH | `/api/v1/orders/{id}` | 주문 수정 | system_admin, company_admin, order_handler |
+| POST | `/api/v1/orders/{id}/submit` | 총판이 접수건 올림 (draft→submitted) | distributor |
+| POST | `/api/v1/orders/{id}/confirm-payment` | 입금 확인 (submitted→payment_confirmed) | company_admin |
+| POST | `/api/v1/orders/{id}/reject` | 주문 반려 | company_admin |
+| POST | `/api/v1/orders/{id}/cancel` | 주문 취소 | system_admin, company_admin |
+| POST | `/api/v1/orders/upload-excel` | 엑셀 벌크 업로드 (미리보기→확인) | distributor, sub_account |
 | GET | `/api/v1/orders/template-download` | 엑셀 템플릿 다운로드 | 모두 |
+| GET | `/api/v1/orders/deadline-status` | 상품별 마감시간 현황 | 모두 |
+
+> **공통 페이지네이션**: 모든 목록 API는 `?page=1&size=20&sort=created_at&order=desc` 지원
+
+#### 계정 배정 (company_admin 전용)
+
+| Method | Endpoint | 설명 | 권한 |
+|--------|----------|------|------|
+| GET | `/api/v1/assignment/queue` | 배정 대기열 + 계정 용량 현황 | company_admin, system_admin |
+| POST | `/api/v1/assignment/auto-assign` | 자동 배정 실행 | system (내부) |
+| PATCH | `/api/v1/assignment/{item_id}/account` | 수동 계정 변경 | company_admin, system_admin |
+| POST | `/api/v1/assignment/{item_id}/confirm` | 배정 확인 | company_admin, system_admin |
+| POST | `/api/v1/assignment/bulk-confirm` | 일괄 확인 + 세팅 시작 | company_admin, system_admin |
+| GET | `/api/v1/superap-accounts/capacity` | 계정별 용량 현황 | company_admin, system_admin |
 
 #### 플레이스
 
@@ -1144,18 +1371,18 @@ intake
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/superap-accounts` | 계정 목록 | admin |
-| POST | `/api/v1/superap-accounts` | 계정 추가 | admin |
-| PATCH | `/api/v1/superap-accounts/{id}` | 계정 수정 | admin |
-| DELETE | `/api/v1/superap-accounts/{id}` | 계정 삭제 | admin |
+| GET | `/api/v1/superap-accounts` | 계정 목록 | company_admin, system_admin |
+| POST | `/api/v1/superap-accounts` | 계정 추가 | system_admin |
+| PATCH | `/api/v1/superap-accounts/{id}` | 계정 수정 | system_admin |
+| DELETE | `/api/v1/superap-accounts/{id}` | 계정 삭제 | system_admin |
 
 #### 캠페인 템플릿
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/templates` | 템플릿 목록 | admin |
-| GET | `/api/v1/templates/{id}` | 템플릿 상세 | admin |
-| PATCH | `/api/v1/templates/{id}` | 템플릿 수정 | admin |
+| GET | `/api/v1/templates` | 템플릿 목록 | system_admin |
+| GET | `/api/v1/templates/{id}` | 템플릿 상세 | system_admin |
+| PATCH | `/api/v1/templates/{id}` | 템플릿 수정 | system_admin |
 
 #### 파이프라인
 
@@ -1169,11 +1396,11 @@ intake
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/balance/{user_id}` | 유저 잔액 조회 | admin, 본인 |
-| GET | `/api/v1/balance/{user_id}/transactions` | 거래 내역 | admin, 본인 |
-| POST | `/api/v1/balance/deposit` | 입금 처리 | admin |
-| POST | `/api/v1/balance/withdraw` | 출금 처리 | admin |
-| GET | `/api/v1/settlement/report` | 정산 리포트 | admin, accountant |
+| GET | `/api/v1/balance/{user_id}` | 유저 잔액 조회 | company_admin, 본인 |
+| GET | `/api/v1/balance/{user_id}/transactions` | 거래 내역 | company_admin, 본인 |
+| POST | `/api/v1/balance/deposit` | 입금 처리 | company_admin, system_admin |
+| POST | `/api/v1/balance/withdraw` | 출금 처리 | company_admin, system_admin |
+| GET | `/api/v1/settlement/report` | 정산 리포트 | company_admin, system_admin |
 
 #### 대시보드
 
@@ -1244,6 +1471,30 @@ POST /internal/campaigns/register
 }
 ```
 
+### 6.4 워커 → api-server 콜백 API
+
+> 워커가 작업 완료 시 api-server에 알림 (PipelineState 자동 전이)
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/internal/callback/extraction/{job_id}` | 키워드 추출 완료/실패 알림 |
+| POST | `/internal/callback/campaign/{campaign_id}` | 캠페인 등록 완료/실패 알림 |
+
+**콜백 요청 예시:**
+```json
+POST /internal/callback/extraction/42
+{
+    "status": "completed",
+    "result_count": 200,
+    "place_id": 1234567890
+}
+```
+
+api-server 처리:
+1. PipelineState 업데이트 (extraction_done)
+2. 자동 배정 엔진 트리거
+3. SSE 이벤트 발송 (프론트엔드 실시간 알림)
+
 ---
 
 ## 7. 기존 코드 → 통합 매핑 가이드
@@ -1294,21 +1545,39 @@ POST /internal/campaigns/register
 
 | Django 기능 | FastAPI 구현 |
 |------------|------------|
-| `accounts.User` 모델 | `api-server/models/user.py` (SQLAlchemy) |
+| `accounts.User` 모델 | `api-server/models/user.py` (5단계 역할 + company_id) |
 | `accounts.views` (로그인, CRUD) | `api-server/routers/auth.py`, `users.py` |
-| `products.Product` 모델 | `api-server/models/product.py` |
-| `orders.Order/OrderItem` 모델 | `api-server/models/order.py` |
-| `orders.BalanceTransaction` | `api-server/models/balance.py` |
-| Django Admin | FastAPI Admin 또는 프론트엔드 관리 페이지 |
+| `products.Product` 모델 | `api-server/models/product.py` (daily_deadline 추가) |
+| `orders.Order/OrderItem` 모델 | `api-server/models/order.py` (draft→submitted→payment_confirmed) |
+| `orders.BalanceTransaction` | `api-server/models/balance.py` (입금확인 시점 차감) |
+| Django Admin | React SPA 관리 페이지 |
 | Django Template (HTML) | React SPA로 대체 |
-| `orders/grid/` 그리드 UI | React 컴포넌트로 재구현 |
+| `orders/grid/` 그리드 UI | React 웹 시트 컴포넌트 (접수 + 관리) |
 | `orders/settlement/` 정산 | `api-server/routers/settlement.py` |
+| - (신규) | `api-server/services/assignment_service.py` (계정 자동 배정) |
+| - (신규) | `api-server/routers/assignment.py` (배정 확인 API) |
+
+### 7.4 접수 양식 변경 사항
+
+**기존 퀀텀 엑셀 (8필드) → 통합 접수 (6필드):**
+
+| 기존 퀀텀 필드 | 통합 접수 | 비고 |
+|--------------|---------|------|
+| 대행사명 | ❌ 제거 | 로그인 유저의 소속으로 자동 |
+| 사용자ID | ❌ 제거 | 로그인 유저로 자동 |
+| 시작일 | ✅ 작업 시작일 | 유지 |
+| 마감일 | ✅ 작업 만료일 | 유지 |
+| 일일 한도 | ✅ 일일 작업량 | 유지 (기본값 300) |
+| **키워드** | ❌ **제거** | **추출 후 자동 배정 (200개)** |
+| 플레이스 URL | ✅ 유지 | 유지 |
+| 캠페인 이름 | ✅ 캠페인 유형 | traffic / save |
+| - (신규) | ✅ 접수일 | 자동 기록 |
 
 ---
 
 ## 8. 단계별 구현 체크리스트
 
-### Phase 1: 통합 DB + api-server 골격
+### Phase 1A: 기반 인프라 + 인증
 
 - [ ] 프로젝트 구조 생성
 
@@ -1383,24 +1652,59 @@ unified-platform/
 ```
 
 - [ ] FastAPI + SQLAlchemy 2.0 (async) 셋업
-- [ ] Alembic 초기화 + 전체 마이그레이션 생성 (16개 테이블)
-- [ ] PostgreSQL Docker 컨테이너 셋업
-- [ ] JWT 인증 구현 (login, refresh, logout, 토큰 블랙리스트)
-- [ ] Users CRUD + 역할 기반 접근 제어
-- [ ] Products CRUD
-- [ ] Price Policies CRUD
-- [ ] Orders + OrderItems CRUD
-- [ ] Places CRUD
-- [ ] Keywords CRUD + Rank History
-- [ ] ExtractionJobs CRUD
-- [ ] SuperapAccounts CRUD (AES 암호화 포함)
-- [ ] Campaigns CRUD
-- [ ] CampaignKeywordPool CRUD
-- [ ] CampaignTemplates CRUD
-- [ ] BalanceTransactions CRUD
-- [ ] PipelineStates + PipelineLogs CRUD
-- [ ] Swagger 문서 자동 생성 확인 (/docs)
+- [ ] Alembic 초기화
+- [ ] PostgreSQL Docker 컨테이너 (docker-compose.dev.yml)
+- [ ] Pydantic Settings (.env 로딩)
+- [ ] companies 테이블 + 모델 (일류기획, 제이투랩 초기 데이터)
+- [ ] users 테이블 + 모델 (5단계 역할: system_admin~sub_account)
+- [ ] refresh_tokens 테이블 + 모델
+- [ ] JWT 인증 (login, refresh, logout + 블랙리스트)
+- [ ] bcrypt 비밀번호 해싱
+- [ ] 역할 기반 접근 제어 (RoleChecker dependency)
+- [ ] Users CRUD + 역할별 권한 + 하위 유저 트리
+- [ ] 공통 페이지네이션 스키마 (PaginationParams)
+- [ ] Swagger 문서 확인 (/docs)
 - [ ] 기본 단위 테스트
+
+### Phase 1B: 주문/상품/정산
+
+- [ ] products 테이블 + 모델 (daily_deadline 포함)
+- [ ] price_policies 테이블 + 모델
+- [ ] orders 테이블 + 모델 (draft→submitted→payment_confirmed 상태)
+- [ ] order_items 테이블 + 모델 (assigned_account_id 포함)
+- [ ] balance_transactions 테이블 + 모델
+- [ ] system_settings 테이블 + 모델
+- [ ] Products CRUD
+- [ ] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
+- [ ] Orders + OrderItems CRUD (상태 전이 포함)
+- [ ] 주문 제출 (submit), 입금 확인 (confirm-payment), 반려 (reject) API
+- [ ] 엑셀 업로드 (미리보기 → 확인) + 템플릿 다운로드
+- [ ] 마감시간 체크 로직
+- [ ] BalanceTransactions CRUD (입금확인 시점 잔액 차감)
+- [ ] users.balance 동시성 보호 (SELECT FOR UPDATE)
+- [ ] 단위 테스트
+
+### Phase 1C: 파이프라인/통합 모델
+
+- [ ] places 테이블 + 모델 (virtual_phone 포함)
+- [ ] keywords + keyword_rank_history 테이블 + 모델
+- [ ] extraction_jobs 테이블 + 모델
+- [ ] superap_accounts 테이블 + 모델 (company_id, 자동배정 필드 포함)
+- [ ] campaigns 테이블 + 모델 (campaign_type 영문, module_context 포함)
+- [ ] campaign_keyword_pool + campaign_templates 테이블 + 모델
+- [ ] pipeline_states + pipeline_logs 테이블 + 모델 (cancelled 포함)
+- [ ] Places CRUD + Keywords CRUD + Rank History
+- [ ] ExtractionJobs CRUD
+- [ ] SuperapAccounts CRUD (AES 암호화, company_admin 전용)
+- [ ] Campaigns CRUD
+- [ ] CampaignKeywordPool CRUD (중복 제외 INSERT 로직)
+- [ ] CampaignTemplates CRUD
+- [ ] PipelineStates + PipelineLogs CRUD
+- [ ] 계정 자동 배정 서비스 (AssignmentService)
+- [ ] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
+- [ ] 워커 콜백 API (/internal/callback/*)
+- [ ] Alembic 마이그레이션 생성 + 실행 확인 (전체 19개 테이블)
+- [ ] 단위 테스트
 
 ### Phase 2: keyword-worker 연동
 
@@ -1743,10 +2047,15 @@ async def migrate():
 | 신지도 (new_map) | 네이버 새 지도 UI (음식점, 병원 등 주요 업종) |
 | 구지도 (old_map) | 네이버 구 지도 UI (일반 업종) |
 | 슈퍼앱 (superap) | superap.io - 리워드 광고 플랫폼 |
-| 트래픽 | 네이버 플레이스 방문(트래픽) 유도 캠페인 |
-| 저장하기 | 네이버 플레이스 "저장" 유도 캠페인 |
+| 트래픽 (traffic) | 네이버 플레이스 방문(트래픽) 유도 캠페인 |
+| 저장하기 (save) | 네이버 플레이스 "저장" 유도 캠페인 |
 | 키워드 로테이션 | 일일 키워드를 자동으로 교체하는 기능 |
-| 파이프라인 | 접수 → 추출 → 세팅 → 관리 전체 흐름 |
+| 파이프라인 | 접수 → 추출 → 배정 → 세팅 → 관리 전체 흐름 |
 | PlaceData | 키워드 추출 시 수집하는 플레이스 전체 정보 |
 | curl_cffi | Chrome TLS 지문을 모방하는 HTTP 클라이언트 (안티봇 우회) |
 | Decodo | 한국 IP 프록시 서비스 |
+| 총판 (distributor) | 거래처 계정. 하부계정을 생성/관리할 수 있음 |
+| 하부계정 (sub_account) | 총판 아래 계정. 접수만 가능 |
+| 계정 자동 배정 | 추출 완료 후 캠페인 유형/회사/용량 기반으로 슈퍼앱 계정 자동 선택 |
+| 입금 확인 | company_admin이 총 접수 금액 입금을 확인하는 수동 절차 |
+| 마감시간 | 상품별 일일 접수 마감 시간 (이후 접수 차단) |
