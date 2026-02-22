@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: j2lab-postgres-dev
+    environment:
+      POSTGRES_DB: j2lab_platform
+      POSTGRES_USER: j2lab
+      POSTGRES_PASSWORD: change_me_to_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - j2lab_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U j2lab -d j2lab_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  j2lab_pgdata_dev:
