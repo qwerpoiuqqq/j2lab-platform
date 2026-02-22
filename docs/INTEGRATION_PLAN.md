@@ -1386,6 +1386,16 @@ draft (하부계정 임시저장)
 | POST | `/api/v1/auth/refresh` | 토큰 갱신 |
 | POST | `/api/v1/auth/logout` | 로그아웃 (토큰 블랙리스트) |
 
+#### 회사 관리
+
+| Method | Endpoint | 설명 | 권한 |
+|--------|----------|------|------|
+| GET | `/api/v1/companies` | 회사 목록 | system_admin |
+| POST | `/api/v1/companies` | 회사 생성 | system_admin |
+| GET | `/api/v1/companies/{id}` | 회사 상세 | system_admin |
+| PATCH | `/api/v1/companies/{id}` | 회사 수정 | system_admin |
+| DELETE | `/api/v1/companies/{id}` | 회사 삭제 (비활성화) | system_admin |
+
 #### 유저 관리
 
 | Method | Endpoint | 설명 | 권한 |
@@ -1516,6 +1526,14 @@ draft (하부계정 임시저장)
 | POST | `/api/v1/balance/deposit` | 입금 처리 | company_admin, system_admin |
 | POST | `/api/v1/balance/withdraw` | 출금 처리 | company_admin, system_admin |
 | GET | `/api/v1/settlement/report` | 정산 리포트 | company_admin, system_admin |
+
+#### 시스템 설정
+
+| Method | Endpoint | 설명 | 권한 |
+|--------|----------|------|------|
+| GET | `/api/v1/settings` | 전체 설정 조회 | system_admin |
+| GET | `/api/v1/settings/{key}` | 개별 설정 조회 | system_admin |
+| PUT | `/api/v1/settings/{key}` | 설정값 변경 | system_admin |
 
 #### 대시보드
 
@@ -1713,7 +1731,7 @@ api-server 처리:
 - [ ] 프로젝트 구조 생성
 
 ```
-unified-platform/
+j2lab-platform/
 ├── api-server/
 │   ├── app/
 │   │   ├── __init__.py
