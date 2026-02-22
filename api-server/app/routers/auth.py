@@ -11,7 +11,7 @@ from app.models.user import User, UserRole
 from app.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenResponse
 from app.schemas.common import MessageResponse
 from app.schemas.user import UserCreate, UserResponse
-from app.services import auth_service, user_service
+from app.services import auth_service, company_service, user_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -123,6 +123,15 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="system_admin should not have company_id",
         )
+
+    # Validate company_id exists if provided
+    if body.company_id is not None:
+        company = await company_service.get_company_by_id(db, body.company_id)
+        if company is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Company with id {body.company_id} not found",
+            )
 
     # Check for duplicate email
     existing = await user_service.get_user_by_email(db, body.email)

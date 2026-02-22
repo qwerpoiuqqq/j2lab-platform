@@ -5,7 +5,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from decimal import Decimal
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.user import UserRole
 
@@ -49,6 +51,14 @@ class UserResponse(BaseModel):
     is_active: bool = True
     created_at: datetime
     updated_at: datetime | None = None
+
+    @field_validator("balance", mode="before")
+    @classmethod
+    def coerce_balance_to_int(cls, v):
+        """Coerce Decimal (from PostgreSQL Numeric) to int."""
+        if isinstance(v, Decimal):
+            return int(v)
+        return v
 
     model_config = {"from_attributes": True}
 
