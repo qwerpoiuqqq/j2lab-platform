@@ -263,11 +263,12 @@ aiofiles
 
 | 원칙 | 설명 |
 |------|------|
-| **api-server = DB 주인** | 외부 CRUD는 모두 api-server를 통해 |
-| **workers = 특화 작업자** | 키워드 추출, 캠페인 등록 등 무거운 작업만 수행 |
+| **api-server = 외부 CRUD 담당** | 사용자 요청은 모두 api-server를 거침 |
+| **workers = 작업 수행 + DB 직접 저장** | 무거운 작업 수행 후 결과를 DB에 직접 쓰고, 콜백으로 api-server에 알림 |
 | **공유 DB** | 3개 서비스가 같은 PostgreSQL 사용 (Docker 내부 네트워크) |
 | **내부 API** | workers는 `/internal/` prefix로 내부 전용 엔드포인트만 노출 |
 | **기존 로직 보존** | Playwright 자동화, 프록시 관리 등 핵심 로직은 그대로 유지 |
+| **네트워크 ≠ 템플릿** | 네트워크 프리셋(계정+매체)과 캠페인 템플릿(폼내용)은 독립적 축 |
 
 ---
 
@@ -313,9 +314,10 @@ keywords
 keyword_rank_history
 
 별도: refresh_tokens (JWT 관리)
+별도: network_presets (네트워크 프리셋 → superap_accounts, campaigns)
 ```
 
-> **테이블 수: 19개** (기존 16 + companies, refresh_tokens, system_settings 신규)
+> **테이블 수: 20개** (기존 16 + companies, refresh_tokens, system_settings, network_presets 신규)
 
 ### 4.2 전체 테이블 정의
 
@@ -753,36 +755,37 @@ CREATE INDEX idx_extraction_jobs_order_item_id ON extraction_jobs(order_item_id)
 CREATE TABLE superap_accounts (
     id SERIAL PRIMARY KEY,
     user_id_superap VARCHAR(100) UNIQUE NOT NULL,
-    -- 슈퍼앱 로그인 ID (예: "트래픽 제이투랩")
+    -- 슈퍼앱 로그인 ID (예: "트래픽 제이투랩", "트래픽 제이투랩24")
     password_encrypted TEXT NOT NULL,
     -- AES 암호화된 비밀번호
     agency_name VARCHAR(100),
     -- 대행사명
 
-    -- === 멀티 테넌트 + 자동 배정 ===
+    -- === 멀티 테넌트 ===
     company_id INT REFERENCES companies(id),
     -- 이 계정이 소속된 회사 (일류기획 or 제이투랩)
 
-    campaign_type VARCHAR(20),
-    -- 'traffic' 또는 'save' (전용 계정)
-    -- NULL이면 양쪽 다 가능
+    -- === 네트워크 프리셋 연결 ===
+    network_preset_id INT REFERENCES network_presets(id),
+    -- 이 계정이 속한 네트워크 프리셋
+    -- 네트워크 프리셋이 계정군 + 매체 타겟팅을 정의
 
-    max_concurrent_campaigns INT DEFAULT 50,
-    -- 동시 활성 캠페인 한도
+    unit_cost INT NOT NULL DEFAULT 21,
+    -- 실제 단가 (원). 예: 21원, 25원(24계정)
 
-    daily_registration_limit INT DEFAULT 20,
-    -- 일일 등록 한도 (슈퍼앱 rate limit 고려)
-
-    priority INT DEFAULT 0,
-    -- 배정 우선순위 (높을수록 먼저 배정)
+    assignment_order INT NOT NULL DEFAULT 0,
+    -- 같은 프리셋 내에서의 배정 순서 (낮을수록 먼저)
 
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_superap_accounts_company_id ON superap_accounts(company_id);
-CREATE INDEX idx_superap_accounts_campaign_type ON superap_accounts(campaign_type);
+CREATE INDEX idx_superap_accounts_network_preset_id ON superap_accounts(network_preset_id);
 ```
+
+> **캠페인 템플릿과의 차이**: superap_accounts는 "어떤 계정으로 등록하는지",
+> campaign_templates는 "폼을 어떻게 채우는지"(트래픽/저장하기/명소). 완전히 다른 축.
 
 ---
 
@@ -851,6 +854,12 @@ CREATE TABLE campaigns (
     last_keyword_change TIMESTAMPTZ,
     -- 마지막 키워드 교체 시각
 
+    -- === 네트워크 + 회사 ===
+    network_preset_id INT REFERENCES network_presets(id),
+    -- 어떤 네트워크로 세팅되었는지 (리워드 중복참여 방지 추적용)
+    company_id INT REFERENCES companies(id),
+    -- 역정규화: 회사별 캠페인 조회 편의
+
     -- === 타임스탬프 ===
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ
@@ -861,6 +870,8 @@ CREATE INDEX idx_campaigns_place_id ON campaigns(place_id);
 CREATE INDEX idx_campaigns_superap_account_id ON campaigns(superap_account_id);
 CREATE INDEX idx_campaigns_order_item_id ON campaigns(order_item_id);
 CREATE INDEX idx_campaigns_end_date ON campaigns(end_date);
+CREATE INDEX idx_campaigns_company_id ON campaigns(company_id);
+CREATE INDEX idx_campaigns_network_preset_id ON campaigns(network_preset_id);
 ```
 
 ---
@@ -892,12 +903,20 @@ CREATE INDEX idx_campaign_kw_pool_is_used ON campaign_keyword_pool(is_used);
 
 #### 테이블 13: `campaign_templates` (캠페인 템플릿)
 > 소스: `quantum-campaign-automation/backend/app/models/template.py`
+>
+> **네트워크 프리셋과의 차이**:
+> - 캠페인 템플릿 = superap.io **폼 내용** (설명문구, 힌트, 이미지, 모듈)
+> - 네트워크 프리셋 = **어떤 계정 + 어떤 매체**로 세팅할지
+> - 독립적 축: "트래픽 템플릿"을 "네트워크1"으로도 "네트워크2"로도 세팅 가능
 
 ```sql
 CREATE TABLE campaign_templates (
     id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    -- 영문 코드: 'traffic', 'save', 'landmark'
+    -- campaigns.campaign_type과 매칭
     type_name VARCHAR(50) UNIQUE NOT NULL,
-    -- "트래픽" 또는 "저장하기"
+    -- 한글 표시명: "트래픽", "저장하기", "명소"
     description_template TEXT NOT NULL,
     -- 참여 방법 설명 템플릿 (변수 치환 가능)
     hint_text TEXT NOT NULL,
@@ -988,7 +1007,10 @@ CREATE TABLE pipeline_states (
     -- 단계별 추가 데이터
 
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (order_item_id)
+    -- 주문 항목과 1:1 대응
 );
 
 CREATE INDEX idx_pipeline_order_item_id ON pipeline_states(order_item_id);
@@ -1060,6 +1082,66 @@ CREATE TABLE system_settings (
 
 ---
 
+#### 테이블 19: `network_presets` (네트워크 프리셋)
+> 신규: 리워드 중복 참여자 제한을 위한 네트워크 단계 설정
+>
+> **핵심 개념**: 같은 업장에 동일 네트워크로 반복 세팅하면 리워드 참여자가 중복됨.
+> 네트워크를 나누어 (계정군 + 매체 타겟팅 조합) 참여자 풀을 분산시킴.
+>
+> **캠페인 템플릿과 분리**: 템플릿은 "폼 내용"(트래픽/저장하기/명소),
+> 네트워크는 "어떤 계정 + 어떤 매체로 세팅할지". 독립적 축.
+
+```sql
+CREATE TABLE network_presets (
+    id SERIAL PRIMARY KEY,
+    company_id INT NOT NULL REFERENCES companies(id),
+    -- 소속 회사
+
+    campaign_type VARCHAR(20) NOT NULL,
+    -- 'traffic' / 'save'
+    -- 이 프리셋이 적용되는 캠페인 유형
+
+    tier_order INT NOT NULL,
+    -- 네트워크 우선순위 (1이 먼저, 2가 그 다음)
+    -- 같은 업장에 네트워크1 사용 이력 있으면 → 네트워크2로 배정
+
+    name VARCHAR(100) NOT NULL,
+    -- 표시명 (예: "네트워크1 (21원+머니워크)", "네트워크2 (25원)")
+
+    media_config JSONB NOT NULL DEFAULT '{}',
+    -- 매체 타겟팅 설정
+    -- key = 매체 slug/이름, value = ON(true)/OFF(false)
+    -- 예: {"머니워크": true, "캐시워크": true, "앱테크A": false}
+    -- ⚠ 매체 목록은 superap.io에서 변경될 수 있으므로 JSONB로 유연하게 저장
+
+    description TEXT,
+    -- 설명 (예: "21원 계정 + 전체 매체")
+
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+
+    UNIQUE(company_id, campaign_type, tier_order)
+);
+
+CREATE INDEX idx_network_presets_company_id ON network_presets(company_id);
+```
+
+**초기 데이터 예시:**
+```sql
+-- 제이투랩 트래픽 네트워크 설정
+INSERT INTO network_presets (company_id, campaign_type, tier_order, name, media_config) VALUES
+(2, 'traffic', 1, '네트워크1 (21원+머니워크)', '{"머니워크": true}'),
+(2, 'traffic', 2, '네트워크2 (25원, 머니워크 제외)', '{"머니워크": false}');
+
+-- 제이투랩 저장하기 네트워크 설정
+INSERT INTO network_presets (company_id, campaign_type, tier_order, name, media_config) VALUES
+(2, 'save', 1, '네트워크1 (21원+머니워크)', '{"머니워크": true}'),
+(2, 'save', 2, '네트워크2 (25원, 머니워크 제외)', '{"머니워크": false}');
+```
+
+---
+
 ### 4.3 테이블 요약
 
 | # | 테이블명 | 소스 | 주요 용도 |
@@ -1074,15 +1156,16 @@ CREATE TABLE system_settings (
 | 7 | keywords | Keyword Extract | 추출된 키워드 + 랭킹 |
 | 8 | keyword_rank_history | Keyword Extract | 키워드 랭킹 변동 이력 |
 | 9 | extraction_jobs | Keyword Extract | 키워드 추출 작업 관리 |
-| 10 | superap_accounts | Quantum + 자동배정 | 슈퍼앱 계정 + 회사별/유형별 배정 |
-| 11 | campaigns | Quantum Campaign | 캠페인 정보 (campaign_type 영문 통일) |
+| 10 | superap_accounts | Quantum + 네트워크 | 슈퍼앱 계정 + network_preset 연결 |
+| 11 | campaigns | Quantum Campaign | 캠페인 정보 (network_preset_id + company_id 추가) |
 | 12 | campaign_keyword_pool | Quantum Campaign | 캠페인별 키워드 로테이션 |
-| 13 | campaign_templates | Quantum Campaign | 캠페인 폼 템플릿 |
+| 13 | campaign_templates | Quantum Campaign | **폼 내용** 템플릿 (code: traffic/save/landmark) |
 | 14 | balance_transactions | jtwolablife | 잔액/정산 |
-| 15 | pipeline_states | 신규 | 파이프라인 상태 추적 (cancelled 포함) |
+| 15 | pipeline_states | 신규 | 파이프라인 상태 추적 (UNIQUE order_item_id) |
 | 16 | pipeline_logs | 신규 | 파이프라인 로그 |
-| 17 | **refresh_tokens** | **신규** | **JWT 리프레시 토큰 관리** |
-| 18 | **system_settings** | **신규** | **런타임 시스템 설정** |
+| 17 | refresh_tokens | 신규 | JWT 리프레시 토큰 관리 |
+| 18 | system_settings | 신규 | 런타임 시스템 설정 |
+| 19 | **network_presets** | **신규** | **네트워크 프리셋 (계정군 + 매체 타겟팅, 중복참여 방지)** |
 
 ---
 
@@ -1160,19 +1243,34 @@ CREATE TABLE system_settings (
 │  └── PipelineState 업데이트 (extraction_done)
 │
 ▼
-[5단계: 계정 자동 배정 (Auto Assignment)]
+[5단계: 자동 배정 - 연장 판정 + 네트워크 결정]
 │  추출 완료 후 자동 실행
 │
-│  자동 배정 알고리즘:
-│  ├── Step 1: 후보 계정 필터
-│  │   WHERE company_id = 해당 회사
-│  │     AND campaign_type = 해당 유형 (또는 NULL)
-│  │     AND is_active = TRUE
-│  ├── Step 2: 용량 체크
-│  │   WHERE active_count < max_concurrent_campaigns
-│  │     AND today_registered < daily_registration_limit
-│  └── Step 3: 로드밸런싱 정렬
-│      ORDER BY priority DESC, active_count ASC, today_registered ASC
+│  ┌─────────────────────────────────────────────────────┐
+│  │  자동 배정 알고리즘 (리워드 중복참여 방지)             │
+│  │                                                      │
+│  │  Step 1: 연장 가능 여부 판정                          │
+│  │  ├── 같은 place_id의 최근 캠페인 조회                 │
+│  │  │   WHERE campaign.end_date >= 접수일 - 7일          │
+│  │  │     AND campaign.end_date <= 접수일                │
+│  │  ├── 있으면: 기존 total_limit + 신규 total_limit      │
+│  │  │   ├── < 10,000 → 연장 (같은 계정, 같은 네트워크)  │
+│  │  │   └── ≥ 10,000 → 신규 세팅 (다음 네트워크)        │
+│  │  └── 없으면: 신규 세팅                                │
+│  │                                                      │
+│  │  Step 2: 네트워크 결정 (신규 세팅 시)                  │
+│  │  ├── 이 place_id + campaign_type 조합으로             │
+│  │  │   사용된 network_preset 이력 조회 (campaigns 테이블)│
+│  │  ├── 미사용 프리셋 중 tier_order 가장 낮은 것 선택     │
+│  │  │   예: 네트워크1 사용 이력 있으면 → 네트워크2        │
+│  │  └── 모든 네트워크 소진 시 → 유형 변경 제안            │
+│  │      (트래픽 → "저장하기 어때?", 저장 → "트래픽 어때?")│
+│  │                                                      │
+│  │  Step 3: 계정 선택 (선택된 네트워크 내)                │
+│  │  ├── 해당 network_preset에 연결된 계정 조회            │
+│  │  │   WHERE is_active = TRUE                          │
+│  │  └── ORDER BY assignment_order ASC                    │
+│  └─────────────────────────────────────────────────────┘
 │
 │  DB 동작:
 │  ├── OrderItem.assigned_account_id = 선택된 계정
@@ -1180,13 +1278,14 @@ CREATE TABLE system_settings (
 │  └── PipelineState 업데이트 (account_assigned)
 │
 │  ⚠ 배정 결과는 company_admin/system_admin에게만 표시
+│  ⚠ 유형 변경 제안은 알림으로 company_admin에게 전달
 │
 ▼
 [6단계: 배정 확인 (company_admin)]
 │  company_admin 화면에서 배정 결과 확인
-│  ├── 자동 배정된 계정 확인/변경 가능
-│  ├── 계정별 용량 현황 표시
-│  ├── [변경]: 다른 계정으로 수동 변경
+│  ├── 자동 배정된 계정 + 네트워크 확인
+│  ├── 네트워크별 사용 이력 표시
+│  ├── [변경]: 다른 계정/네트워크로 수동 변경
 │  └── [최종 세팅 시작]: 캠페인 등록 트리거
 │
 │  DB 동작:
@@ -1224,8 +1323,11 @@ CREATE TABLE system_settings (
 ▼
 [9단계: 완료/연장]
   ├── 캠페인 종료 → status: completed
-  ├── 연장 요청 → campaign_extension 서비스
-  │   └── 연장 시 키워드 재추출 200개 → 기존 풀에 추가 (중복 제외)
+  ├── 연장 접수 시:
+  │   ├── 합산 < 10,000타 → 기존 캠페인 연장 (같은 계정/네트워크)
+  │   │   └── 키워드 재추출 200개 → 기존 풀에 추가 (중복 제외)
+  │   └── 합산 ≥ 10,000타 → 다음 네트워크로 신규 세팅
+  │       └── 모든 네트워크 소진 시 → 유형 변경 제안
   └── PipelineState: completed
 ```
 
@@ -1321,16 +1423,26 @@ draft (하부계정 임시저장)
 
 > **공통 페이지네이션**: 모든 목록 API는 `?page=1&size=20&sort=created_at&order=desc` 지원
 
+#### 네트워크 프리셋 (company_admin 전용)
+
+| Method | Endpoint | 설명 | 권한 |
+|--------|----------|------|------|
+| GET | `/api/v1/network-presets` | 프리셋 목록 (회사별) | company_admin, system_admin |
+| POST | `/api/v1/network-presets` | 프리셋 생성 (계정군 + 매체설정) | company_admin, system_admin |
+| PATCH | `/api/v1/network-presets/{id}` | 프리셋 수정 (매체 토글 등) | company_admin, system_admin |
+| DELETE | `/api/v1/network-presets/{id}` | 프리셋 삭제 | system_admin |
+| GET | `/api/v1/network-presets/media-options` | superap.io 사용 가능 매체 목록 | company_admin, system_admin |
+
 #### 계정 배정 (company_admin 전용)
 
 | Method | Endpoint | 설명 | 권한 |
 |--------|----------|------|------|
-| GET | `/api/v1/assignment/queue` | 배정 대기열 + 계정 용량 현황 | company_admin, system_admin |
-| POST | `/api/v1/assignment/auto-assign` | 자동 배정 실행 | system (내부) |
-| PATCH | `/api/v1/assignment/{item_id}/account` | 수동 계정 변경 | company_admin, system_admin |
+| GET | `/api/v1/assignment/queue` | 배정 대기열 + 네트워크 이력 | company_admin, system_admin |
+| POST | `/api/v1/assignment/auto-assign` | 자동 배정 실행 (연장 판정 + 네트워크 결정) | system (내부) |
+| PATCH | `/api/v1/assignment/{item_id}/account` | 수동 계정/네트워크 변경 | company_admin, system_admin |
 | POST | `/api/v1/assignment/{item_id}/confirm` | 배정 확인 | company_admin, system_admin |
 | POST | `/api/v1/assignment/bulk-confirm` | 일괄 확인 + 세팅 시작 | company_admin, system_admin |
-| GET | `/api/v1/superap-accounts/capacity` | 계정별 용량 현황 | company_admin, system_admin |
+| GET | `/api/v1/assignment/place/{place_id}/history` | 업장별 네트워크 사용 이력 | company_admin, system_admin |
 
 #### 플레이스
 
@@ -1557,7 +1669,23 @@ api-server 처리:
 | - (신규) | `api-server/services/assignment_service.py` (계정 자동 배정) |
 | - (신규) | `api-server/routers/assignment.py` (배정 확인 API) |
 
-### 7.4 접수 양식 변경 사항
+### 7.4 네트워크 프리셋 vs 캠페인 템플릿 (핵심 분리)
+
+| 구분 | 네트워크 프리셋 (`network_presets`) | 캠페인 템플릿 (`campaign_templates`) |
+|------|----------------------------------|-------------------------------------|
+| **역할** | **어디에** 세팅할지 (계정 + 매체) | **무엇을** 세팅할지 (폼 내용) |
+| **내용** | 계정군 (21원/25원) + 매체 토글 (머니워크 ON/OFF) | 설명문구, 힌트, 이미지, 모듈 |
+| **코드** | tier_order (1, 2) | code ('traffic', 'save', 'landmark') |
+| **관리자** | company_admin (회사별 설정) | system_admin (전역 설정) |
+| **목적** | 리워드 중복참여 방지 (참여자 풀 분산) | superap.io 폼 자동 입력 |
+| **관계** | 독립적: 어떤 템플릿이든 어떤 네트워크로 세팅 가능 | 독립적: 네트워크와 무관 |
+
+**조합 예시:**
+- "트래픽" 템플릿 + 네트워크1 (21원+머니워크) → 트래픽 캠페인을 저렴하게
+- "트래픽" 템플릿 + 네트워크2 (25원, 머니워크 제외) → 같은 업장 2회차
+- "저장하기" 템플릿 + 네트워크1 → 네트워크1,2 다 쓴 후 유형 변경 시
+
+### 7.5 접수 양식 변경 사항
 
 **기존 퀀텀 엑셀 (8필드) → 통합 접수 (6필드):**
 
@@ -1689,21 +1817,23 @@ unified-platform/
 - [ ] places 테이블 + 모델 (virtual_phone 포함)
 - [ ] keywords + keyword_rank_history 테이블 + 모델
 - [ ] extraction_jobs 테이블 + 모델
-- [ ] superap_accounts 테이블 + 모델 (company_id, 자동배정 필드 포함)
-- [ ] campaigns 테이블 + 모델 (campaign_type 영문, module_context 포함)
-- [ ] campaign_keyword_pool + campaign_templates 테이블 + 모델
-- [ ] pipeline_states + pipeline_logs 테이블 + 모델 (cancelled 포함)
+- [ ] network_presets 테이블 + 모델 (네트워크 프리셋: 계정군 + 매체 타겟팅)
+- [ ] superap_accounts 테이블 + 모델 (network_preset_id, unit_cost, assignment_order)
+- [ ] campaigns 테이블 + 모델 (network_preset_id, company_id 역정규화)
+- [ ] campaign_keyword_pool + campaign_templates 테이블 + 모델 (templates에 code 컬럼)
+- [ ] pipeline_states + pipeline_logs 테이블 + 모델 (UNIQUE order_item_id)
 - [ ] Places CRUD + Keywords CRUD + Rank History
 - [ ] ExtractionJobs CRUD
-- [ ] SuperapAccounts CRUD (AES 암호화, company_admin 전용)
+- [ ] NetworkPresets CRUD (company_admin 전용, 매체 타겟팅 JSONB)
+- [ ] SuperapAccounts CRUD (AES 암호화, network_preset 연결)
 - [ ] Campaigns CRUD
 - [ ] CampaignKeywordPool CRUD (중복 제외 INSERT 로직)
 - [ ] CampaignTemplates CRUD
 - [ ] PipelineStates + PipelineLogs CRUD
-- [ ] 계정 자동 배정 서비스 (AssignmentService)
-- [ ] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
+- [ ] 자동 배정 서비스 (연장 판정 7일/10,000타 + 네트워크 순서 + 유형 변경 제안)
+- [ ] 계정 배정 API (company_admin 전용, 업장별 네트워크 이력)
 - [ ] 워커 콜백 API (/internal/callback/*)
-- [ ] Alembic 마이그레이션 생성 + 실행 확인 (전체 19개 테이블)
+- [ ] Alembic 마이그레이션 생성 + 실행 확인 (전체 20개 테이블)
 - [ ] 단위 테스트
 
 ### Phase 2: keyword-worker 연동
@@ -1927,6 +2057,9 @@ GEMINI_API_KEY=your_gemini_api_key
 # === Campaign Worker ===
 AES_ENCRYPTION_KEY=your_aes_key_here
 
+# === Internal (워커 → api-server 콜백) ===
+API_SERVER_URL=http://api-server:8000
+
 # === CORS ===
 CORS_ORIGINS=https://yourdomain.com
 ```
@@ -2056,6 +2189,12 @@ async def migrate():
 | Decodo | 한국 IP 프록시 서비스 |
 | 총판 (distributor) | 거래처 계정. 하부계정을 생성/관리할 수 있음 |
 | 하부계정 (sub_account) | 총판 아래 계정. 접수만 가능 |
-| 계정 자동 배정 | 추출 완료 후 캠페인 유형/회사/용량 기반으로 슈퍼앱 계정 자동 선택 |
+| 네트워크 프리셋 | 계정군 + 매체 타겟팅 조합. 리워드 중복참여 방지를 위해 네트워크를 분리 |
+| 네트워크1 | 기본 네트워크 (21원 계정 + 머니워크 ON). 먼저 사용 |
+| 네트워크2 | 차선 네트워크 (25원 계정 + 머니워크 OFF). 네트워크1 사용 후 전환 |
+| 10,000타 제한 | 같은 업장의 연장 캠페인 합산이 10,000 전환을 넘으면 다른 네트워크로 신규 세팅 |
+| 캠페인 템플릿 | superap.io 폼 내용 (트래픽/저장하기/명소). 네트워크와 독립적 |
+| 계정 자동 배정 | 연장 판정(7일/10,000타) + 네트워크 순서 기반 자동 계정 선택 |
 | 입금 확인 | company_admin이 총 접수 금액 입금을 확인하는 수동 절차 |
 | 마감시간 | 상품별 일일 접수 마감 시간 (이후 접수 차단) |
+| 머니워크 (MoneyWalk) | superap.io의 매체 중 하나. 네트워크1에서는 ON, 네트워크2에서는 OFF |

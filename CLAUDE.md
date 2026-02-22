@@ -42,7 +42,7 @@
                     └─────────┬─────────┘
                               ▼
                     [PostgreSQL 15 통합 DB]
-                       19개 테이블
+                       20개 테이블
                     멀티테넌트 (일류기획, 제이투랩)
 ```
 
@@ -54,7 +54,7 @@
 ├── .env.example                         # 환경변수 템플릿
 │
 ├── docs/
-│   ├── INTEGRATION_PLAN.md              # 전체 계획서 (DB 16테이블, API 50+, 아키텍처)
+│   ├── INTEGRATION_PLAN.md              # 전체 계획서 (DB 20테이블, API 60+, 아키텍처)
 │   ├── DEVELOPMENT_WORKFLOW.md          # 에이전트 오케스트레이션 상세 가이드
 │   └── PHASE_CHECKLIST.md              # Phase별 진행 추적 체크리스트
 │

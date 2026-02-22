@@ -82,24 +82,26 @@
 - [ ] places (플레이스 + virtual_phone)
 - [ ] keywords + keyword_rank_history
 - [ ] extraction_jobs (추출 작업)
-- [ ] superap_accounts (슈퍼앱 계정 + company_id + 자동배정 필드)
-- [ ] campaigns (campaign_type 영문 + module_context)
+- [ ] network_presets (네트워크 프리셋: 계정군 + 매체 타겟팅 설정)
+- [ ] superap_accounts (슈퍼앱 계정 + network_preset_id + unit_cost)
+- [ ] campaigns (campaign_type 영문 + module_context + network_preset_id)
 - [ ] campaign_keyword_pool (중복 제외 로직)
-- [ ] campaign_templates
-- [ ] pipeline_states (cancelled 포함) + pipeline_logs
+- [ ] campaign_templates (code 컬럼으로 영문 매핑: traffic/save/landmark)
+- [ ] pipeline_states (cancelled 포함, UNIQUE order_item_id) + pipeline_logs
 
 ### 1C.2 CRUD + 서비스
 - [ ] Places/Keywords/RankHistory CRUD
 - [ ] ExtractionJobs CRUD
-- [ ] SuperapAccounts CRUD (company_admin 전용, AES 암호화)
+- [ ] NetworkPresets CRUD (company_admin 전용, 매체 타겟팅 JSONB)
+- [ ] SuperapAccounts CRUD (company_admin 전용, AES 암호화, 프리셋 연결)
 - [ ] Campaigns CRUD
 - [ ] CampaignKeywordPool CRUD (UNIQUE 제약 중복 제외)
 - [ ] CampaignTemplates CRUD
 - [ ] PipelineStates + Logs CRUD
-- [ ] 계정 자동 배정 서비스 (AssignmentService)
+- [ ] 자동 배정 서비스 (연장 판정 + 네트워크 순서 + 10,000타 제한)
 - [ ] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
 - [ ] 워커 콜백 API (/internal/callback/*)
-- [ ] Alembic 마이그레이션 (전체 19개 테이블)
+- [ ] Alembic 마이그레이션 (전체 20개 테이블)
 - [ ] 테스트
 
 ### 1C.3 검증
