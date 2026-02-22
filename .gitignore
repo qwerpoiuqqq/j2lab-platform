@@ -20,6 +20,9 @@ venv/
 data/jobs/
 data/debug/
 
+# Exception: reference data for migration
+!reference/quantum-campaign/data/quantum.db
+
 # IDE
 .vscode/
 .idea/

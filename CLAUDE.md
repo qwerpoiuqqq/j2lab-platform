@@ -1,82 +1,123 @@
 # J2LAB 통합 플랫폼
 
-> Claude Code가 세션 시작 시 자동 로드하는 프로젝트 컨텍스트 파일
+> 이 파일은 Claude Code 세션 시작 시 자동 로드됩니다.
+> 새 환경에서 clone 후 이 파일 하나로 전체 맥락을 파악할 수 있습니다.
 
-## 한 줄 요약
+## 프로젝트 요약
 
-네이버 플레이스 광고 자동화: **접수 → 키워드 추출 → 캠페인 등록 → 관리** 통합 플랫폼
+네이버 플레이스 광고 자동화 플랫폼.
+**접수 → 키워드 추출 → 캠페인 등록 → 관리** 파이프라인을 하나의 시스템으로 통합.
+
+기존에 독립적으로 운영하던 2개 시스템 + OMS를 FastAPI로 통합:
+- **Keyword Extract**: 네이버 플레이스 URL → 키워드 자동 추출 + 랭킹 체크
+- **Quantum Campaign**: 슈퍼앱(superap.io) 캠페인 자동 등록 + 키워드 로테이션
+- **jtwolablife OMS**: 주문 접수 / 유저 관리 / 정산 (Django → FastAPI 전환)
 
 ## 현재 진행 상태
 
 | Phase | 내용 | 상태 |
 |-------|------|------|
-| 0 | 문서/구조 정리 | 완료 |
-| 1 | DB 스키마 + api-server 골격 | **← 다음** |
+| 0 | 문서/구조/reference 코드 정리 | 완료 |
+| 1 | DB 스키마 + api-server 골격 | **← 현재** |
 | 2 | keyword-worker 연동 | 미시작 |
 | 3 | campaign-worker 연동 | 미시작 |
 | 4 | React 프론트엔드 | 미시작 |
 | 5 | Docker/AWS 배포 | 미시작 |
 
-> 상세 진행률: `docs/PHASE_CHECKLIST.md`
+상세 체크리스트: `docs/PHASE_CHECKLIST.md`
 
 ## 아키텍처
 
 ```
-[React SPA] → [Nginx] → [api-server :8000]
-                              ├── [keyword-worker :8001]  ← Playwright 키워드 추출
-                              ├── [campaign-worker :8002]  ← Playwright 캠페인 등록
-                              └── [PostgreSQL]              ← 16개 테이블 통합 DB
+[React SPA] → [Nginx] → [api-server :8000] ← 메인 FastAPI (인증, CRUD, 오케스트레이션)
+                              │
+                    ┌─────────┼─────────┐
+                    ▼                   ▼
+          [keyword-worker :8001]  [campaign-worker :8002]
+          Playwright 키워드 추출   Playwright 캠페인 등록
+          curl_cffi 랭킹 체크     APScheduler 키워드 로테이션
+                    │                   │
+                    └─────────┬─────────┘
+                              ▼
+                    [PostgreSQL 15 통합 DB]
+                       16개 테이블
 ```
 
 ## Repo 구조
 
 ```
-├── CLAUDE.md                  # ← 이 파일
-├── README.md                  # 프로젝트 개요
+├── CLAUDE.md                            # ← 이 파일 (세션 자동 로드)
+├── README.md                            # 프로젝트 개요
+├── .env.example                         # 환경변수 템플릿
+│
 ├── docs/
-│   ├── INTEGRATION_PLAN.md    # 전체 계획서 (DB스키마, API명세, 아키텍처)
-│   ├── DEVELOPMENT_WORKFLOW.md # 에이전트 개발 워크플로우
-│   └── PHASE_CHECKLIST.md     # 진행 추적 체크리스트
-├── api-server/                # [Phase 1] FastAPI 메인 서버
-├── keyword-worker/            # [Phase 2] 키워드 추출 서비스
-├── campaign-worker/           # [Phase 3] 캠페인 자동화 서비스
-├── frontend/                  # [Phase 4] React SPA
-├── reference/oms-django/      # Django OMS 참고 코드
-├── docker-compose.yml         # [Phase 5]
-└── .env.example
+│   ├── INTEGRATION_PLAN.md              # 전체 계획서 (DB 16테이블, API 50+, 아키텍처)
+│   ├── DEVELOPMENT_WORKFLOW.md          # 에이전트 오케스트레이션 상세 가이드
+│   └── PHASE_CHECKLIST.md              # Phase별 진행 추적 체크리스트
+│
+├── reference/                           # 기존 시스템 원본 코드 + 데이터
+│   ├── keyword-extract/                 # 키워드 추출 소스 (src/, web/)
+│   └── quantum-campaign/               # 캠페인 자동화 소스 + 운영 DB
+│       └── data/quantum.db             # SQLite 운영 데이터 (마이그레이션용)
+│
+├── api-server/                          # [Phase 1] FastAPI 메인 서버
+├── keyword-worker/                      # [Phase 2] 키워드 추출 워커
+├── campaign-worker/                     # [Phase 3] 캠페인 자동화 워커
+└── frontend/                            # [Phase 4] React SPA
 ```
 
-## 기존 시스템 참조
+## 핵심 문서 가이드
 
-원본 코드가 필요할 때 (이 repo 외부):
+| 문서 | 언제 읽는지 |
+|------|-----------|
+| `docs/PHASE_CHECKLIST.md` | **가장 먼저** - 현재 뭘 해야 하는지 확인 |
+| `docs/INTEGRATION_PLAN.md` | 구현할 때 - DB 스키마, API 명세, 파이프라인 흐름 |
+| `docs/DEVELOPMENT_WORKFLOW.md` | 개발 시작 전 - 에이전트 역할, 프롬프트, 규칙 |
 
-| 시스템 | 참조 경로 | 핵심 파일 |
-|--------|----------|----------|
-| Keyword Extract | `../Keyword_extract_program_backup/` | `src/smart_worker.py`, `web/app.py` |
-| Quantum Campaign | `../quantum-campaign-automation/` | `backend/app/services/superap.py`, `models/` |
+## 기존 코드 참조
+
+모든 원본 코드는 `reference/` 폴더에 있습니다 (외부 경로 의존 없음):
+
+| 기존 시스템 | 참조 경로 | 핵심 파일 |
+|------------|----------|----------|
+| Keyword Extract | `reference/keyword-extract/` | `src/smart_worker.py`, `src/models.py`, `web/app.py` |
+| Quantum Campaign | `reference/quantum-campaign/` | `backend/app/models/`, `backend/app/services/superap.py` |
+| Quantum 운영 DB | `reference/quantum-campaign/data/quantum.db` | 마이그레이션 대상 SQLite |
 
 ## 중요 경고
 
-- `quantum-campaign-automation/` 의 Docker 데이터 = **운영 데이터** → 절대 수정 금지
-- `.env`, `settings.json` = **실제 크리덴셜** → git 커밋 금지
-- 이 repo = **반드시 Private 유지**
+1. `.env`, `settings.json` = **실제 크리덴셜** → git 커밋 절대 금지
+2. 이 repo = **반드시 Private 유지** (내부 코드 + 운영 데이터 포함)
+3. `quantum.db` = 운영 데이터 스냅샷 → 마이그레이션 참조용, 원본은 건드리지 않음
 
-## 개발 패턴
+## 개발 패턴 요약
 
 ```
-Agent A (개발) → commit → Agent B (검증) → commit → Agent C (재검증) → commit
+[사용자] "Phase N 개발 시작해줘"
+     ↓
+[Agent A] 기능 개발 → git commit + push
+     ↓
+[사용자] 새 세션에서 "Phase N 검증해줘"
+     ↓
+[Agent B] 코드 리뷰 + 디버깅 → git commit + push
+     ↓
+[사용자] 새 세션에서 "Phase N 재검증해줘"
+     ↓
+[Agent C] 최종 검증 → git commit + push
+     ↓
+PHASE_CHECKLIST.md 업데이트 → 다음 Phase
 ```
 
-상세: `docs/DEVELOPMENT_WORKFLOW.md`
+각 Agent에게 줄 구체적 프롬프트: `docs/DEVELOPMENT_WORKFLOW.md` 참조
 
 ## 기술 스택
 
-FastAPI + SQLAlchemy 2.0 async + Alembic + PostgreSQL 15 + Playwright + React + TypeScript + Docker Compose + AWS EC2
-
-## 작업 시작 방법
-
-```bash
-cat docs/PHASE_CHECKLIST.md          # 현재 진행 상태 확인
-cat docs/INTEGRATION_PLAN.md         # 상세 스펙 확인
-cat docs/DEVELOPMENT_WORKFLOW.md     # 개발 규칙 확인
-```
+| 영역 | 기술 |
+|------|------|
+| API 서버 | FastAPI + SQLAlchemy 2.0 (async) + Alembic |
+| DB | PostgreSQL 15 |
+| Workers | Playwright + curl_cffi + APScheduler |
+| 인증 | JWT (access + refresh) |
+| 프론트엔드 | React + TypeScript + Vite + TailwindCSS |
+| 배포 | Docker Compose + Nginx + AWS EC2 |
+| Python | 3.11+ |
