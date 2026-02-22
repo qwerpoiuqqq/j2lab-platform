@@ -178,6 +178,7 @@ aiofiles
 
 **참고할 기능:**
 - **유저/역할 관리**: 5단계 역할 (admin → accountant → manager → agency → seller), 계층적 parent-child
+  ※ 통합 플랫폼 역할 매핑: admin→system_admin, accountant→company_admin, manager→order_handler, agency→distributor, seller→sub_account
 - **상품 관리**: JSON schema 기반 동적 입력 필드
 - **주문/접수**: 그리드 인터페이스, 엑셀 벌크 업로드
 - **정산**: 잔액 관리, 입금/출금/환불, VAT 계산
@@ -263,9 +264,9 @@ aiofiles
 
 | 원칙 | 설명 |
 |------|------|
-| **api-server = 외부 CRUD 담당** | 사용자 요청은 모두 api-server를 거침 |
-| **workers = 작업 수행 + DB 직접 저장** | 무거운 작업 수행 후 결과를 DB에 직접 쓰고, 콜백으로 api-server에 알림 |
-| **공유 DB** | 3개 서비스가 같은 PostgreSQL 사용 (Docker 내부 네트워크) |
+| **api-server = 외부 CRUD + 오케스트레이션** | 프론트엔드 요청은 모두 api-server를 거침 |
+| **workers = 내부 작업 수행 + DB 직접 저장** | 무거운 작업 수행 후 결과를 DB에 직접 쓰고, 콜백으로 api-server에 알림 |
+| **공유 DB** | 3개 서비스 모두 같은 PostgreSQL에 직접 연결 (Docker 내부 네트워크) |
 | **내부 API** | workers는 `/internal/` prefix로 내부 전용 엔드포인트만 노출 |
 | **기존 로직 보존** | Playwright 자동화, 프록시 관리 등 핵심 로직은 그대로 유지 |
 | **네트워크 ≠ 템플릿** | 네트워크 프리셋(계정+매체)과 캠페인 템플릿(폼내용)은 독립적 축 |
@@ -443,7 +444,7 @@ CREATE TABLE price_policies (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     -- NULL이면 기본 가격, 특정 유저면 개별 가격
     role VARCHAR(20),
-    -- 역할별 가격 (agency 가격, seller 가격 등)
+    -- 역할별 가격 (distributor 가격, sub_account 가격 등)
     unit_price NUMERIC(12,0) NOT NULL,
     effective_from DATE NOT NULL,
     effective_to DATE,
@@ -561,6 +562,8 @@ CREATE INDEX idx_order_items_status ON order_items(status);
 CREATE TABLE places (
     id BIGINT PRIMARY KEY,
     -- 네이버 Place ID (auto-increment 아님, 네이버에서 부여한 ID)
+    -- ⚠ UPSERT 전략: 같은 place_id 재수집 시 INSERT ... ON CONFLICT (id) DO UPDATE
+    --   → 최신 스크래핑 결과로 덮어쓰기 (last_scraped_at 갱신)
 
     -- === 기본 정보 ===
     name VARCHAR(200) NOT NULL,
@@ -1897,8 +1900,6 @@ unified-platform/
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
-
 services:
   # === PostgreSQL ===
   db:
@@ -1910,8 +1911,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"  # 개발용, 프로덕션에서는 제거
+    # ports:
+    #   - "5432:5432"  # docker-compose.dev.yml에서만 노출
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-j2lab}"]
       interval: 10s
@@ -1944,6 +1945,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-j2lab}:${DB_PASSWORD}@db:5432/${DB_NAME:-j2lab_platform}
+      API_SERVER_URL: http://api-server:8000
       DECODO_USERNAME: ${DECODO_USERNAME}
       DECODO_PASSWORD: ${DECODO_PASSWORD}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -1961,6 +1963,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-j2lab}:${DB_PASSWORD}@db:5432/${DB_NAME:-j2lab_platform}
+      API_SERVER_URL: http://api-server:8000
       AES_ENCRYPTION_KEY: ${AES_ENCRYPTION_KEY}
     depends_on:
       db:
@@ -2017,8 +2020,8 @@ sudo apt update && sudo apt install -y docker.io docker-compose-plugin
 sudo usermod -aG docker $USER
 
 # 3. 프로젝트 클론
-git clone https://github.com/your-org/unified-platform.git
-cd unified-platform
+git clone https://github.com/qwerpoiuqqq/j2lab-platform.git
+cd j2lab-platform
 
 # 4. 환경변수 설정
 cp .env.example .env

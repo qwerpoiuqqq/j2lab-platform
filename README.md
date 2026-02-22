@@ -21,8 +21,8 @@
                     멀티테넌트 (일류기획, 제이투랩)
 ```
 
-- **api-server**가 외부 CRUD 담당 (사용자 요청은 모두 api-server를 거침)
-- **worker**들은 내부 HTTP (`/internal/`) 호출로 작업 수신, DB에 직접 결과 저장 후 콜백으로 api-server에 알림
+- **api-server**가 외부 CRUD + 오케스트레이션 담당 (프론트엔드 요청 처리)
+- **worker**들은 `/internal/` 호출로 작업 수신, 결과를 DB에 직접 저장 후 콜백으로 api-server에 알림
 - **React SPA**는 api-server만 호출
 - Docker Compose로 AWS EC2 배포
 
@@ -79,15 +79,20 @@ cp .env.example .env
 # CLAUDE.md가 자동 로드되어 프로젝트 맥락을 파악합니다
 ```
 
-### 2. Phase 1 개발 시작 (현재 단계)
+### 2. Phase 1A 개발 시작 (현재 단계)
 
 ```bash
-# Phase 브랜치 생성
-git checkout -b phase-1/db-api
+# Phase 1A 브랜치 생성
+git checkout -b phase-1a/auth
 
 # Claude Code에게 지시
-# → "Phase 1 개발 시작해줘" (Agent A 역할)
-# → docs/DEVELOPMENT_WORKFLOW.md 에 구체적인 프롬프트 가이드 있음
+# → "Phase 1A 개발 시작해줘" (Agent A 역할)
+# → docs/DEVELOPMENT_WORKFLOW.md 에 Phase 1A/1B/1C 별 구체적 프롬프트 가이드 있음
+
+# Phase 1은 3단계로 세분화:
+# phase-1a/auth     → 기반 인프라 + 인증 (companies, users, JWT)
+# phase-1b/orders   → 주문/상품/정산
+# phase-1c/pipeline → 파이프라인/통합 모델 (전체 20개 테이블 완성)
 ```
 
 ### 3. Docker 실행 (Phase 1 완료 후)

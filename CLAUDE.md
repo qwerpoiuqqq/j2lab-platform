@@ -31,7 +31,7 @@
 ## 아키텍처
 
 ```
-[React SPA] → [Nginx] → [api-server :8000] ← 메인 FastAPI (인증, CRUD, 오케스트레이션)
+[React SPA] → [Nginx] → [api-server :8000] ← 메인 FastAPI (인증, 외부 CRUD, 오케스트레이션)
                               │
                     ┌─────────┼─────────┐
                     ▼                   ▼
@@ -44,6 +44,10 @@
                     [PostgreSQL 15 통합 DB]
                        20개 테이블
                     멀티테넌트 (일류기획, 제이투랩)
+
+※ api-server = 외부 CRUD + 오케스트레이션 담당
+※ workers = 내부 작업 수행 + DB 직접 저장 후 콜백으로 api-server에 알림
+※ 3개 서비스 모두 같은 PostgreSQL에 직접 연결 (Docker 내부 네트워크)
 ```
 
 ## Repo 구조

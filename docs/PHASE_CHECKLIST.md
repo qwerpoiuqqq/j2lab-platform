@@ -18,7 +18,7 @@
 
 ---
 
-## Phase 1A: 기반 인프라 + 인증
+## Phase 1A: 기반 인프라 + 인증 (`phase-1a/auth`)
 
 ### 1A.1 프로젝트 셋업
 - [ ] FastAPI 프로젝트 초기화 (`api-server/`)
@@ -51,7 +51,7 @@
 
 ---
 
-## Phase 1B: 주문/상품/정산
+## Phase 1B: 주문/상품/정산 (`phase-1b/orders`)
 
 ### 1B.1 모델
 - [ ] products (상품 + daily_deadline 마감시간)
@@ -76,7 +76,7 @@
 
 ---
 
-## Phase 1C: 파이프라인/통합 모델
+## Phase 1C: 파이프라인/통합 모델 (`phase-1c/pipeline`)
 
 ### 1C.1 모델
 - [ ] places (플레이스 + virtual_phone)

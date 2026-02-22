@@ -87,16 +87,19 @@ Phase 1A 개발을 시작해줘. (Agent A - 기능 개발)
 - login, refresh, logout (블랙리스트)
 - bcrypt 비밀번호 해싱
 - 역할 기반 접근 제어 (RoleChecker dependency)
-- 공통 페이지네이션 스키마
+  역할 계층: system_admin > company_admin > order_handler > distributor > sub_account
+- 공통 페이지네이션 스키마 (PaginationParams)
 
-[1A.4] CRUD + 테스트
+[1A.4] CRUD API
 - Companies CRUD (system_admin 전용)
 - Users CRUD + 역할별 권한 + 하위 유저 트리
+
+[1A.5] 테스트
 - pytest 설정 + 인증/유저 테스트
 - Swagger 문서 확인 (/docs)
 
 완료되면 git commit + push 해줘.
-브랜치: phase-1a/infra-auth
+브랜치: phase-1a/auth
 커밋 형식: [Phase 1A] type: 설명
 ```
 
@@ -108,11 +111,11 @@ Phase 1B 개발을 시작해줘. (Agent A - 기능 개발)
 할 일:
 1. docs/PHASE_CHECKLIST.md에서 Phase 1B 체크리스트 확인
 2. docs/INTEGRATION_PLAN.md에서 DB 스키마, API 명세 참조
-3. Phase 1A 코드 위에 추가 구현:
+3. Phase 1A에서 만든 api-server/ 기반 위에 구현
 
 [1B.1] 모델 (6개 테이블)
 - products (상품 + daily_deadline 마감시간)
-- price_policies (가격 정책)
+- price_policies (가격 정책: 유저별→역할별→기본)
 - orders (주문: draft→submitted→payment_confirmed)
 - order_items (주문 항목 + assigned_account_id 계정배정)
 - balance_transactions (잔액 거래)
@@ -125,7 +128,13 @@ Phase 1B 개발을 시작해줘. (Agent A - 기능 개발)
 - Orders CRUD + 상태 전이 (submit, confirm-payment, reject)
 - 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드
 - BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
-- 테스트
+
+[1B.3] 테스트
+- 각 엔드포인트 테스트
+
+기존 코드 참조:
+- jtwolablife OMS의 주문/정산 로직 참고 (INTEGRATION_PLAN.md 섹션 7.3)
+  ⚠ 역할명 주의: OMS의 agency→distributor, seller→sub_account로 매핑
 
 완료되면 git commit + push 해줘.
 브랜치: phase-1b/orders
@@ -139,31 +148,37 @@ Phase 1C 개발을 시작해줘. (Agent A - 기능 개발)
 
 할 일:
 1. docs/PHASE_CHECKLIST.md에서 Phase 1C 체크리스트 확인
-2. docs/INTEGRATION_PLAN.md에서 DB 스키마, API 명세 참조
-3. Phase 1A/1B 코드 위에 추가 구현:
+2. docs/INTEGRATION_PLAN.md에서 DB 스키마, API 명세, 파이프라인 흐름 참조
+3. Phase 1A+1B 기반 위에 나머지 모델 + 서비스 구현
 
-[1C.1] 모델 (11개 테이블)
-- places, keywords, keyword_rank_history
-- extraction_jobs
+[1C.1] 모델 (11개 테이블, 이것으로 전체 20개 완성)
+- places (네이버 플레이스 정보, PK=네이버 Place ID, UPSERT 필요)
+- keywords + keyword_rank_history
+- extraction_jobs (키워드 추출 작업)
 - network_presets (네트워크 프리셋: 계정군 + 매체 타겟팅)
-- superap_accounts (network_preset_id, unit_cost, assignment_order)
-- campaigns (network_preset_id, company_id 역정규화)
-- campaign_keyword_pool, campaign_templates (code 컬럼 매핑)
-- pipeline_states (UNIQUE order_item_id), pipeline_logs
-- Alembic 마이그레이션 (전체 20개 테이블 완성)
+- superap_accounts (슈퍼앱 계정 + network_preset_id + unit_cost)
+- campaigns (campaign_type 영문 + module_context + network_preset_id)
+- campaign_keyword_pool (UNIQUE 제약으로 중복 제외)
+- campaign_templates (code 컬럼: traffic/save/landmark)
+- pipeline_states (UNIQUE order_item_id) + pipeline_logs
+- Alembic 마이그레이션 (전체 20개 테이블 완성 확인)
 
 [1C.2] CRUD + 서비스
-- Places/Keywords/RankHistory CRUD
+- Places CRUD (UPSERT: 같은 place_id 재수집 시 UPDATE)
+- Keywords + RankHistory CRUD
 - ExtractionJobs CRUD
 - NetworkPresets CRUD (company_admin 전용, 매체 타겟팅 JSONB)
 - SuperapAccounts CRUD (AES 암호화, 프리셋 연결)
-- Campaigns CRUD + CampaignKeywordPool (UNIQUE 제약 중복 제외)
+- Campaigns CRUD
+- CampaignKeywordPool CRUD (UNIQUE 제약 중복 제외)
 - CampaignTemplates CRUD
 - PipelineStates + Logs CRUD
-- 자동 배정 서비스 (연장 판정 + 네트워크 순서 + 10,000타 제한)
-- 계정 배정 API (company_admin 전용)
+- 자동 배정 서비스 (연장 판정 7일/10,000타 + 네트워크 순서)
+- 계정 배정 API (company_admin 전용, 응답 필드 필터링)
 - 워커 콜백 API (/internal/callback/*)
-- 테스트
+
+[1C.3] 테스트
+- 각 엔드포인트 + 자동 배정 로직 테스트
 
 기존 코드 참조:
 - reference/keyword-extract/src/models.py → places 테이블 필드
@@ -379,25 +394,28 @@ type:
 
 예시:
   [Phase 1A] feat: companies, users, refresh_tokens 모델 + Alembic 마이그레이션
+  [Phase 1B] feat: orders, products, balance 모델 + CRUD API
+  [Phase 1C] feat: 파이프라인 + 자동 배정 서비스
+  [Phase 1A] fix: users 테이블 role enum 타입 수정
   [Phase 1B] fix: orders 상태 전이 로직 수정
-  [Phase 1C] feat: 자동 배정 서비스 + 네트워크 프리셋 CRUD
   [Phase 2] test: keyword-worker 추출 작업 엣지케이스 테스트 추가
 ```
 
 ## 브랜치 전략
 
 ```
-main                      ← 검증 완료된 안정 코드
-├── phase-1a/infra-auth   ← Phase 1A 작업 (기반 인프라 + 인증)
-├── phase-1b/orders       ← Phase 1B 작업 (주문/상품/정산)
-├── phase-1c/pipeline     ← Phase 1C 작업 (파이프라인/통합 모델)
-├── phase-2/keyword       ← Phase 2 작업
-├── phase-3/campaign      ← Phase 3 작업
-├── phase-4/frontend      ← Phase 4 작업
-└── phase-5/deploy        ← Phase 5 작업
+main                     ← 검증 완료된 안정 코드
+├── phase-1a/auth        ← Phase 1A 작업 (기반 인프라 + 인증)
+├── phase-1b/orders      ← Phase 1B 작업 (주문/상품/정산)
+├── phase-1c/pipeline    ← Phase 1C 작업 (파이프라인/통합 모델)
+├── phase-2/keyword      ← Phase 2 작업
+├── phase-3/campaign     ← Phase 3 작업
+├── phase-4/frontend     ← Phase 4 작업
+└── phase-5/deploy       ← Phase 5 작업
 ```
 
 Phase 브랜치 → Agent A/B/C 검증 완료 → main merge
+(Phase 1은 1A → 1B → 1C 순서로 각각 독립 검증 후 merge)
 
 ---
 
