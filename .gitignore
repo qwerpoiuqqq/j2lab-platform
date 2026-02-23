@@ -35,6 +35,7 @@ Thumbs.db
 
 # Docker
 postgres_data/
+backups/
 
 # Node
 node_modules/
@@ -53,3 +54,7 @@ settings.json
 *.pem
 *.key
 credentials.json
+
+# SSL certificates (keep .gitkeep)
+nginx/ssl/*
+!nginx/ssl/.gitkeep

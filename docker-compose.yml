@@ -1,0 +1,161 @@
+# =============================================================================
+# J2LAB Platform - Production Docker Compose
+# =============================================================================
+# Usage:
+#   cp .env.example .env   # edit with real values
+#   docker compose build
+#   docker compose up -d
+#   docker compose exec api-server alembic upgrade head
+# =============================================================================
+
+services:
+  # === PostgreSQL 15 ===
+  db:
+    image: postgres:15-alpine
+    container_name: j2lab-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-j2lab_platform}
+      POSTGRES_USER: ${DB_USER:-j2lab}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-j2lab} -d ${DB_NAME:-j2lab_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # === API Server (FastAPI :8000) ===
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    container_name: j2lab-api-server
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      DEBUG: ${DEBUG:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      KEYWORD_WORKER_URL: http://keyword-worker:8001
+      CAMPAIGN_WORKER_URL: http://campaign-worker:8002
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+      - public
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # === Keyword Worker (FastAPI :8001, Playwright) ===
+  keyword-worker:
+    build:
+      context: ./keyword-worker
+      dockerfile: Dockerfile
+    container_name: j2lab-keyword-worker
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      API_SERVER_URL: http://api-server:8000
+      DECODO_USERNAME: ${DECODO_USERNAME:-}
+      DECODO_PASSWORD: ${DECODO_PASSWORD:-}
+      DECODO_ENDPOINT_COUNT: ${DECODO_ENDPOINT_COUNT:-500}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEBUG: ${DEBUG:-false}
+      PLAYWRIGHT_HEADLESS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # === Campaign Worker (FastAPI :8002, Playwright + APScheduler) ===
+  campaign-worker:
+    build:
+      context: ./campaign-worker
+      dockerfile: Dockerfile
+    container_name: j2lab-campaign-worker
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      API_SERVER_URL: http://api-server:8000
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      DEBUG: ${DEBUG:-false}
+      PLAYWRIGHT_HEADLESS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # === Nginx (Reverse Proxy :80/:443) ===
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: j2lab-nginx
+    restart: always
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+    depends_on:
+      api-server:
+        condition: service_healthy
+      frontend:
+        condition: service_completed_successfully
+    networks:
+      - public
+
+  # === Frontend Build (one-shot: build React SPA and exit) ===
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: j2lab-frontend-build
+    # Copy built files to shared volume, then exit
+    entrypoint: ["/bin/sh", "-c", "cp -r /usr/share/nginx/html/* /output/ && echo 'Frontend build copied to volume'"]
+    volumes:
+      - frontend_dist:/output
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+  frontend_dist:
+    driver: local
+
+networks:
+  internal:
+    driver: bridge
+    internal: true  # Not accessible from host
+  public:
+    driver: bridge
