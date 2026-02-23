@@ -1,22 +1,133 @@
-version: "3.8"
+# =============================================================================
+# J2LAB Platform - Development Docker Compose
+# =============================================================================
+# Usage:
+#   # Option 1: DB only (run services locally)
+#   docker compose -f docker-compose.dev.yml up db
+#
+#   # Option 2: All services with hot reload
+#   docker compose -f docker-compose.dev.yml up
+#
+#   # Apply migrations
+#   docker compose -f docker-compose.dev.yml exec api-server alembic upgrade head
+#   # OR (if running api-server locally)
+#   cd api-server && alembic upgrade head
+# =============================================================================
 
 services:
+  # === PostgreSQL 15 (dev) ===
   db:
     image: postgres:15-alpine
     container_name: j2lab-postgres-dev
     environment:
-      POSTGRES_DB: j2lab_platform
-      POSTGRES_USER: j2lab
-      POSTGRES_PASSWORD: change_me_to_secure_password
+      POSTGRES_DB: ${DB_NAME:-j2lab_platform}
+      POSTGRES_USER: ${DB_USER:-j2lab}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_to_secure_password}
     ports:
       - "5432:5432"
     volumes:
       - j2lab_pgdata_dev:/var/lib/postgresql/data
+    networks:
+      - dev
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U j2lab -d j2lab_platform"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-j2lab} -d ${DB_NAME:-j2lab_platform}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # === API Server (dev: hot reload) ===
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    container_name: j2lab-api-server-dev
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_to_secure_password}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-me}
+      DEBUG: "true"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
+      KEYWORD_WORKER_URL: http://keyword-worker:8001
+      CAMPAIGN_WORKER_URL: http://campaign-worker:8002
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api-server:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dev
+    profiles:
+      - full
+
+  # === Keyword Worker (dev: hot reload) ===
+  keyword-worker:
+    build:
+      context: ./keyword-worker
+      dockerfile: Dockerfile
+    container_name: j2lab-keyword-worker-dev
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_to_secure_password}
+      API_SERVER_URL: http://api-server:8000
+      DECODO_USERNAME: ${DECODO_USERNAME:-}
+      DECODO_PASSWORD: ${DECODO_PASSWORD:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEBUG: "true"
+      PLAYWRIGHT_HEADLESS: "true"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./keyword-worker:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dev
+    profiles:
+      - full
+
+  # === Campaign Worker (dev: hot reload) ===
+  campaign-worker:
+    build:
+      context: ./campaign-worker
+      dockerfile: Dockerfile
+    container_name: j2lab-campaign-worker-dev
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-j2lab_platform}
+      DB_USER: ${DB_USER:-j2lab}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_to_secure_password}
+      API_SERVER_URL: http://api-server:8000
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-me}
+      DEBUG: "true"
+      PLAYWRIGHT_HEADLESS: "true"
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./campaign-worker:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dev
+    profiles:
+      - full
+
 volumes:
   j2lab_pgdata_dev:
+
+networks:
+  dev:
+    driver: bridge

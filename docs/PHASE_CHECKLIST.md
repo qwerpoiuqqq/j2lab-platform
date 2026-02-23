@@ -219,22 +219,30 @@
 ## Phase 5: Docker Compose + AWS 배포
 
 ### 5.1 Docker
-- [ ] docker-compose.yml (5개 서비스)
-- [ ] Nginx 설정 (리버스 프록시)
-- [ ] 헬스체크 설정
-- [ ] 볼륨 설정 (DB 데이터 영속화)
+- [x] Dockerfile: api-server (python:3.11-slim, multi-stage)
+- [x] Dockerfile: keyword-worker (mcr.microsoft.com/playwright/python)
+- [x] Dockerfile: campaign-worker (mcr.microsoft.com/playwright/python)
+- [x] Dockerfile: frontend (node:22-alpine build -> nginx:1.27-alpine serve, multi-stage)
+- [x] docker-compose.yml (6개 서비스: db, api-server, keyword-worker, campaign-worker, nginx, frontend-build)
+- [x] docker-compose.dev.yml 확장 (full 서비스 + hot reload, profiles 지원)
+- [x] Nginx 설정 (리버스 프록시, gzip, rate limiting, security headers, /internal/ 차단)
+- [x] 헬스체크 설정 (모든 서비스)
+- [x] 볼륨 설정 (postgres_data, frontend_dist)
+- [x] 네트워크 분리 (internal: DB+workers, public: nginx+api-server)
+- [x] .dockerignore (api-server, keyword-worker, campaign-worker, frontend)
 
-### 5.2 AWS 배포
-- [ ] EC2 인스턴스 생성
+### 5.2 배포 스크립트
+- [x] scripts/deploy.sh (deploy, update, status, logs, stop)
+- [x] scripts/init-db.sh (DB 초기화 + Alembic migration)
+- [x] scripts/seed-data.sh (초기 데이터: 회사 2개, system_admin 1명)
+- [x] scripts/backup-db.sh (PostgreSQL 백업 + 7일 보관 + 자동 정리)
+- [x] .env.example 업데이트 (전체 환경변수 템플릿)
+
+### 5.3 AWS 배포 (인프라 구성은 실 환경에서 진행)
+- [ ] EC2 인스턴스 생성 (t3.medium+)
 - [ ] Docker + Docker Compose 설치
-- [ ] 도메인 + SSL 설정
-- [ ] 배포 스크립트
-- [ ] DB 마이그레이션
-
-### 5.3 운영
-- [ ] 로그 모니터링
-- [ ] 백업 설정 (PostgreSQL)
-- [ ] 환경변수 관리
+- [ ] 도메인 + SSL 설정 (Let's Encrypt)
+- [ ] DB 마이그레이션 실행
 
 ### 5.4 검증
 - [ ] Agent B 검증 완료

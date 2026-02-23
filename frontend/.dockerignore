@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+.git/
+*.md
+.env
+.env.*
+.DS_Store
+.vscode/
+.idea/
+*.log
