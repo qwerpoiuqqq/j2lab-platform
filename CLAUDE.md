@@ -96,6 +96,12 @@
 1. `.env`, `settings.json` = **실제 크리덴셜** → git 커밋 절대 금지
 2. 이 repo = **반드시 Private 유지** (내부 코드 + 운영 데이터 포함)
 3. `quantum.db` = 운영 데이터 스냅샷 → 마이그레이션 참조용, 원본은 건드리지 않음
+4. **superap.io 실제 캠페인 생성 절대 금지**
+   - 테스트 시 슈퍼앱 로그인, 폼 입력, 등록 버튼 클릭 직전까지는 OK
+   - **캠페인 최종 제출(submit)은 절대 실행하지 않음** → 실제 광고비 발생
+   - campaign-worker 테스트는 반드시 **mock/stub**으로 superap.py의 최종 제출 단계를 대체
+   - E2E 테스트에서도 campaign registration은 mock 응답 사용
+   - `DRY_RUN=true` 환경변수로 제어: true이면 최종 제출 스킵 + 가짜 campaign_code 반환
 
 ## 개발 패턴 요약
 
