@@ -13,14 +13,15 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers (Chromium only)
-RUN playwright install chromium
-
 # Copy application code
 COPY . .
 
-# Remove unnecessary files
-RUN rm -rf tests/ .pytest_cache/ .venv/ __pycache__/ .gitkeep
+# Remove unnecessary files and set ownership
+RUN rm -rf tests/ .pytest_cache/ .venv/ __pycache__/ .gitkeep && \
+    chown -R pwuser:pwuser /app
+
+# Switch to non-root user (pwuser is created by the Playwright base image)
+USER pwuser
 
 EXPOSE 8001
 

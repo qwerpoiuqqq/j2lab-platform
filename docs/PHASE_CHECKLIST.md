@@ -245,8 +245,7 @@
 - [ ] DB 마이그레이션 실행
 
 ### 5.4 검증
-- [ ] Agent B 검증 완료
-- [ ] Agent C 재검증 완료
+- [x] Agent B+C 통합 검증 완료 (2026-02-23, 591개 테스트 100% 통과, Dockerfile non-root user 보완, Nginx server_tokens off 추가, 네트워크 분리/보안 헤더/rate limiting/내부 API 차단 확인, seed-data 명세 일치 확인)
 - [ ] main 브랜치 merge
 
 ---
