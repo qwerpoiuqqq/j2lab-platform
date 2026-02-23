@@ -84,7 +84,6 @@ VALID_PIPELINE_TRANSITIONS = {
     ],
     PipelineStage.CAMPAIGN_ACTIVE: [
         PipelineStage.MANAGEMENT,
-        PipelineStage.PAUSED if hasattr(PipelineStage, "PAUSED") else PipelineStage.COMPLETED,
         PipelineStage.COMPLETED,
     ],
     PipelineStage.MANAGEMENT: [PipelineStage.COMPLETED],
