@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import CampaignList from '@/components/features/campaigns/CampaignList';
 import Pagination from '@/components/common/Pagination';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
@@ -92,10 +92,11 @@ export default function CampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | ''>('');
   const [search, setSearch] = useState('');
 
-  const loadCampaigns = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     // TODO: Replace with actual API call
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      if (cancelled) return;
       let filtered = [...mockCampaigns];
       if (statusFilter) {
         filtered = filtered.filter((c) => c.status === statusFilter);
@@ -111,11 +112,11 @@ export default function CampaignsPage() {
       setCampaigns(filtered);
       setLoading(false);
     }, 300);
-  }, [statusFilter, search]);
-
-  useEffect(() => {
-    loadCampaigns();
-  }, [loadCampaigns, page]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [statusFilter, search, page]);
 
   return (
     <div className="space-y-6">

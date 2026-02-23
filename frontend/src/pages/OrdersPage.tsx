@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import OrderList from '@/components/features/orders/OrderList';
 import OrderForm from '@/components/features/orders/OrderForm';
 import Pagination from '@/components/common/Pagination';
@@ -126,13 +126,15 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const canCreate = user && ['distributor', 'sub_account'].includes(user.role);
 
-  const loadOrders = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     // TODO: Replace with actual API call
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      if (cancelled) return;
       let filtered = [...mockOrders];
       if (statusFilter) {
         filtered = filtered.filter((o) => o.status === statusFilter);
@@ -148,11 +150,11 @@ export default function OrdersPage() {
       setOrders(filtered);
       setLoading(false);
     }, 300);
-  }, [statusFilter, search]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders, page]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [statusFilter, search, page, refreshKey]);
 
   return (
     <div className="space-y-6">
@@ -223,7 +225,7 @@ export default function OrdersPage() {
           onSubmit={(data) => {
             console.log('Create order:', data);
             setShowCreateModal(false);
-            loadOrders();
+            setRefreshKey((k) => k + 1);
           }}
         />
       </Modal>

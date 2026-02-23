@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import UserList from '@/components/features/users/UserList';
 import UserForm from '@/components/features/users/UserForm';
 import Pagination from '@/components/common/Pagination';
@@ -97,11 +97,13 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadUsers = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     // TODO: Replace with actual API call
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      if (cancelled) return;
       let filtered = [...mockUsers];
       if (roleFilter) {
         filtered = filtered.filter((u) => u.role === roleFilter);
@@ -117,11 +119,11 @@ export default function UsersPage() {
       setUsers(filtered);
       setLoading(false);
     }, 300);
-  }, [roleFilter, search]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers, page]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [roleFilter, search, page, refreshKey]);
 
   return (
     <div className="space-y-6">
@@ -190,7 +192,7 @@ export default function UsersPage() {
           onSubmit={(data) => {
             console.log('Create user:', data);
             setShowCreateModal(false);
-            loadUsers();
+            setRefreshKey((k) => k + 1);
           }}
           onCancel={() => setShowCreateModal(false)}
         />
