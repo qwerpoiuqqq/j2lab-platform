@@ -188,7 +188,9 @@ class ExtractionService:
         except Exception as e:
             logger.exception("Job %d failed: %s", job_id, e)
             await self._fail_job(job_id, str(e))
-            await self._send_callback(job_id, "failed", 0, db_place_id)
+            await self._send_callback(
+                job_id, "failed", 0, db_place_id, error_message=str(e)
+            )
         finally:
             self._running_jobs.pop(job_id, None)
 
@@ -504,22 +506,32 @@ class ExtractionService:
         status: str,
         result_count: int,
         place_id: int,
+        place_name: Optional[str] = None,
+        error_message: Optional[str] = None,
     ) -> None:
-        """Send completion callback to api-server."""
+        """Send completion callback to api-server.
+
+        Payload matches api-server's ExtractionCallbackRequest schema.
+        """
         try:
             import httpx
 
             callback_url = (
                 f"{settings.API_SERVER_URL}/internal/callback/extraction/{job_id}"
             )
+            payload: Dict[str, Any] = {
+                "status": status,
+                "result_count": result_count,
+                "place_id": place_id,
+            }
+            if place_name is not None:
+                payload["place_name"] = place_name
+            if error_message is not None:
+                payload["error_message"] = error_message
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
                     callback_url,
-                    json={
-                        "status": status,
-                        "result_count": result_count,
-                        "place_id": place_id,
-                    },
+                    json=payload,
                 )
                 if resp.status_code != 200:
                     logger.warning(

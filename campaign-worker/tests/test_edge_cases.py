@@ -753,7 +753,7 @@ class TestCallbackEdgeCases:
             mock_client_cls.return_value = mock_instance
 
             # Should not raise
-            await _send_callback(999, "failed", "test error")
+            await _send_callback(999, "failed", error_message="test error")
 
     @pytest.mark.asyncio
     async def test_callback_server_error(self):
@@ -769,7 +769,7 @@ class TestCallbackEdgeCases:
             mock_client_cls.return_value = mock_instance
 
             # Should not raise
-            await _send_callback(999, "completed", "test")
+            await _send_callback(999, "completed")
 
 
 # ============================================================

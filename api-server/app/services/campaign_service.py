@@ -146,17 +146,23 @@ async def add_keywords_to_pool(
     """Add keywords to a campaign's rotation pool.
 
     Returns the count of newly added keywords (skips duplicates).
+    Uses a single batch query to check existing keywords instead of N+1 queries.
     """
+    if not keywords:
+        return 0
+
+    # Batch check: fetch all existing keywords for this campaign in one query
+    existing_result = await db.execute(
+        select(CampaignKeywordPool.keyword).where(
+            CampaignKeywordPool.campaign_id == campaign_id,
+            CampaignKeywordPool.keyword.in_(keywords),
+        )
+    )
+    existing_keywords = {row[0] for row in existing_result.all()}
+
     added = 0
     for kw in keywords:
-        # Check for existing (UNIQUE constraint)
-        exists = await db.execute(
-            select(CampaignKeywordPool).where(
-                CampaignKeywordPool.campaign_id == campaign_id,
-                CampaignKeywordPool.keyword == kw,
-            )
-        )
-        if exists.scalar_one_or_none() is None:
+        if kw not in existing_keywords:
             pool_entry = CampaignKeywordPool(
                 campaign_id=campaign_id,
                 keyword=kw,
@@ -189,6 +195,10 @@ async def handle_campaign_callback(
         campaign.registration_step = "completed"
     elif status == "completed":
         campaign.status = CampaignStatus.COMPLETED.value
+    elif status == "extended":
+        # Extension: campaign-worker already updated the DB directly.
+        # This callback is informational -- no status change needed.
+        campaign.registration_message = f"Extended at {now.isoformat()}"
     elif status == "failed":
         campaign.status = CampaignStatus.FAILED.value
         campaign.registration_message = error_message

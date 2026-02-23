@@ -136,12 +136,31 @@ async def _update_step(
         await session.rollback()
 
 
-async def _send_callback(campaign_id: int, status: str, message: str = "") -> None:
-    """Send completion callback to api-server."""
+async def _send_callback(
+    campaign_id: int,
+    status: str,
+    campaign_code: Optional[str] = None,
+    error_message: Optional[str] = None,
+    registration_step: Optional[str] = None,
+) -> None:
+    """Send completion callback to api-server.
+
+    Payload matches api-server's CampaignCallbackRequest schema:
+    - status: "active", "completed", or "failed"
+    - campaign_code: superap campaign code (on success)
+    - error_message: error details (on failure)
+    - registration_step: current step (on failure)
+    """
     callback_url = (
         f"{settings.API_SERVER_URL}/internal/callback/campaign/{campaign_id}"
     )
-    payload = {"status": status, "message": message}
+    payload: Dict[str, Any] = {"status": status}
+    if campaign_code is not None:
+        payload["campaign_code"] = campaign_code
+    if error_message is not None:
+        payload["error_message"] = error_message
+    if registration_step is not None:
+        payload["registration_step"] = registration_step
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(callback_url, json=payload)
@@ -197,7 +216,7 @@ async def register_campaign(campaign_id: int) -> dict:
                 session, campaign_id, "failed",
                 f"Superap account {campaign.superap_account_id} not found",
             )
-            await _send_callback(campaign_id, "failed", "Account not found")
+            await _send_callback(campaign_id, "failed", error_message="Account not found")
             return {"success": False, "error": "Account not found"}
 
         # Load template
@@ -213,7 +232,7 @@ async def register_campaign(campaign_id: int) -> dict:
                 session, campaign_id, "failed",
                 f"Template not found for type: {campaign.campaign_type}",
             )
-            await _send_callback(campaign_id, "failed", "Template not found")
+            await _send_callback(campaign_id, "failed", error_message="Template not found")
             return {"success": False, "error": "Template not found"}
 
     # Perform Playwright automation outside the DB session
@@ -236,7 +255,7 @@ async def register_campaign(campaign_id: int) -> dict:
                     session, campaign_id, "failed",
                     f"Login failed: {account.user_id_superap}",
                 )
-            await _send_callback(campaign_id, "failed", "Login failed")
+            await _send_callback(campaign_id, "failed", error_message="Login failed")
             return {"success": False, "error": "Login failed"}
 
         # Step 2: Prepare form data
@@ -310,7 +329,7 @@ async def register_campaign(campaign_id: int) -> dict:
             error_msg = f"Form fill failed: {', '.join(form_result.errors)}"
             async with async_session_factory() as session:
                 await _update_step(session, campaign_id, "failed", error_msg)
-            await _send_callback(campaign_id, "failed", error_msg)
+            await _send_callback(campaign_id, "failed", error_message=error_msg)
             return {"success": False, "error": error_msg}
 
         # Step 4: Submit
@@ -325,7 +344,7 @@ async def register_campaign(campaign_id: int) -> dict:
             error_msg = f"Submit failed: {submit_result.error_message}"
             async with async_session_factory() as session:
                 await _update_step(session, campaign_id, "failed", error_msg)
-            await _send_callback(campaign_id, "failed", error_msg)
+            await _send_callback(campaign_id, "failed", error_message=error_msg)
             return {"success": False, "error": error_msg}
 
         # Step 5: Extract campaign code
@@ -377,7 +396,7 @@ async def register_campaign(campaign_id: int) -> dict:
             )
             await session.commit()
 
-        await _send_callback(campaign_id, "completed", f"Campaign code: {campaign_code}")
+        await _send_callback(campaign_id, "active", campaign_code=campaign_code)
 
         logger.info(
             f"Campaign {campaign_id} registered successfully: code={campaign_code}"
@@ -392,20 +411,20 @@ async def register_campaign(campaign_id: int) -> dict:
         error_msg = f"Login error: {str(e)}"
         async with async_session_factory() as session:
             await _update_step(session, campaign_id, "failed", error_msg)
-        await _send_callback(campaign_id, "failed", error_msg)
+        await _send_callback(campaign_id, "failed", error_message=error_msg)
         return {"success": False, "error": error_msg}
     except SuperapCampaignError as e:
         error_msg = f"Superap error: {str(e)}"
         async with async_session_factory() as session:
             await _update_step(session, campaign_id, "failed", error_msg)
-        await _send_callback(campaign_id, "failed", error_msg)
+        await _send_callback(campaign_id, "failed", error_message=error_msg)
         return {"success": False, "error": error_msg}
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
         logger.exception(f"Campaign {campaign_id} registration failed")
         async with async_session_factory() as session:
             await _update_step(session, campaign_id, "failed", error_msg)
-        await _send_callback(campaign_id, "failed", error_msg)
+        await _send_callback(campaign_id, "failed", error_message=error_msg)
         return {"success": False, "error": error_msg}
     finally:
         if client:
@@ -490,10 +509,7 @@ async def extend_campaign(
             )
             await session.commit()
 
-        await _send_callback(
-            campaign_id, "extended",
-            f"Extended: total={updated_total}, end_date={new_end_date}",
-        )
+        await _send_callback(campaign_id, "extended")
 
         return {
             "success": True,

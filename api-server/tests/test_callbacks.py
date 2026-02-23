@@ -233,6 +233,34 @@ class TestCampaignCallback:
         )
         assert resp.status_code == 200
 
+    async def test_campaign_extended(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_company: Company,
+        distributor: User,
+    ):
+        oi, campaign, state = await _create_campaign_setup(
+            db_session, test_company, distributor,
+        )
+        # Set campaign to active first (extension requires active campaign)
+        campaign.status = CampaignStatus.ACTIVE.value
+        campaign.campaign_code = "CAM-EXT"
+        # Move pipeline to campaign_active for the extension callback
+        state.current_stage = PipelineStage.CAMPAIGN_ACTIVE.value
+        await db_session.flush()
+        await db_session.commit()
+
+        resp = await client.post(
+            f"/internal/callback/campaign/{campaign.id}",
+            json={
+                "status": "extended",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "extended" in data["message"]
+
     async def test_campaign_not_found(
         self,
         client: AsyncClient,

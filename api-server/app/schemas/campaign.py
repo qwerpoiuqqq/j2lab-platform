@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.models.campaign import CampaignStatus
 
 
 class CampaignCreate(BaseModel):
@@ -19,11 +21,18 @@ class CampaignCreate(BaseModel):
     start_date: date
     end_date: date
     daily_limit: int = Field(..., ge=1)
-    total_limit: int | None = None
+    total_limit: int | None = Field(None, ge=1)
     agency_name: str | None = None
     superap_account_id: int | None = None
     network_preset_id: int | None = None
     company_id: int | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        """Ensure end_date >= start_date."""
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be >= start_date")
+        return self
 
 
 class CampaignUpdate(BaseModel):
@@ -38,6 +47,18 @@ class CampaignUpdate(BaseModel):
     landmark_name: str | None = None
     step_count: int | None = None
     module_context: Any = None
+
+    @model_validator(mode="after")
+    def validate_status(self):
+        """Ensure status is a valid CampaignStatus value if provided."""
+        if self.status is not None:
+            valid_values = [s.value for s in CampaignStatus]
+            if self.status not in valid_values:
+                raise ValueError(
+                    f"Invalid campaign status '{self.status}'. "
+                    f"Valid values: {valid_values}"
+                )
+        return self
 
 
 class CampaignResponse(BaseModel):
@@ -88,13 +109,32 @@ class CampaignKeywordAddRequest(BaseModel):
     """Request to add keywords to a campaign."""
 
     keywords: list[str] = Field(..., min_length=1)
-    round_number: int = 1
+    round_number: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def validate_keywords(self):
+        """Validate individual keyword constraints."""
+        for i, kw in enumerate(self.keywords):
+            if not kw or not kw.strip():
+                raise ValueError(
+                    f"Keyword at index {i} is empty or whitespace-only"
+                )
+            if len(kw) > 255:
+                raise ValueError(
+                    f"Keyword at index {i} exceeds 255 characters "
+                    f"(length={len(kw)})"
+                )
+        return self
 
 
 class CampaignCallbackRequest(BaseModel):
     """Callback request from campaign-worker."""
 
-    status: str = Field(..., description="active, completed, or failed")
+    status: str = Field(
+        ...,
+        pattern="^(active|completed|extended|failed)$",
+        description="active, completed, extended, or failed",
+    )
     campaign_code: str | None = None
     error_message: str | None = None
     registration_step: str | None = None
