@@ -1,0 +1,47 @@
+"""CampaignTemplate schemas: request/response models."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class CampaignTemplateUpdate(BaseModel):
+    """Schema for updating a campaign template."""
+
+    description_template: str | None = None
+    hint_text: str | None = None
+    campaign_type_selection: str | None = None
+    links: list[Any] | None = None
+    hashtag: str | None = None
+    image_url_200x600: str | None = None
+    image_url_720x780: str | None = None
+    conversion_text_template: str | None = None
+    steps_start: str | None = None
+    modules: list[Any] | None = None
+    is_active: bool | None = None
+
+
+class CampaignTemplateResponse(BaseModel):
+    """Campaign template response model."""
+
+    id: int
+    code: str
+    type_name: str
+    description_template: str
+    hint_text: str
+    campaign_type_selection: str | None = None
+    links: list[Any] | None = None
+    hashtag: str | None = None
+    image_url_200x600: str | None = None
+    image_url_720x780: str | None = None
+    conversion_text_template: str | None = None
+    steps_start: str | None = None
+    modules: list[Any] | None = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
