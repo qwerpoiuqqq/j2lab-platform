@@ -157,7 +157,8 @@ def generate_region_keywords(region: RegionInfo) -> List[str]:
             station_list.append(station)
             if station not in result:
                 result.append(station)
-            base = station.replace("역", "")
+            # Remove trailing "역" suffix only (not all occurrences)
+            base = station[:-1] if station.endswith("역") else station
             if len(base) >= 2 and base not in result:
                 result.append(base)
                 core_regions.append(base)

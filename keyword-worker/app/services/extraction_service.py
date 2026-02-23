@@ -53,30 +53,38 @@ class ExtractionService:
             job_id: ExtractionJob.id to execute.
         """
         self._running_jobs[job_id] = True
-
-        async with async_session_factory() as db:
-            job = await db.get(ExtractionJob, job_id)
-            if not job:
-                logger.error("Job %d not found", job_id)
-                return
-
-            if job.status != ExtractionJobStatus.QUEUED.value:
-                logger.warning(
-                    "Job %d is not queued (status: %s), skipping",
-                    job_id,
-                    job.status,
-                )
-                return
-
-            # Mark as running
-            job.status = ExtractionJobStatus.RUNNING.value
-            job.started_at = datetime.now(timezone.utc)
-            job.worker_id = f"kw-worker-{settings.WORKER_PORT}"
-            await db.commit()
+        db_place_id = 0  # Track place_id for failure callback
 
         try:
+            # Load job data and capture all needed attributes before closing session
+            async with async_session_factory() as db:
+                job = await db.get(ExtractionJob, job_id)
+                if not job:
+                    logger.error("Job %d not found", job_id)
+                    return
+
+                if job.status != ExtractionJobStatus.QUEUED.value:
+                    logger.warning(
+                        "Job %d is not queued (status: %s), skipping",
+                        job_id,
+                        job.status,
+                    )
+                    return
+
+                # Capture needed attributes before session closes
+                job_naver_url = job.naver_url
+                job_target_count = job.target_count
+                job_max_rank = job.max_rank
+                job_name_keyword_ratio = job.name_keyword_ratio
+
+                # Mark as running
+                job.status = ExtractionJobStatus.RUNNING.value
+                job.started_at = datetime.now(timezone.utc)
+                job.worker_id = f"kw-worker-{settings.WORKER_PORT}"
+                await db.commit()
+
             # Phase 0: Parse URL
-            parsed = parse_place_url(job.naver_url)
+            parsed = parse_place_url(job_naver_url)
             if not parsed.is_valid:
                 await self._fail_job(
                     job_id, f"Invalid URL: {parsed.error_message}"
@@ -93,7 +101,7 @@ class ExtractionService:
                 await self._cancel_job(job_id)
                 return
 
-            place_data = await self._scrape_place(job.naver_url)
+            place_data = await self._scrape_place(job_naver_url)
             if not place_data:
                 await self._fail_job(
                     job_id, "Failed to scrape place data"
@@ -127,8 +135,8 @@ class ExtractionService:
 
             keyword_pool = generate_keyword_pool(
                 place_data,
-                target_count=job.target_count,
-                name_keyword_ratio=job.name_keyword_ratio,
+                target_count=job_target_count,
+                name_keyword_ratio=job_name_keyword_ratio,
             )
             logger.info(
                 "Job %d: Generated %d keyword candidates",
@@ -145,8 +153,8 @@ class ExtractionService:
             rank_results, final_keywords = await self._check_ranks(
                 keywords=all_keywords,
                 place_id=place_id_str,
-                max_rank=job.max_rank,
-                target_count=job.target_count,
+                max_rank=job_max_rank,
+                target_count=job_target_count,
             )
 
             logger.info(
@@ -161,7 +169,7 @@ class ExtractionService:
                 return
 
             saved_count = await self._save_keywords(
-                db_place_id, rank_results, final_keywords, job.target_count
+                db_place_id, rank_results, final_keywords, job_target_count
             )
 
             # Finalize job
@@ -180,7 +188,7 @@ class ExtractionService:
         except Exception as e:
             logger.exception("Job %d failed: %s", job_id, e)
             await self._fail_job(job_id, str(e))
-            await self._send_callback(job_id, "failed", 0, 0)
+            await self._send_callback(job_id, "failed", 0, db_place_id)
         finally:
             self._running_jobs.pop(job_id, None)
 

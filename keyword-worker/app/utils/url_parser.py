@@ -87,6 +87,16 @@ def parse_place_url(url: str) -> ParsedURL:
 
     place_type = type_mapping.get(place_type_str, PlaceType.UNKNOWN)
 
+    # If the place type is unknown (unrecognized path segment), treat as invalid
+    if place_type == PlaceType.UNKNOWN:
+        return ParsedURL(
+            original_url=url,
+            place_type=PlaceType.UNKNOWN,
+            mid=mid,
+            is_valid=False,
+            error_message=f"Unsupported place type: {place_type_str}",
+        )
+
     return ParsedURL(
         original_url=url,
         place_type=place_type,
@@ -98,11 +108,11 @@ def parse_place_url(url: str) -> ParsedURL:
 def get_place_type_korean(place_type: PlaceType) -> str:
     """Return Korean name for the place type."""
     names = {
-        PlaceType.RESTAURANT: "restaurant",
-        PlaceType.HOSPITAL: "hospital",
-        PlaceType.HAIRSHOP: "hairshop",
-        PlaceType.NAILSHOP: "nailshop",
-        PlaceType.PLACE: "place",
-        PlaceType.UNKNOWN: "unknown",
+        PlaceType.RESTAURANT: "맛집/음식점",
+        PlaceType.HOSPITAL: "병의원",
+        PlaceType.HAIRSHOP: "미용실",
+        PlaceType.NAILSHOP: "네일샵",
+        PlaceType.PLACE: "일반 업종",
+        PlaceType.UNKNOWN: "알 수 없음",
     }
-    return names.get(place_type, "unknown")
+    return names.get(place_type, "알 수 없음")
