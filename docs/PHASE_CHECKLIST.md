@@ -54,23 +54,23 @@
 ## Phase 1B: 주문/상품/정산 (`phase-1b/orders`)
 
 ### 1B.1 모델
-- [ ] products (상품 + daily_deadline 마감시간)
-- [ ] price_policies (가격 정책)
-- [ ] orders (주문: draft→submitted→payment_confirmed)
-- [ ] order_items (주문 항목 + assigned_account_id 계정배정)
-- [ ] balance_transactions (잔액 거래)
-- [ ] system_settings (시스템 설정)
+- [x] products (상품 + daily_deadline 마감시간)
+- [x] price_policies (가격 정책)
+- [x] orders (주문: draft→submitted→payment_confirmed)
+- [x] order_items (주문 항목 + assigned_account_id 계정배정)
+- [x] balance_transactions (잔액 거래)
+- [x] system_settings (시스템 설정)
 
 ### 1B.2 CRUD + 비즈니스 로직
-- [ ] Products CRUD + 마감시간 체크
-- [ ] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
-- [ ] Orders CRUD + 상태 전이 (submit, confirm-payment, reject)
+- [x] Products CRUD + 마감시간 체크
+- [x] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
+- [x] Orders CRUD + 상태 전이 (submit, confirm-payment, reject)
 - [ ] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드
-- [ ] BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
-- [ ] 테스트
+- [x] BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
+- [x] 테스트 (229개 통과: 170 기존 + 59 엣지케이스)
 
 ### 1B.3 검증
-- [ ] Agent B 검증 완료
+- [x] Agent B 검증 완료 (2026-02-23, 59개 엣지케이스 추가)
 - [ ] Agent C 재검증 완료
 - [ ] main 브랜치 merge
 
