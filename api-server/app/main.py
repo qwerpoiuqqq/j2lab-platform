@@ -9,7 +9,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
-from app.routers import auth, balance, companies, orders, products, system_settings, users
+from app.routers import (
+    assignment,
+    auth,
+    balance,
+    campaign_templates,
+    campaigns,
+    companies,
+    extraction_jobs,
+    network_presets,
+    orders,
+    pipeline,
+    places,
+    products,
+    superap_accounts,
+    system_settings,
+    users,
+)
+from app.routers.internal import callbacks
 
 
 @asynccontextmanager
@@ -48,6 +65,19 @@ app.include_router(products.router, prefix="/api/v1")
 app.include_router(orders.router, prefix="/api/v1")
 app.include_router(balance.router, prefix="/api/v1")
 app.include_router(system_settings.router, prefix="/api/v1")
+
+# Routers - Phase 1C
+app.include_router(places.router, prefix="/api/v1")
+app.include_router(extraction_jobs.router, prefix="/api/v1")
+app.include_router(campaigns.router, prefix="/api/v1")
+app.include_router(network_presets.router, prefix="/api/v1")
+app.include_router(superap_accounts.router, prefix="/api/v1")
+app.include_router(campaign_templates.router, prefix="/api/v1")
+app.include_router(assignment.router, prefix="/api/v1")
+app.include_router(pipeline.router, prefix="/api/v1")
+
+# Internal callback router (no /api/v1 prefix)
+app.include_router(callbacks.router)
 
 
 @app.get("/health", tags=["health"])

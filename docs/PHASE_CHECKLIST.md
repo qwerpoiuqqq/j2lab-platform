@@ -81,34 +81,34 @@
 ## Phase 1C: 파이프라인/통합 모델 (`phase-1c/pipeline`)
 
 ### 1C.1 모델
-- [ ] places (플레이스 + virtual_phone)
-- [ ] keywords + keyword_rank_history
-- [ ] extraction_jobs (추출 작업)
-- [ ] network_presets (네트워크 프리셋: 계정군 + 매체 타겟팅 설정)
-- [ ] superap_accounts (슈퍼앱 계정 + network_preset_id + unit_cost)
-- [ ] campaigns (campaign_type 영문 + module_context + network_preset_id)
-- [ ] campaign_keyword_pool (중복 제외 로직)
-- [ ] campaign_templates (code 컬럼으로 영문 매핑: traffic/save/landmark)
-- [ ] pipeline_states (cancelled 포함, UNIQUE order_item_id) + pipeline_logs
+- [x] places (플레이스 + virtual_phone)
+- [x] keywords + keyword_rank_history
+- [x] extraction_jobs (추출 작업)
+- [x] network_presets (네트워크 프리셋: 계정군 + 매체 타겟팅 설정)
+- [x] superap_accounts (슈퍼앱 계정 + network_preset_id + unit_cost)
+- [x] campaigns (campaign_type 영문 + module_context + network_preset_id)
+- [x] campaign_keyword_pool (중복 제외 로직)
+- [x] campaign_templates (code 컬럼으로 영문 매핑: traffic/save/landmark)
+- [x] pipeline_states (cancelled 포함, UNIQUE order_item_id) + pipeline_logs
 
 ### 1C.2 CRUD + 서비스
-- [ ] Places/Keywords/RankHistory CRUD
-- [ ] ExtractionJobs CRUD
-- [ ] NetworkPresets CRUD (company_admin 전용, 매체 타겟팅 JSONB)
-- [ ] SuperapAccounts CRUD (company_admin 전용, AES 암호화, 프리셋 연결)
-- [ ] Campaigns CRUD
-- [ ] CampaignKeywordPool CRUD (UNIQUE 제약 중복 제외)
-- [ ] CampaignTemplates CRUD
-- [ ] PipelineStates + Logs CRUD
-- [ ] 자동 배정 서비스 (연장 판정 + 네트워크 순서 + 10,000타 제한)
-- [ ] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
-- [ ] 워커 콜백 API (/internal/callback/*)
-- [ ] Alembic 마이그레이션 (전체 20개 테이블)
-- [ ] 테스트
+- [x] Places/Keywords/RankHistory CRUD
+- [x] ExtractionJobs CRUD
+- [x] NetworkPresets CRUD (company_admin 전용, 매체 타겟팅 JSONB)
+- [x] SuperapAccounts CRUD (company_admin 전용, AES 암호화, 프리셋 연결)
+- [x] Campaigns CRUD
+- [x] CampaignKeywordPool CRUD (UNIQUE 제약 중복 제외)
+- [x] CampaignTemplates CRUD
+- [x] PipelineStates + Logs CRUD
+- [x] 자동 배정 서비스 (연장 판정 + 네트워크 순서 + 10,000타 제한)
+- [x] 계정 배정 API (company_admin 전용, 응답 필드 필터링)
+- [x] 워커 콜백 API (/internal/callback/*)
+- [x] Alembic 마이그레이션 (전체 20개 테이블)
+- [x] 테스트 (332개 통과: 284 Phase 1A-C + 48 Phase 1C 엣지케이스)
 
 ### 1C.3 검증
-- [ ] Agent B 검증 완료
-- [ ] Agent C 재검증 완료
+- [x] Agent B 검증 완료 (2026-02-23, 48개 엣지케이스 추가, pipeline_state 중복 전이 수정)
+- [x] Agent C 재검증 완료 (2026-02-23, 332개 테스트 100% 통과, 20개 테이블 마이그레이션 확인, 보안 리뷰 완료)
 - [ ] main 브랜치 merge
 
 ---

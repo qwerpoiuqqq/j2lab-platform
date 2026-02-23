@@ -186,6 +186,10 @@ class OrderItem(Base):
         ForeignKey("products.id"),
         nullable=False,
     )
+    place_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("places.id"),
+    )
     row_number: Mapped[Optional[int]] = mapped_column(Integer)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     unit_price: Mapped[int] = mapped_column(Numeric(12, 0), nullable=False)
@@ -198,8 +202,11 @@ class OrderItem(Base):
     )
     result_message: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Assignment fields (Phase 1C will connect to superap_accounts)
-    assigned_account_id: Mapped[Optional[int]] = mapped_column(Integer)
+    # Assignment fields
+    assigned_account_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("superap_accounts.id"),
+    )
     assignment_status: Mapped[str] = mapped_column(
         String(20),
         default=AssignmentStatus.PENDING.value,
@@ -236,5 +243,6 @@ class OrderItem(Base):
 
     __table_args__ = (
         Index("idx_order_items_order_id", "order_id"),
+        Index("idx_order_items_place_id", "place_id"),
         Index("idx_order_items_status", "status"),
     )
