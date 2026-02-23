@@ -80,8 +80,9 @@ async def create_preset(
     try:
         preset = await network_preset_service.create_preset(db, body)
     except Exception as e:
-        # Handle unique constraint violation
-        if "uq_network_presets_company_type_tier" in str(e):
+        # Handle unique constraint violation (IntegrityError from SQLAlchemy)
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str or "uq_network_presets" in error_str:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
@@ -89,7 +90,11 @@ async def create_preset(
                     f"already exists for this company/campaign_type"
                 ),
             )
-        raise
+        # Re-raise without leaking internal details
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create network preset",
+        )
     return preset
 
 

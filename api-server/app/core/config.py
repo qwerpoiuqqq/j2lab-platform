@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # === AES Encryption (for superap passwords) ===
+    AES_ENCRYPTION_KEY: str | None = None  # Falls back to SECRET_KEY if not set
+
     # === CORS ===
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

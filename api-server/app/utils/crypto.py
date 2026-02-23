@@ -1,9 +1,8 @@
 """AES encryption/decryption utility for superap_accounts passwords.
 
 Uses Fernet symmetric encryption (AES-128-CBC under the hood) from the
-cryptography library. The encryption key is derived from the app SECRET_KEY.
-
-For production, a dedicated AES_KEY environment variable should be used.
+cryptography library. The encryption key is derived from AES_ENCRYPTION_KEY
+(preferred) or falls back to SECRET_KEY if not set.
 """
 
 from __future__ import annotations
@@ -17,12 +16,14 @@ from app.core.config import settings
 
 
 def _get_fernet() -> Fernet:
-    """Get a Fernet instance derived from SECRET_KEY.
+    """Get a Fernet instance derived from AES_ENCRYPTION_KEY or SECRET_KEY.
 
     Fernet requires a 32-byte URL-safe base64-encoded key.
-    We derive it from SECRET_KEY via SHA-256 and base64 encoding.
+    We derive it via SHA-256 and base64 encoding.
+    Uses AES_ENCRYPTION_KEY if set, otherwise falls back to SECRET_KEY.
     """
-    key_bytes = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    source_key = settings.AES_ENCRYPTION_KEY or settings.SECRET_KEY
+    key_bytes = hashlib.sha256(source_key.encode()).digest()
     fernet_key = base64.urlsafe_b64encode(key_bytes)
     return Fernet(fernet_key)
 
