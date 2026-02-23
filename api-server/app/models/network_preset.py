@@ -61,7 +61,7 @@ class NetworkPreset(Base):
     accounts: Mapped[List["SuperapAccount"]] = relationship(
         "SuperapAccount",
         back_populates="network_preset",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

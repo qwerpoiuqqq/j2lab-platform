@@ -327,8 +327,12 @@ async def get_assignment_queue(
 async def get_place_network_history(
     db: AsyncSession,
     place_id: int,
+    limit: int = 100,
 ) -> list[Campaign]:
-    """Get network usage history for a place (all campaign types)."""
+    """Get network usage history for a place (all campaign types).
+
+    Limited to prevent unbounded result sets.
+    """
     result = await db.execute(
         select(Campaign)
         .where(
@@ -338,5 +342,6 @@ async def get_place_network_history(
             )
         )
         .order_by(Campaign.created_at.desc())
+        .limit(limit)
     )
     return list(result.scalars().all())

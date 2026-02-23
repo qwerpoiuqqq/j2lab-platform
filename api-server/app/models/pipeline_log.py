@@ -55,7 +55,7 @@ class PipelineLog(Base):
     pipeline_state: Mapped["PipelineState"] = relationship(
         "PipelineState",
         back_populates="logs",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

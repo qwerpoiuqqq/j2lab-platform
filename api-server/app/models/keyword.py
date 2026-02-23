@@ -60,7 +60,7 @@ class Keyword(Base):
     place: Mapped["Place"] = relationship(
         "Place",
         back_populates="extracted_keywords",
-        lazy="selectin",
+        lazy="noload",
     )
     rank_history: Mapped[List["KeywordRankHistory"]] = relationship(
         "KeywordRankHistory",

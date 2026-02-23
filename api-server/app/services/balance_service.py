@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import CompileError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.balance_transaction import BalanceTransaction, TransactionType
@@ -73,8 +74,8 @@ async def _lock_user_balance(
             .where(User.id == user_id)
             .with_for_update()
         )
-    except Exception:
-        # Fallback for SQLite
+    except (CompileError, OperationalError, NotImplementedError):
+        # Fallback for SQLite (which doesn't support FOR UPDATE)
         result = await db.execute(
             select(User).where(User.id == user_id)
         )

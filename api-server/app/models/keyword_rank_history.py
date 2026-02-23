@@ -55,7 +55,7 @@ class KeywordRankHistory(Base):
     keyword_ref: Mapped["Keyword"] = relationship(
         "Keyword",
         back_populates="rank_history",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

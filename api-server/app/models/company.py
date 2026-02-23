@@ -37,5 +37,5 @@ class Company(Base):
     users: Mapped[List["User"]] = relationship(
         "User",
         back_populates="company",
-        lazy="selectin",
+        lazy="noload",
     )

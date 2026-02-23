@@ -103,7 +103,7 @@ class Place(Base):
     extracted_keywords: Mapped[List["Keyword"]] = relationship(
         "Keyword",
         back_populates="place",
-        lazy="selectin",
+        lazy="noload",
         cascade="all, delete-orphan",
     )
 

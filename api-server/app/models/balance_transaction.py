@@ -79,7 +79,7 @@ class BalanceTransaction(Base):
     user: Mapped["User"] = relationship(
         "User",
         foreign_keys=[user_id],
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

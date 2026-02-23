@@ -159,14 +159,19 @@ async def get_user_descendants(
 async def build_user_tree(
     db: AsyncSession,
     root_user: User,
+    max_depth: int = 5,
 ) -> UserTreeNode:
-    """Build a recursive tree of a user and their descendants."""
-    children = await get_user_descendants(db, root_user.id)
+    """Build a recursive tree of a user and their descendants.
 
-    child_nodes = []
-    for child in children:
-        child_node = await build_user_tree(db, child)
-        child_nodes.append(child_node)
+    Uses max_depth to prevent unbounded recursion (hierarchy is max 5 levels).
+    """
+    children_nodes: list[UserTreeNode] = []
+
+    if max_depth > 0:
+        children = await get_user_descendants(db, root_user.id)
+        for child in children:
+            child_node = await build_user_tree(db, child, max_depth=max_depth - 1)
+            children_nodes.append(child_node)
 
     return UserTreeNode(
         id=root_user.id,
@@ -174,7 +179,7 @@ async def build_user_tree(
         name=root_user.name,
         role=root_user.role,
         is_active=root_user.is_active,
-        children=child_nodes,
+        children=children_nodes,
     )
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ExtractionJobCreate(BaseModel):
@@ -17,6 +17,15 @@ class ExtractionJobCreate(BaseModel):
     max_rank: int = Field(default=50, ge=1, le=100)
     min_rank: int = Field(default=1, ge=1)
     name_keyword_ratio: float = Field(default=0.30, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_rank_range(self):
+        """Ensure min_rank <= max_rank."""
+        if self.min_rank > self.max_rank:
+            raise ValueError(
+                f"min_rank ({self.min_rank}) must be <= max_rank ({self.max_rank})"
+            )
+        return self
 
 
 class ExtractionJobResponse(BaseModel):
@@ -47,7 +56,11 @@ class ExtractionJobResponse(BaseModel):
 class ExtractionCallbackRequest(BaseModel):
     """Callback request from keyword-worker."""
 
-    status: str = Field(..., description="completed or failed")
+    status: str = Field(
+        ...,
+        pattern="^(completed|failed|running)$",
+        description="completed, failed, or running",
+    )
     result_count: int | None = None
     place_id: int | None = None
     place_name: str | None = None

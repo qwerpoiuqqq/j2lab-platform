@@ -54,7 +54,7 @@ class CampaignKeywordPool(Base):
     campaign: Mapped["Campaign"] = relationship(
         "Campaign",
         back_populates="keyword_pool",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

@@ -56,11 +56,11 @@ class PricePolicy(Base):
     product: Mapped["Product"] = relationship(
         "Product",
         back_populates="price_policies",
-        lazy="selectin",
+        lazy="noload",
     )
     user: Mapped[Optional["User"]] = relationship(
         "User",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (

@@ -48,7 +48,7 @@ class RefreshToken(Base):
     user: Mapped["User"] = relationship(
         "User",
         back_populates="refresh_tokens",
-        lazy="selectin",
+        lazy="noload",
     )
 
     __table_args__ = (
