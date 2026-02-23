@@ -1817,21 +1817,21 @@ j2lab-platform/
 
 ### Phase 1B: 주문/상품/정산
 
-- [ ] products 테이블 + 모델 (daily_deadline 포함)
-- [ ] price_policies 테이블 + 모델
-- [ ] orders 테이블 + 모델 (draft→submitted→payment_confirmed 상태)
-- [ ] order_items 테이블 + 모델 (assigned_account_id 포함)
-- [ ] balance_transactions 테이블 + 모델
-- [ ] system_settings 테이블 + 모델
-- [ ] Products CRUD
-- [ ] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
-- [ ] Orders + OrderItems CRUD (상태 전이 포함)
-- [ ] 주문 제출 (submit), 입금 확인 (confirm-payment), 반려 (reject) API
-- [ ] 엑셀 업로드 (미리보기 → 확인) + 템플릿 다운로드
-- [ ] 마감시간 체크 로직
-- [ ] BalanceTransactions CRUD (입금확인 시점 잔액 차감)
-- [ ] users.balance 동시성 보호 (SELECT FOR UPDATE)
-- [ ] 단위 테스트
+- [x] products 테이블 + 모델 (daily_deadline 포함)
+- [x] price_policies 테이블 + 모델
+- [x] orders 테이블 + 모델 (draft→submitted→payment_confirmed 상태)
+- [x] order_items 테이블 + 모델 (assigned_account_id 포함)
+- [x] balance_transactions 테이블 + 모델
+- [x] system_settings 테이블 + 모델
+- [x] Products CRUD
+- [x] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
+- [x] Orders + OrderItems CRUD (상태 전이 포함)
+- [x] 주문 제출 (submit), 입금 확인 (confirm-payment), 반려 (reject) API
+- [ ] 엑셀 업로드 (미리보기 → 확인) + 템플릿 다운로드 *(Phase 4와 함께)*
+- [ ] 마감시간 체크 로직 *(Phase 4와 함께)*
+- [x] BalanceTransactions CRUD (입금확인 시점 잔액 차감)
+- [x] users.balance 동시성 보호 (SELECT FOR UPDATE)
+- [x] 단위 테스트 (229개 통과)
 
 ### Phase 1C: 파이프라인/통합 모델
 

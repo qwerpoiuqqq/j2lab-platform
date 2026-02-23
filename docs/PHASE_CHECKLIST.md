@@ -64,14 +64,16 @@
 ### 1B.2 CRUD + 비즈니스 로직
 - [x] Products CRUD + 마감시간 체크
 - [x] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
-- [x] Orders CRUD + 상태 전이 (submit, confirm-payment, reject)
-- [ ] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드
+- [x] Orders CRUD + 상태 전이 (submit, confirm-payment, reject, cancel)
+- [ ] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드 *(Phase 4 프론트엔드와 함께 구현 예정)*
+- [ ] 마감시간 체크 로직 (deadline-status API) *(Phase 4 프론트엔드와 함께 구현 예정)*
 - [x] BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
-- [x] 테스트 (229개 통과: 170 기존 + 59 엣지케이스)
+- [x] SystemSettings CRUD (system_admin 전용, JSONB 값 upsert)
+- [x] 테스트 (229개 통과: 121 Phase 1A + 108 Phase 1B)
 
 ### 1B.3 검증
 - [x] Agent B 검증 완료 (2026-02-23, 59개 엣지케이스 추가)
-- [ ] Agent C 재검증 완료
+- [x] Agent C 재검증 완료 (2026-02-23, 229개 테스트 100% 통과, 보안 리뷰 완료)
 - [ ] main 브랜치 merge
 
 ---
