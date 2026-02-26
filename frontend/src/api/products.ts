@@ -4,7 +4,7 @@ import type { Product, PaginatedResponse } from '@/types';
 export const productsApi = {
   list: async (params?: {
     page?: number;
-    page_size?: number;
+    size?: number;
     is_active?: boolean;
   }): Promise<PaginatedResponse<Product>> => {
     const response = await apiClient.get<PaginatedResponse<Product>>('/products', { params });

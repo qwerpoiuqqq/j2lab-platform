@@ -11,13 +11,14 @@ interface CampaignListProps {
 
 function getStatusBadgeVariant(status: string) {
   const map: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    pending_registration: 'default',
+    pending: 'default',
+    queued: 'info',
     registering: 'info',
     active: 'success',
     paused: 'warning',
     completed: 'success',
     failed: 'danger',
-    cancelled: 'danger',
+    expired: 'danger',
   };
   return map[status] || 'default';
 }
@@ -39,7 +40,7 @@ export default function CampaignList({ campaigns, loading }: CampaignListProps) 
       key: 'place',
       header: '플레이스',
       render: (c) => (
-        <span className="text-gray-600">{c.place?.name || '-'}</span>
+        <span className="text-gray-600">{c.place_name || '-'}</span>
       ),
     },
     {
@@ -60,10 +61,10 @@ export default function CampaignList({ campaigns, loading }: CampaignListProps) 
       ),
     },
     {
-      key: 'keywords_count',
-      header: '키워드수',
+      key: 'campaign_type',
+      header: '유형',
       render: (c) => (
-        <span className="text-gray-600">{c.keywords_count || 0}개</span>
+        <span className="text-gray-600">{c.campaign_type || '-'}</span>
       ),
     },
     {

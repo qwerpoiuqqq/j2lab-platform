@@ -42,7 +42,7 @@ export default function OrderList({ orders, loading }: OrderListProps) {
       header: '주문자',
       render: (order) => (
         <div>
-          <p className="text-gray-900">{order.user?.name || '-'}</p>
+          <p className="text-gray-900">{order.user?.name || order.user_id || '-'}</p>
           <p className="text-xs text-gray-500">{order.company?.name || ''}</p>
         </div>
       ),

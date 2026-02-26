@@ -4,40 +4,7 @@ import CampaignDetailComponent from '@/components/features/campaigns/CampaignDet
 import Button from '@/components/common/Button';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import type { Campaign, CampaignKeyword } from '@/types';
-
-// Mock data
-const mockCampaign: Campaign = {
-  id: 1,
-  campaign_code: 'CMP-20260220-001',
-  place: {
-    id: 1,
-    name: '맛있는 식당',
-    category: '음식점',
-    address: '서울 강남구 역삼동 123-45',
-    url: 'https://map.naver.com/v5/entry/place/1234567890',
-    created_at: '2026-02-20T00:00:00Z',
-  },
-  status: 'active',
-  start_date: '2026-02-20',
-  end_date: '2026-03-22',
-  daily_limit: 100,
-  total_budget: 300000,
-  keywords_count: 8,
-  current_keyword: '강남역 맛집',
-  last_rotation_at: '2026-02-23T08:00:00Z',
-  created_at: '2026-02-20T00:00:00Z',
-};
-
-const mockKeywords: CampaignKeyword[] = [
-  { id: 1, campaign_id: 1, keyword: '강남역 맛집', is_used: true, used_at: '2026-02-23T08:00:00Z', rank: 3, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 2, campaign_id: 1, keyword: '역삼동 맛집', is_used: true, used_at: '2026-02-22T08:00:00Z', rank: 5, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 3, campaign_id: 1, keyword: '강남 점심 추천', is_used: true, used_at: '2026-02-21T08:00:00Z', rank: 8, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 4, campaign_id: 1, keyword: '강남역 근처 식당', is_used: false, rank: 12, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 5, campaign_id: 1, keyword: '역삼 점심', is_used: false, rank: 7, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 6, campaign_id: 1, keyword: '강남 맛있는 식당', is_used: false, rank: 15, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 7, campaign_id: 1, keyword: '강남역 회식', is_used: false, rank: 22, last_rank_check: '2026-02-23T10:00:00Z' },
-  { id: 8, campaign_id: 1, keyword: '역삼 맛집 추천', is_used: false, rank: 4, last_rank_check: '2026-02-23T10:00:00Z' },
-];
+import { campaignsApi } from '@/api/campaigns';
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,24 +12,56 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [keywords, setKeywords] = useState<CampaignKeyword[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    // TODO: Replace with actual API call
-    setTimeout(() => {
-      setCampaign({ ...mockCampaign, id: Number(id) });
-      setKeywords(mockKeywords);
+  const loadCampaign = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [campaignData, keywordsData] = await Promise.all([
+        campaignsApi.get(Number(id)),
+        campaignsApi.getKeywords(Number(id)),
+      ]);
+      setCampaign(campaignData);
+      setKeywords(keywordsData.items);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '캠페인을 불러오지 못했습니다.');
+    } finally {
       setLoading(false);
-    }, 300);
+    }
+  };
+
+  useEffect(() => {
+    loadCampaign();
   }, [id]);
 
   const handleAction = async (action: string) => {
+    if (!id) return;
     setActionLoading(true);
-    console.log(`Action: ${action} on campaign ${id}`);
-    // TODO: Call actual API
-    setTimeout(() => {
+    try {
+      let updated: Campaign;
+      switch (action) {
+        case 'pause':
+          updated = await campaignsApi.pause(Number(id));
+          break;
+        case 'resume':
+          updated = await campaignsApi.resume(Number(id));
+          break;
+        case 'rotate':
+          updated = await campaignsApi.rotateKeywords(Number(id));
+          break;
+        default:
+          setActionLoading(false);
+          return;
+      }
+      setCampaign(updated);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '작업에 실패했습니다.');
+    } finally {
       setActionLoading(false);
-    }, 500);
+    }
   };
 
   if (loading || !campaign) {
@@ -70,6 +69,24 @@ export default function CampaignDetailPage() {
       <div className="space-y-6 animate-pulse">
         <div className="bg-white rounded-xl border border-gray-200 h-48" />
         <div className="bg-white rounded-xl border border-gray-200 h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/campaigns')}
+          icon={<ArrowLeftIcon className="h-4 w-4" />}
+        >
+          목록으로
+        </Button>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+          {error}
+        </div>
       </div>
     );
   }

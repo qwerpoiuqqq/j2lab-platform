@@ -4,7 +4,7 @@ import type { User, CreateUserRequest, UpdateUserRequest, PaginatedResponse } fr
 export const usersApi = {
   list: async (params?: {
     page?: number;
-    page_size?: number;
+    size?: number;
     role?: string;
     company_id?: number;
     is_active?: boolean;

@@ -45,8 +45,8 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
     onSubmit({
       items: items.map((item) => ({
         product_id: item.product_id,
-        place_url: item.place_url,
         quantity: item.quantity,
+        item_data: { place_url: item.place_url },
       })),
       notes: notes || undefined,
     });

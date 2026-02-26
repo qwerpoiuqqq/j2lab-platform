@@ -6,80 +6,8 @@ import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import type { User, UserRole, Company } from '@/types';
-
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: 'u0',
-    email: 'admin@j2lab.co.kr',
-    name: '시스템관리자',
-    role: 'system_admin',
-    balance: 0,
-    is_active: true,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 'u1',
-    email: 'admin@ilryu.co.kr',
-    name: '일류 관리자',
-    role: 'company_admin',
-    company_id: 1,
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    balance: 10000000,
-    is_active: true,
-    created_at: '2026-01-05T00:00:00Z',
-  },
-  {
-    id: 'u2',
-    email: 'handler@ilryu.co.kr',
-    name: '최담당',
-    role: 'order_handler',
-    company_id: 1,
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    balance: 0,
-    is_active: true,
-    created_at: '2026-01-10T00:00:00Z',
-  },
-  {
-    id: 'u3',
-    email: 'dist@ilryu.co.kr',
-    name: '김총판',
-    role: 'distributor',
-    company_id: 1,
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    balance: 500000,
-    is_active: true,
-    created_at: '2026-02-01T00:00:00Z',
-  },
-  {
-    id: 'u4',
-    email: 'sub1@ilryu.co.kr',
-    name: '이하부',
-    role: 'sub_account',
-    company_id: 1,
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    parent_id: 'u3',
-    balance: 200000,
-    is_active: true,
-    created_at: '2026-02-05T00:00:00Z',
-  },
-  {
-    id: 'u5',
-    email: 'admin@j2lab.co.kr',
-    name: '제이투 관리자',
-    role: 'company_admin',
-    company_id: 2,
-    company: { id: 2, name: '제이투랩', code: 'j2lab', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    balance: 5000000,
-    is_active: true,
-    created_at: '2026-01-03T00:00:00Z',
-  },
-];
-
-const mockCompanies: Company[] = [
-  { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-  { id: 2, name: '제이투랩', code: 'j2lab', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-];
+import { usersApi } from '@/api/users';
+import { companiesApi } from '@/api/companies';
 
 const roleFilterOptions = [
   { value: '', label: '전체 역할' },
@@ -92,8 +20,12 @@ const roleFilterOptions = [
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -101,29 +33,63 @@ export default function UsersPage() {
 
   useEffect(() => {
     let cancelled = false;
-    // TODO: Replace with actual API call
-    const timer = setTimeout(() => {
-      if (cancelled) return;
-      let filtered = [...mockUsers];
-      if (roleFilter) {
-        filtered = filtered.filter((u) => u.role === roleFilter);
-      }
-      if (search) {
-        const s = search.toLowerCase();
-        filtered = filtered.filter(
-          (u) =>
-            u.name.toLowerCase().includes(s) ||
-            u.email.toLowerCase().includes(s),
-        );
-      }
-      setUsers(filtered);
-      setLoading(false);
-    }, 300);
+    setLoading(true);
+    setError(null);
+
+    usersApi
+      .list({
+        page,
+        size: 20,
+        role: roleFilter || undefined,
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setUsers(data.items);
+          setTotalPages(data.pages);
+          setTotalItems(data.total);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.detail || '유저 목록을 불러오지 못했습니다.');
+          setLoading(false);
+        }
+      });
+
     return () => {
       cancelled = true;
-      clearTimeout(timer);
     };
-  }, [roleFilter, search, page, refreshKey]);
+  }, [roleFilter, page, refreshKey]);
+
+  // Load companies for create modal
+  useEffect(() => {
+    companiesApi
+      .list(1, 100)
+      .then((data) => setCompanies(data.items))
+      .catch(() => {});
+  }, []);
+
+  // Client-side search filter
+  const filteredUsers = search
+    ? users.filter((u) => {
+        const s = search.toLowerCase();
+        return (
+          u.name.toLowerCase().includes(s) ||
+          u.email.toLowerCase().includes(s)
+        );
+      })
+    : users;
+
+  const handleCreateUser = async (data: any) => {
+    try {
+      await usersApi.create(data);
+      setShowCreateModal(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '유저 생성에 실패했습니다.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -157,7 +123,10 @@ export default function UsersPage() {
         </div>
         <select
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
+          onChange={(e) => {
+            setRoleFilter(e.target.value as UserRole | '');
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         >
           {roleFilterOptions.map((opt) => (
@@ -168,15 +137,22 @@ export default function UsersPage() {
         </select>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Table */}
-      <UserList users={users} loading={loading} />
+      <UserList users={filteredUsers} loading={loading} />
 
       {/* Pagination */}
       <Pagination
         page={page}
-        totalPages={1}
+        totalPages={totalPages}
         onPageChange={setPage}
-        totalItems={mockUsers.length}
+        totalItems={totalItems}
         pageSize={20}
       />
 
@@ -188,12 +164,8 @@ export default function UsersPage() {
         size="md"
       >
         <UserForm
-          companies={mockCompanies}
-          onSubmit={(data) => {
-            console.log('Create user:', data);
-            setShowCreateModal(false);
-            setRefreshKey((k) => k + 1);
-          }}
+          companies={companies}
+          onSubmit={handleCreateUser}
           onCancel={() => setShowCreateModal(false)}
         />
       </Modal>

@@ -4,7 +4,7 @@ import type { Campaign, CampaignKeyword, PaginatedResponse } from '@/types';
 export const campaignsApi = {
   list: async (params?: {
     page?: number;
-    page_size?: number;
+    size?: number;
     status?: string;
   }): Promise<PaginatedResponse<Campaign>> => {
     const response = await apiClient.get<PaginatedResponse<Campaign>>('/campaigns', { params });
@@ -16,23 +16,23 @@ export const campaignsApi = {
     return response.data;
   },
 
-  getKeywords: async (id: number): Promise<CampaignKeyword[]> => {
-    const response = await apiClient.get<CampaignKeyword[]>(`/campaigns/${id}/keywords`);
+  getKeywords: async (id: number): Promise<PaginatedResponse<CampaignKeyword>> => {
+    const response = await apiClient.get<PaginatedResponse<CampaignKeyword>>(`/campaigns/${id}/keywords`);
+    return response.data;
+  },
+
+  pause: async (id: number): Promise<Campaign> => {
+    const response = await apiClient.patch<Campaign>(`/campaigns/${id}`, { status: 'paused' });
+    return response.data;
+  },
+
+  resume: async (id: number): Promise<Campaign> => {
+    const response = await apiClient.patch<Campaign>(`/campaigns/${id}`, { status: 'active' });
     return response.data;
   },
 
   register: async (id: number): Promise<Campaign> => {
     const response = await apiClient.post<Campaign>(`/campaigns/${id}/register`);
-    return response.data;
-  },
-
-  pause: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post<Campaign>(`/campaigns/${id}/pause`);
-    return response.data;
-  },
-
-  resume: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post<Campaign>(`/campaigns/${id}/resume`);
     return response.data;
   },
 

@@ -7,105 +7,8 @@ import Modal from '@/components/common/Modal';
 import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { Order, OrderStatus, Product } from '@/types';
 import { useAuthStore } from '@/store/auth';
-
-// Mock data
-const mockOrders: Order[] = [
-  {
-    id: 1,
-    order_number: 'ORD-20260223-0001',
-    user_id: 'u1',
-    user: { id: 'u1', email: 'dist@ilryu.co.kr', name: '김총판', role: 'distributor', balance: 500000, is_active: true, created_at: '2026-02-01T00:00:00Z' },
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    status: 'submitted',
-    payment_status: 'unpaid',
-    total_amount: 350000,
-    vat_amount: 35000,
-    source: 'web',
-    created_at: '2026-02-23T09:30:00Z',
-    item_count: 3,
-  },
-  {
-    id: 2,
-    order_number: 'ORD-20260223-0002',
-    user_id: 'u2',
-    user: { id: 'u2', email: 'sub@ilryu.co.kr', name: '이하부', role: 'sub_account', balance: 200000, is_active: true, created_at: '2026-02-05T00:00:00Z' },
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    status: 'payment_confirmed',
-    payment_status: 'confirmed',
-    total_amount: 150000,
-    vat_amount: 15000,
-    source: 'web',
-    created_at: '2026-02-23T10:15:00Z',
-    item_count: 1,
-  },
-  {
-    id: 3,
-    order_number: 'ORD-20260222-0015',
-    user_id: 'u3',
-    user: { id: 'u3', email: 'dist@j2lab.co.kr', name: '박총판', role: 'distributor', balance: 800000, is_active: true, created_at: '2026-01-15T00:00:00Z' },
-    company: { id: 2, name: '제이투랩', code: 'j2lab', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    status: 'processing',
-    payment_status: 'confirmed',
-    total_amount: 500000,
-    vat_amount: 50000,
-    source: 'excel',
-    created_at: '2026-02-22T14:20:00Z',
-    item_count: 5,
-  },
-  {
-    id: 4,
-    order_number: 'ORD-20260222-0014',
-    user_id: 'u1',
-    user: { id: 'u1', email: 'dist@ilryu.co.kr', name: '김총판', role: 'distributor', balance: 500000, is_active: true, created_at: '2026-02-01T00:00:00Z' },
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    status: 'completed',
-    payment_status: 'settled',
-    total_amount: 280000,
-    vat_amount: 28000,
-    source: 'web',
-    created_at: '2026-02-22T11:00:00Z',
-    item_count: 2,
-  },
-  {
-    id: 5,
-    order_number: 'ORD-20260221-0010',
-    user_id: 'u4',
-    user: { id: 'u4', email: 'handler@ilryu.co.kr', name: '최담당', role: 'order_handler', balance: 0, is_active: true, created_at: '2026-02-01T00:00:00Z' },
-    company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    status: 'cancelled',
-    payment_status: 'unpaid',
-    total_amount: 120000,
-    vat_amount: 12000,
-    source: 'web',
-    created_at: '2026-02-21T16:45:00Z',
-    item_count: 1,
-  },
-];
-
-const mockProducts: Product[] = [
-  {
-    id: 1,
-    name: '네이버 트래픽 캠페인',
-    code: 'traffic',
-    category: 'campaign',
-    base_price: 50000,
-    daily_deadline: '18:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: true,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 2,
-    name: '저장하기 캠페인',
-    code: 'save',
-    category: 'campaign',
-    base_price: 30000,
-    daily_deadline: '17:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: true,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-];
+import { ordersApi } from '@/api/orders';
+import { productsApi } from '@/api/products';
 
 const statusOptions: { value: string; label: string }[] = [
   { value: '', label: '전체 상태' },
@@ -121,8 +24,12 @@ const statusOptions: { value: string; label: string }[] = [
 export default function OrdersPage() {
   const user = useAuthStore((s) => s.user);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -132,29 +39,52 @@ export default function OrdersPage() {
 
   useEffect(() => {
     let cancelled = false;
-    // TODO: Replace with actual API call
-    const timer = setTimeout(() => {
-      if (cancelled) return;
-      let filtered = [...mockOrders];
-      if (statusFilter) {
-        filtered = filtered.filter((o) => o.status === statusFilter);
-      }
-      if (search) {
-        const s = search.toLowerCase();
-        filtered = filtered.filter(
-          (o) =>
-            o.order_number.toLowerCase().includes(s) ||
-            o.user?.name?.toLowerCase().includes(s),
-        );
-      }
-      setOrders(filtered);
-      setLoading(false);
-    }, 300);
+    setLoading(true);
+    setError(null);
+
+    ordersApi
+      .list({
+        page,
+        size: 20,
+        status: statusFilter || undefined,
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setOrders(data.items);
+          setTotalPages(data.pages);
+          setTotalItems(data.total);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.detail || '주문 목록을 불러오지 못했습니다.');
+          setLoading(false);
+        }
+      });
+
     return () => {
       cancelled = true;
-      clearTimeout(timer);
     };
-  }, [statusFilter, search, page, refreshKey]);
+  }, [statusFilter, page, refreshKey]);
+
+  // Load products for create modal
+  useEffect(() => {
+    productsApi
+      .list({ size: 100, is_active: true })
+      .then((data) => setProducts(data.items))
+      .catch(() => {});
+  }, []);
+
+  const handleCreateOrder = async (data: any) => {
+    try {
+      await ordersApi.create(data);
+      setShowCreateModal(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '주문 생성에 실패했습니다.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -190,7 +120,10 @@ export default function OrdersPage() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as OrderStatus | '')}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as OrderStatus | '');
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         >
           {statusOptions.map((opt) => (
@@ -201,15 +134,22 @@ export default function OrdersPage() {
         </select>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Table */}
       <OrderList orders={orders} loading={loading} />
 
       {/* Pagination */}
       <Pagination
         page={page}
-        totalPages={3}
+        totalPages={totalPages}
         onPageChange={setPage}
-        totalItems={mockOrders.length}
+        totalItems={totalItems}
         pageSize={20}
       />
 
@@ -221,12 +161,8 @@ export default function OrdersPage() {
         size="lg"
       >
         <OrderForm
-          products={mockProducts}
-          onSubmit={(data) => {
-            console.log('Create order:', data);
-            setShowCreateModal(false);
-            setRefreshKey((k) => k + 1);
-          }}
+          products={products}
+          onSubmit={handleCreateOrder}
         />
       </Modal>
     </div>

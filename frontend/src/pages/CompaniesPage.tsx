@@ -5,34 +5,56 @@ import Modal from '@/components/common/Modal';
 import Input from '@/components/common/Input';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import type { Company } from '@/types';
-
-// Mock data
-const mockCompanies: Company[] = [
-  { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-  { id: 2, name: '제이투랩', code: 'j2lab', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-];
+import { companiesApi } from '@/api/companies';
 
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCode, setNewCode] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    // TODO: Replace with actual API call
-    setTimeout(() => {
-      setCompanies(mockCompanies);
-      setLoading(false);
-    }, 300);
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-  const handleCreate = () => {
-    console.log('Create company:', { name: newName, code: newCode });
-    setShowCreateModal(false);
-    setNewName('');
-    setNewCode('');
-    // TODO: Call actual API and reload
+    companiesApi
+      .list(1, 100)
+      .then((data) => {
+        if (!cancelled) {
+          setCompanies(data.items);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.detail || '회사 목록을 불러오지 못했습니다.');
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      await companiesApi.create({ name: newName, code: newCode });
+      setShowCreateModal(false);
+      setNewName('');
+      setNewCode('');
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '회사 생성에 실패했습니다.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -53,6 +75,13 @@ export default function CompaniesPage() {
         </Button>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Table */}
       <CompanyList companies={companies} loading={loading} />
 
@@ -70,7 +99,7 @@ export default function CompaniesPage() {
             >
               취소
             </Button>
-            <Button onClick={handleCreate} disabled={!newName || !newCode}>
+            <Button onClick={handleCreate} disabled={!newName || !newCode} loading={creating}>
               생성
             </Button>
           </>

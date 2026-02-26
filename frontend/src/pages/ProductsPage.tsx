@@ -3,75 +3,36 @@ import Table, { type Column } from '@/components/common/Table';
 import Badge from '@/components/common/Badge';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { Product } from '@/types';
-
-// Mock data
-const mockProducts: Product[] = [
-  {
-    id: 1,
-    name: '네이버 트래픽 캠페인',
-    code: 'traffic',
-    category: 'campaign',
-    description: '네이버 플레이스 트래픽 유입 캠페인. 일일 방문수 증가.',
-    base_price: 50000,
-    min_work_days: 7,
-    max_work_days: 30,
-    daily_deadline: '18:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: true,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 2,
-    name: '저장하기 캠페인',
-    code: 'save',
-    category: 'campaign',
-    description: '네이버 플레이스 저장하기 캠페인. 저장수 증가.',
-    base_price: 30000,
-    min_work_days: 7,
-    max_work_days: 30,
-    daily_deadline: '17:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: true,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 3,
-    name: '월보장 패키지',
-    code: 'monthly_guarantee',
-    category: 'monthly',
-    description: '월 단위 보장형 캠페인. 트래픽 + 저장 + 공유 통합.',
-    base_price: 200000,
-    min_work_days: 30,
-    max_work_days: 30,
-    daily_deadline: '18:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: true,
-    created_at: '2026-01-15T00:00:00Z',
-  },
-  {
-    id: 4,
-    name: '키워드 서비스',
-    code: 'keyword_service',
-    category: 'keyword_service',
-    description: '키워드 추출 + 분석 단독 서비스.',
-    base_price: 10000,
-    daily_deadline: '18:00',
-    deadline_timezone: 'Asia/Seoul',
-    is_active: false,
-    created_at: '2026-01-01T00:00:00Z',
-  },
-];
+import { productsApi } from '@/api/products';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // TODO: Replace with actual API call
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setLoading(false);
-    }, 300);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    productsApi
+      .list({ size: 100 })
+      .then((data) => {
+        if (!cancelled) {
+          setProducts(data.items);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.detail || '상품 목록을 불러오지 못했습니다.');
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const columns: Column<Product>[] = [
@@ -144,6 +105,13 @@ export default function ProductsPage() {
           상품 목록을 조회합니다.
         </p>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Table */}
       <Table<Product>

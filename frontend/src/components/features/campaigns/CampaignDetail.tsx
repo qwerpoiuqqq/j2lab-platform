@@ -19,13 +19,14 @@ interface CampaignDetailProps {
 
 function getStatusBadgeVariant(status: string) {
   const map: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    pending_registration: 'default',
+    pending: 'default',
+    queued: 'info',
     registering: 'info',
     active: 'success',
     paused: 'warning',
     completed: 'success',
     failed: 'danger',
-    cancelled: 'danger',
+    expired: 'danger',
   };
   return map[status] || 'default';
 }
@@ -56,7 +57,7 @@ export default function CampaignDetail({
               </Badge>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              {campaign.place?.name || '플레이스 정보 없음'}
+              {campaign.place_name || '플레이스 정보 없음'}
             </p>
           </div>
 
@@ -107,17 +108,15 @@ export default function CampaignDetail({
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase">현재 키워드</p>
+            <p className="text-xs text-gray-500 uppercase">캠페인 유형</p>
             <p className="mt-1 text-sm font-medium text-primary-600">
-              {campaign.current_keyword || '-'}
+              {campaign.campaign_type || '-'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase">최근 교체</p>
+            <p className="text-xs text-gray-500 uppercase">전환수</p>
             <p className="mt-1 text-sm font-medium text-gray-900">
-              {campaign.last_rotation_at
-                ? formatDateTime(campaign.last_rotation_at)
-                : '-'}
+              {formatNumber(campaign.current_conversions)}
             </p>
           </div>
         </div>
@@ -151,7 +150,7 @@ export default function CampaignDetail({
                   키워드
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  현재 랭킹
+                  라운드
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   사용 여부
@@ -177,22 +176,8 @@ export default function CampaignDetail({
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">
                       {kw.keyword}
                     </td>
-                    <td className="px-6 py-3 text-sm">
-                      {kw.rank ? (
-                        <span
-                          className={
-                            kw.rank <= 5
-                              ? 'text-green-600 font-semibold'
-                              : kw.rank <= 10
-                                ? 'text-yellow-600'
-                                : 'text-gray-600'
-                          }
-                        >
-                          {kw.rank}위
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                    <td className="px-6 py-3 text-sm text-gray-600">
+                      {kw.round_number}
                     </td>
                     <td className="px-6 py-3">
                       <Badge variant={kw.is_used ? 'default' : 'success'}>

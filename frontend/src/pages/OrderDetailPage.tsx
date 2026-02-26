@@ -4,64 +4,7 @@ import OrderDetailComponent from '@/components/features/orders/OrderDetail';
 import Button from '@/components/common/Button';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import type { Order, OrderItem } from '@/types';
-
-// Mock data
-const mockOrder: Order = {
-  id: 1,
-  order_number: 'ORD-20260223-0001',
-  user_id: 'u1',
-  user: { id: 'u1', email: 'dist@ilryu.co.kr', name: '김총판', role: 'distributor', balance: 500000, is_active: true, created_at: '2026-02-01T00:00:00Z' },
-  company: { id: 1, name: '일류기획', code: 'ilryu', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-  status: 'submitted',
-  payment_status: 'unpaid',
-  total_amount: 350000,
-  vat_amount: 35000,
-  notes: '급하게 처리 부탁드립니다.',
-  source: 'web',
-  created_at: '2026-02-23T09:30:00Z',
-};
-
-const mockItems: OrderItem[] = [
-  {
-    id: 1,
-    order_id: 1,
-    product_id: 1,
-    product: { id: 1, name: '네이버 트래픽 캠페인', code: 'traffic', base_price: 50000, daily_deadline: '18:00', deadline_timezone: 'Asia/Seoul', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    place_url: 'https://map.naver.com/v5/entry/place/1234567890',
-    place_name: '맛있는 식당',
-    quantity: 30,
-    unit_price: 5000,
-    subtotal: 150000,
-    status: 'pending',
-    created_at: '2026-02-23T09:30:00Z',
-  },
-  {
-    id: 2,
-    order_id: 1,
-    product_id: 1,
-    product: { id: 1, name: '네이버 트래픽 캠페인', code: 'traffic', base_price: 50000, daily_deadline: '18:00', deadline_timezone: 'Asia/Seoul', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    place_url: 'https://map.naver.com/v5/entry/place/9876543210',
-    place_name: '멋진 카페',
-    quantity: 20,
-    unit_price: 5000,
-    subtotal: 100000,
-    status: 'pending',
-    created_at: '2026-02-23T09:30:00Z',
-  },
-  {
-    id: 3,
-    order_id: 1,
-    product_id: 2,
-    product: { id: 2, name: '저장하기 캠페인', code: 'save', base_price: 30000, daily_deadline: '17:00', deadline_timezone: 'Asia/Seoul', is_active: true, created_at: '2026-01-01T00:00:00Z' },
-    place_url: 'https://map.naver.com/v5/entry/place/1234567890',
-    place_name: '맛있는 식당',
-    quantity: 50,
-    unit_price: 2000,
-    subtotal: 100000,
-    status: 'pending',
-    created_at: '2026-02-23T09:30:00Z',
-  },
-];
+import { ordersApi } from '@/api/orders';
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -69,24 +12,63 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [_actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadOrder = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await ordersApi.get(Number(id));
+      setOrder(data);
+      setItems(data.items || []);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '주문을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // TODO: Replace with actual API call
-    setTimeout(() => {
-      setOrder({ ...mockOrder, id: Number(id) });
-      setItems(mockItems);
-      setLoading(false);
-    }, 300);
+    loadOrder();
   }, [id]);
 
   const handleAction = async (action: string) => {
+    if (!id) return;
     setActionLoading(true);
-    console.log(`Action: ${action} on order ${id}`);
-    // TODO: Call actual API
-    setTimeout(() => {
+    try {
+      let updated: Order;
+      switch (action) {
+        case 'submit':
+          updated = await ordersApi.submit(Number(id));
+          break;
+        case 'confirm-payment':
+          updated = await ordersApi.confirmPayment(Number(id));
+          break;
+        case 'reject': {
+          const reason = prompt('반려 사유를 입력하세요:');
+          if (!reason) {
+            setActionLoading(false);
+            return;
+          }
+          updated = await ordersApi.reject(Number(id), reason);
+          break;
+        }
+        case 'cancel':
+          updated = await ordersApi.cancel(Number(id));
+          break;
+        default:
+          setActionLoading(false);
+          return;
+      }
+      setOrder(updated);
+      setItems(updated.items || []);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '작업에 실패했습니다.');
+    } finally {
       setActionLoading(false);
-    }, 500);
+    }
   };
 
   if (loading || !order) {
@@ -94,6 +76,24 @@ export default function OrderDetailPage() {
       <div className="space-y-6 animate-pulse">
         <div className="bg-white rounded-xl border border-gray-200 h-48" />
         <div className="bg-white rounded-xl border border-gray-200 h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/orders')}
+          icon={<ArrowLeftIcon className="h-4 w-4" />}
+        >
+          목록으로
+        </Button>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+          {error}
+        </div>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export default function OrderDetailPage() {
         onConfirmPayment={() => handleAction('confirm-payment')}
         onReject={() => handleAction('reject')}
         onCancel={() => handleAction('cancel')}
-        actionLoading={_actionLoading}
+        actionLoading={actionLoading}
       />
     </div>
   );

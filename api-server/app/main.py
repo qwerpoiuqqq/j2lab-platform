@@ -16,6 +16,7 @@ from app.routers import (
     campaign_templates,
     campaigns,
     companies,
+    dashboard,
     extraction_jobs,
     network_presets,
     orders,
@@ -55,6 +56,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Dashboard
+app.include_router(dashboard.router, prefix="/api/v1")
 
 # Routers - Phase 1A
 app.include_router(auth.router, prefix="/api/v1")

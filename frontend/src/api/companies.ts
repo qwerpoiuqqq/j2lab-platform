@@ -2,9 +2,9 @@ import apiClient from './client';
 import type { Company, CreateCompanyRequest, PaginatedResponse } from '@/types';
 
 export const companiesApi = {
-  list: async (page = 1, pageSize = 20): Promise<PaginatedResponse<Company>> => {
+  list: async (page = 1, size = 20): Promise<PaginatedResponse<Company>> => {
     const response = await apiClient.get<PaginatedResponse<Company>>('/companies', {
-      params: { page, page_size: pageSize },
+      params: { page, size },
     });
     return response.data;
   },

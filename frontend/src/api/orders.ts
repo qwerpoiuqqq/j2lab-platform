@@ -4,7 +4,7 @@ import type { Order, OrderItem, CreateOrderRequest, PaginatedResponse } from '@/
 export const ordersApi = {
   list: async (params?: {
     page?: number;
-    page_size?: number;
+    size?: number;
     status?: string;
     company_id?: number;
     search?: string;
@@ -43,8 +43,8 @@ export const ordersApi = {
     return response.data;
   },
 
-  reject: async (id: number): Promise<Order> => {
-    const response = await apiClient.post<Order>(`/orders/${id}/reject`);
+  reject: async (id: number, reason: string): Promise<Order> => {
+    const response = await apiClient.post<Order>(`/orders/${id}/reject`, { reason });
     return response.data;
   },
 

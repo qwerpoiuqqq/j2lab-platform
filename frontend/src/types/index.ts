@@ -137,6 +137,7 @@ export interface Order {
   submitted_at?: string;
   payment_confirmed_by?: string;
   payment_confirmed_at?: string;
+  completed_at?: string;
   created_at: string;
   updated_at?: string;
   items?: OrderItem[];
@@ -148,22 +149,26 @@ export interface OrderItem {
   order_id: number;
   product_id: number;
   product?: Product;
-  place_url: string;
-  place_name?: string;
+  row_number?: number;
   quantity: number;
   unit_price: number;
   subtotal: number;
-  form_data?: Record<string, unknown>;
+  item_data?: any;
   status: string;
+  result_message?: string;
+  assigned_account_id?: number;
+  assignment_status?: string;
+  assigned_at?: string;
+  assigned_by?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CreateOrderRequest {
   items: {
     product_id: number;
-    place_url: string;
     quantity: number;
-    form_data?: Record<string, unknown>;
+    item_data?: any;
   }[];
   notes?: string;
 }
@@ -173,31 +178,38 @@ export interface CreateOrderRequest {
 // ============================================================
 
 export type CampaignStatus =
-  | 'pending_registration'
+  | 'pending'
+  | 'queued'
   | 'registering'
   | 'active'
   | 'paused'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'expired';
 
 export interface Campaign {
   id: number;
   campaign_code?: string;
-  order_item_id?: number;
-  order_item?: OrderItem;
-  place_id?: number;
-  place?: Place;
   superap_account_id?: number;
-  template_id?: number;
-  status: CampaignStatus;
-  start_date?: string;
-  end_date?: string;
+  order_item_id?: number;
+  place_id?: number;
+  extraction_job_id?: number;
+  agency_name?: string;
+  place_name: string;
+  place_url: string;
+  campaign_type: string;
+  registered_at?: string;
+  start_date: string;
+  end_date: string;
   daily_limit: number;
-  total_budget: number;
-  keywords_count?: number;
-  current_keyword?: string;
-  last_rotation_at?: string;
+  total_limit?: number;
+  current_conversions: number;
+  status: CampaignStatus;
+  registration_step?: string;
+  registration_message?: string;
+  extend_target_id?: number;
+  network_preset_id?: number;
+  company_id?: number;
   created_at: string;
   updated_at?: string;
 }
@@ -208,8 +220,7 @@ export interface CampaignKeyword {
   keyword: string;
   is_used: boolean;
   used_at?: string;
-  rank?: number;
-  last_rank_check?: string;
+  round_number: number;
 }
 
 // ============================================================
@@ -295,8 +306,8 @@ export interface DashboardSummary {
   active_campaigns: number;
   pending_orders: number;
   today_revenue: number;
-  orders_by_status: Record<OrderStatus, number>;
-  campaigns_by_status: Record<CampaignStatus, number>;
+  orders_by_status: Record<string, number>;
+  campaigns_by_status: Record<string, number>;
   pipeline_overview: PipelineOverview[];
   recent_orders: Order[];
 }
@@ -312,8 +323,9 @@ export interface PipelineOverview {
 
 export interface SystemSetting {
   key: string;
-  value: string;
+  value: any;
   description?: string;
+  updated_by?: string;
   updated_at?: string;
 }
 
@@ -325,8 +337,8 @@ export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   page: number;
-  page_size: number;
-  total_pages: number;
+  size: number;
+  pages: number;
 }
 
 export interface ApiError {

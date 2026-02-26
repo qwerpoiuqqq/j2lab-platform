@@ -189,10 +189,10 @@ export default function OrderDetail({
                     <td className="px-6 py-4 text-sm">
                       <div>
                         <p className="text-gray-900">
-                          {item.place_name || '-'}
+                          {item.item_data?.place_name || '-'}
                         </p>
                         <p className="text-xs text-gray-500 truncate max-w-[200px]">
-                          {item.place_url}
+                          {item.item_data?.place_url || '-'}
                         </p>
                       </div>
                     </td>
