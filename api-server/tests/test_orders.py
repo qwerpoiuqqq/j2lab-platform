@@ -303,7 +303,8 @@ class TestOrderStateTransitions:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "payment_confirmed"
+        # After confirm_payment, pipeline auto-starts → order transitions to processing
+        assert data["status"] == "processing"
         assert data["payment_status"] == "confirmed"
 
         # Verify balance was deducted

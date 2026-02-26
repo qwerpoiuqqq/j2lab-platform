@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # === AES Encryption (for superap passwords) ===
     AES_ENCRYPTION_KEY: str | None = None  # Falls back to SECRET_KEY if not set
 
+    # === Worker URLs ===
+    KEYWORD_WORKER_URL: str = "http://keyword-worker:8001"
+    CAMPAIGN_WORKER_URL: str = "http://campaign-worker:8002"
+    API_SERVER_URL: str = "http://api-server:8000"
+
     # === CORS ===
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

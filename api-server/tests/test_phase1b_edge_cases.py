@@ -1533,7 +1533,8 @@ class TestFullOrderLifecycle:
         )
         assert resp.status_code == 200
         confirm_data = resp.json()
-        assert confirm_data["status"] == "payment_confirmed"
+        # After confirm_payment, pipeline auto-starts → order transitions to processing
+        assert confirm_data["status"] == "processing"
         assert confirm_data["payment_status"] == "confirmed"
 
         # 4. Verify balance

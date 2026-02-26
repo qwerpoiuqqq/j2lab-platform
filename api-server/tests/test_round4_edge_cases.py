@@ -535,7 +535,8 @@ class TestDoublePaymentConfirmation:
             headers=admin_headers,
         )
         assert resp1.status_code == 200
-        assert resp1.json()["status"] == "payment_confirmed"
+        # After confirm_payment, pipeline auto-starts → order transitions to processing
+        assert resp1.json()["status"] == "processing"
 
         # Second confirmation - should fail
         resp2 = await client.post(

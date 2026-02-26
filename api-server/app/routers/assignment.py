@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,9 @@ from app.schemas.assignment import (
 )
 from app.schemas.common import MessageResponse
 from app.services import assignment_service, campaign_service
+from app.services import pipeline_orchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assignment", tags=["assignment"])
 
@@ -153,6 +158,12 @@ async def confirm_assignment(
             detail=str(e),
         )
 
+    # Trigger campaign registration
+    try:
+        await pipeline_orchestrator.on_assignment_confirmed(db, item_id)
+    except Exception as e:
+        logger.error("Campaign registration trigger failed for item %s: %s", item_id, e)
+
     return {"message": "Assignment confirmed", "order_item_id": updated.id}
 
 
@@ -184,6 +195,16 @@ async def bulk_confirm(
                 confirmed_by=current_user.id,
             )
             confirmed.append(item_id)
+
+            # Trigger campaign registration
+            try:
+                await pipeline_orchestrator.on_assignment_confirmed(db, item_id)
+            except Exception as e:
+                logger.error(
+                    "Campaign registration trigger failed for item %s: %s",
+                    item_id,
+                    e,
+                )
         except ValueError as e:
             errors.append({"item_id": item_id, "error": str(e)})
 

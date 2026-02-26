@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,9 @@ from app.schemas.order import (
     OrderUpdate,
 )
 from app.services import order_service
+from app.services import pipeline_orchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -202,6 +207,15 @@ async def confirm_payment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
+    # Start E2E pipeline (best-effort — payment confirmation is preserved on failure)
+    try:
+        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
+    except Exception as e:
+        logger.error("Pipeline start failed for order %s: %s", order_id, e)
+
+    # Refresh to ensure all attributes are loaded for serialization
+    await db.refresh(confirmed)
     return confirmed
 
 

@@ -1,0 +1,405 @@
+"""Pipeline orchestrator: connects E2E pipeline stages.
+
+Coordinates between existing services to automate:
+  입금확인 → 키워드추출 → 자동배정 → 캠페인등록
+
+Each function is called from a router and handles one pipeline transition,
+delegating to the appropriate services and worker clients.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import date, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.extraction_job import ExtractionJob
+from app.models.order import Order, OrderItem, OrderStatus
+from app.models.pipeline_state import PipelineState
+from app.schemas.campaign import CampaignCreate
+from app.schemas.extraction_job import ExtractionJobCreate
+from app.services import (
+    assignment_service,
+    campaign_service,
+    extraction_service,
+    pipeline_service,
+)
+from app.services.worker_clients import WorkerDispatchError, dispatch_extraction_job, dispatch_campaign_registration
+
+logger = logging.getLogger(__name__)
+
+
+async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
+    """Start the pipeline after payment confirmation.
+
+    For each OrderItem:
+    1. Create PipelineState (draft → payment_confirmed → extraction_queued)
+    2. Create ExtractionJob
+    3. Dispatch to keyword-worker
+
+    Order.status transitions from payment_confirmed → processing.
+    """
+    items = order.items
+    if not items:
+        logger.warning("Order %s has no items, skipping pipeline start", order.id)
+        return
+
+    for item in items:
+        try:
+            await _start_pipeline_for_item(db, item, order)
+        except Exception:
+            logger.exception(
+                "Pipeline start failed for order_item %s (order %s)",
+                item.id,
+                order.id,
+            )
+            # Continue with other items — partial pipeline start is acceptable
+
+    # Transition order to processing
+    order.status = OrderStatus.PROCESSING.value
+    await db.flush()
+
+
+async def _start_pipeline_for_item(
+    db: AsyncSession, item: OrderItem, order: Order
+) -> None:
+    """Start pipeline for a single order item."""
+    # 1. Create pipeline state directly at payment_confirmed
+    #    (order has already been confirmed, so we skip draft/submitted)
+    state = await pipeline_service.create_pipeline_state(
+        db, item.id, initial_stage="payment_confirmed"
+    )
+
+    # 3. Extract place_url from item_data
+    place_url = _extract_place_url(item)
+    if not place_url:
+        await pipeline_service.transition_stage(
+            db,
+            state=state,
+            to_stage="extraction_queued",
+            trigger_type="auto_extraction_dispatch",
+            error_message="No place_url in item_data",
+            message="place_url missing — will need manual extraction setup",
+        )
+        logger.warning(
+            "OrderItem %s has no place_url in item_data, skipping dispatch",
+            item.id,
+        )
+        return
+
+    # 4. Extract job parameters from item_data
+    item_data = item.item_data or {}
+    target_count = item_data.get("target_count", 100)
+    max_rank = item_data.get("max_rank", 50)
+    min_rank = item_data.get("min_rank", 1)
+    name_keyword_ratio = item_data.get("name_keyword_ratio", 0.30)
+
+    # 5. Create extraction job
+    job = await extraction_service.create_job(
+        db,
+        ExtractionJobCreate(
+            naver_url=place_url,
+            order_item_id=item.id,
+            target_count=target_count,
+            max_rank=max_rank,
+            min_rank=min_rank,
+            name_keyword_ratio=name_keyword_ratio,
+        ),
+    )
+
+    # 6. Transition to extraction_queued
+    await pipeline_service.transition_stage(
+        db,
+        state=state,
+        to_stage="extraction_queued",
+        trigger_type="auto_extraction_dispatch",
+        message=f"Extraction job {job.id} created",
+    )
+    state.extraction_job_id = job.id
+    await db.flush()
+
+    # 7. Dispatch to keyword-worker (best-effort)
+    try:
+        await dispatch_extraction_job(
+            job_id=job.id,
+            naver_url=place_url,
+            target_count=target_count,
+            max_rank=max_rank,
+            min_rank=min_rank,
+            name_keyword_ratio=name_keyword_ratio,
+            order_item_id=item.id,
+        )
+        logger.info("Dispatched extraction job %s to keyword-worker", job.id)
+    except WorkerDispatchError:
+        logger.exception(
+            "Failed to dispatch extraction job %s to keyword-worker (DB record preserved)",
+            job.id,
+        )
+
+
+async def on_extraction_complete(
+    db: AsyncSession,
+    order_item_id: int,
+    extraction_job: ExtractionJob,
+) -> None:
+    """Handle extraction completion: trigger auto-assignment.
+
+    Called from the extraction callback after pipeline transitions to extraction_done.
+    """
+    # Load order item
+    result = await db.execute(
+        select(OrderItem).where(OrderItem.id == order_item_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        logger.error("OrderItem %s not found for auto-assignment", order_item_id)
+        return
+
+    # Load order for company_id
+    order_result = await db.execute(
+        select(Order).where(Order.id == item.order_id)
+    )
+    order = order_result.scalar_one_or_none()
+    if order is None:
+        logger.error("Order not found for OrderItem %s", order_item_id)
+        return
+
+    # Get pipeline state
+    state = await pipeline_service.get_pipeline_state(db, order_item_id)
+    if state is None:
+        logger.error("PipelineState not found for OrderItem %s", order_item_id)
+        return
+
+    # Extract campaign_type from item_data (default: traffic)
+    item_data = item.item_data or {}
+    campaign_type = item_data.get("campaign_type", "traffic")
+
+    # Link place_id from extraction job to order item if not set
+    if extraction_job.place_id and not item.place_id:
+        item.place_id = extraction_job.place_id
+        await db.flush()
+
+    place_id = item.place_id
+    if not place_id:
+        state.error_message = "No place_id available after extraction"
+        await db.flush()
+        logger.warning(
+            "OrderItem %s has no place_id after extraction, manual assignment needed",
+            order_item_id,
+        )
+        return
+
+    # Extract total_limit from item_data
+    total_limit = item_data.get("total_limit")
+
+    # Run auto-assignment
+    try:
+        assignment_result = await assignment_service.auto_assign(
+            db,
+            order_item=item,
+            campaign_type=campaign_type,
+            place_id=place_id,
+            company_id=order.company_id,
+            total_limit=total_limit,
+        )
+    except Exception:
+        state.error_message = "Auto-assignment failed"
+        await db.flush()
+        logger.exception(
+            "Auto-assignment failed for OrderItem %s",
+            order_item_id,
+        )
+        return
+
+    if assignment_result.assigned_account_id:
+        # Assignment succeeded
+        try:
+            await pipeline_service.transition_stage(
+                db,
+                state=state,
+                to_stage="account_assigned",
+                trigger_type="auto_assignment",
+                message=f"Auto-assigned to account {assignment_result.assigned_account_id}",
+            )
+        except ValueError:
+            logger.warning(
+                "Pipeline transition to account_assigned failed for item %s",
+                order_item_id,
+            )
+    else:
+        # No account available — admin must manually assign
+        suggestion = assignment_result.suggestion or assignment_result.error or "No account available"
+        state.error_message = f"Auto-assignment: {suggestion}"
+        await db.flush()
+        logger.info(
+            "Auto-assignment could not assign OrderItem %s: %s",
+            order_item_id,
+            suggestion,
+        )
+
+
+async def on_assignment_confirmed(
+    db: AsyncSession, order_item_id: int
+) -> None:
+    """Handle assignment confirmation: create campaign and dispatch registration.
+
+    Called from the assignment confirm endpoint after confirm_assignment succeeds.
+    """
+    # Load order item
+    result = await db.execute(
+        select(OrderItem).where(OrderItem.id == order_item_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        logger.error("OrderItem %s not found for campaign creation", order_item_id)
+        return
+
+    # Load order
+    order_result = await db.execute(
+        select(Order).where(Order.id == item.order_id)
+    )
+    order = order_result.scalar_one_or_none()
+    if order is None:
+        logger.error("Order not found for OrderItem %s", order_item_id)
+        return
+
+    # Get pipeline state
+    state = await pipeline_service.get_pipeline_state(db, order_item_id)
+    if state is None:
+        logger.error("PipelineState not found for OrderItem %s", order_item_id)
+        return
+
+    # 1. Transition to assignment_confirmed
+    try:
+        await pipeline_service.transition_stage(
+            db,
+            state=state,
+            to_stage="assignment_confirmed",
+            trigger_type="user_action",
+            message="Assignment confirmed by admin",
+        )
+    except ValueError:
+        logger.warning(
+            "Pipeline transition to assignment_confirmed failed for item %s "
+            "(current stage: %s)",
+            order_item_id,
+            state.current_stage,
+        )
+        return
+
+    # 2. Get extraction job info
+    extraction_job = None
+    if state.extraction_job_id:
+        ej_result = await db.execute(
+            select(ExtractionJob).where(ExtractionJob.id == state.extraction_job_id)
+        )
+        extraction_job = ej_result.scalar_one_or_none()
+
+    # 3. Build campaign data from item_data and extraction results
+    item_data = item.item_data or {}
+    place_url = _extract_place_url(item) or ""
+    place_name = ""
+    if extraction_job and extraction_job.place_name:
+        place_name = extraction_job.place_name
+
+    campaign_type = item_data.get("campaign_type", "traffic")
+    daily_limit = item_data.get("daily_limit", 300)
+    total_limit = item_data.get("total_limit")
+    start_date = date.today()
+    end_days = item_data.get("duration_days", 30)
+    end_date = start_date + timedelta(days=end_days)
+
+    # 4. Create campaign
+    campaign = await campaign_service.create_campaign(
+        db,
+        CampaignCreate(
+            order_item_id=order_item_id,
+            place_id=item.place_id,
+            place_url=place_url,
+            place_name=place_name,
+            campaign_type=campaign_type,
+            start_date=start_date,
+            end_date=end_date,
+            daily_limit=daily_limit,
+            total_limit=total_limit,
+            superap_account_id=item.assigned_account_id,
+            company_id=order.company_id,
+        ),
+    )
+
+    # 5. Link extraction job to campaign
+    if extraction_job:
+        campaign.extraction_job_id = extraction_job.id
+
+    # 6. Add keywords from extraction results to campaign pool
+    if extraction_job and extraction_job.results:
+        keywords = _extract_keywords_from_results(extraction_job.results)
+        if keywords:
+            await campaign_service.add_keywords_to_pool(db, campaign.id, keywords)
+
+    # 7. Update pipeline state
+    state.campaign_id = campaign.id
+    await db.flush()
+
+    # 8. Transition to campaign_registering
+    try:
+        await pipeline_service.transition_stage(
+            db,
+            state=state,
+            to_stage="campaign_registering",
+            trigger_type="auto_campaign_register",
+            message=f"Campaign {campaign.id} created, dispatching registration",
+        )
+    except ValueError:
+        logger.warning(
+            "Pipeline transition to campaign_registering failed for item %s",
+            order_item_id,
+        )
+
+    # 9. Dispatch to campaign-worker (best-effort)
+    try:
+        await dispatch_campaign_registration(
+            campaign_id=campaign.id,
+            account_id=item.assigned_account_id,
+        )
+        logger.info("Dispatched campaign %s registration to campaign-worker", campaign.id)
+    except WorkerDispatchError:
+        logger.exception(
+            "Failed to dispatch campaign %s registration (DB record preserved)",
+            campaign.id,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _extract_place_url(item: OrderItem) -> str | None:
+    """Extract place_url from OrderItem.item_data."""
+    if not item.item_data:
+        return None
+    return item.item_data.get("place_url")
+
+
+def _extract_keywords_from_results(results: list | dict | None) -> list[str]:
+    """Extract keyword strings from extraction job results.
+
+    Results can be:
+    - list of strings: ["keyword1", "keyword2"]
+    - list of dicts:   [{"keyword": "keyword1", "rank": 5}, ...]
+    """
+    if not results:
+        return []
+
+    keywords: list[str] = []
+
+    if isinstance(results, list):
+        for entry in results:
+            if isinstance(entry, str):
+                keywords.append(entry)
+            elif isinstance(entry, dict) and "keyword" in entry:
+                keywords.append(entry["keyword"])
+
+    return keywords

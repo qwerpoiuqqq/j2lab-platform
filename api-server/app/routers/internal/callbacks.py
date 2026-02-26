@@ -8,6 +8,8 @@ In production, these should only be accessible from the Docker internal network.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,9 @@ from app.core.database import get_db
 from app.schemas.campaign import CampaignCallbackRequest
 from app.schemas.extraction_job import ExtractionCallbackRequest
 from app.services import campaign_service, extraction_service, pipeline_service
+from app.services import pipeline_orchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal/callback", tags=["internal-callbacks"])
 
@@ -68,6 +73,18 @@ async def extraction_callback(
                     # Link extraction job to pipeline
                     pipeline_state.extraction_job_id = updated_job.id
                     await db.flush()
+
+                    # Trigger auto-assignment
+                    try:
+                        await pipeline_orchestrator.on_extraction_complete(
+                            db, updated_job.order_item_id, updated_job
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Auto-assignment trigger failed for item %s: %s",
+                            updated_job.order_item_id,
+                            e,
+                        )
                 except ValueError:
                     pass  # Transition not valid from current state
             elif body.status == "failed":
