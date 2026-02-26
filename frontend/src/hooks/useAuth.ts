@@ -6,7 +6,7 @@ import type { LoginRequest } from '@/types';
 
 export function useAuth() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, setAuth, setAccessToken, logout: storeLogout, hasRole, isAdmin } = useAuthStore();
+  const { user, isAuthenticated, setAuth, logout: storeLogout, hasRole, isAdmin } = useAuthStore();
 
   const login = useCallback(
     async (data: LoginRequest) => {
