@@ -2,18 +2,35 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import OrderDetailComponent from '@/components/features/orders/OrderDetail';
 import Button from '@/components/common/Button';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import Modal from '@/components/common/Modal';
+import {
+  ArrowLeftIcon,
+  ArrowDownTrayIcon,
+  CheckCircleIcon,
+  CalendarIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
 import type { Order, OrderItem } from '@/types';
 import { ordersApi } from '@/api/orders';
+import { useAuthStore } from '@/store/auth';
+import { downloadBlob } from '@/utils/format';
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Deadline modal
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+  const [deadlineValue, setDeadlineValue] = useState('');
+  const [deadlineLoading, setDeadlineLoading] = useState(false);
+
+  const isAdmin = user && ['system_admin', 'company_admin'].includes(user.role);
 
   const loadOrder = async () => {
     if (!id) return;
@@ -46,6 +63,9 @@ export default function OrderDetailPage() {
         case 'confirm-payment':
           updated = await ordersApi.confirmPayment(Number(id));
           break;
+        case 'approve':
+          updated = await ordersApi.approve(Number(id));
+          break;
         case 'reject': {
           const reason = prompt('반려 사유를 입력하세요:');
           if (!reason) {
@@ -68,6 +88,30 @@ export default function OrderDetailPage() {
       alert(err?.response?.data?.detail || '작업에 실패했습니다.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleExportItems = async () => {
+    if (!id) return;
+    try {
+      const blob = await ordersApi.exportItems(Number(id));
+      downloadBlob(blob, `주문항목_${order?.order_number || id}.xlsx`);
+    } catch {
+      alert('내보내기에 실패했습니다.');
+    }
+  };
+
+  const handleDeadlineUpdate = async () => {
+    if (!id || !deadlineValue) return;
+    setDeadlineLoading(true);
+    try {
+      const updated = await ordersApi.updateDeadline(Number(id), { deadline: deadlineValue });
+      setOrder(updated);
+      setShowDeadlineModal(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '마감일 변경에 실패했습니다.');
+    } finally {
+      setDeadlineLoading(false);
     }
   };
 
@@ -100,7 +144,7 @@ export default function OrderDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between">
         <Button
           variant="ghost"
           size="sm"
@@ -109,6 +153,47 @@ export default function OrderDetailPage() {
         >
           목록으로
         </Button>
+
+        {/* Enhanced action buttons */}
+        <div className="flex gap-2">
+          {isAdmin && order.status === 'submitted' && (
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => handleAction('approve')}
+              loading={actionLoading}
+              icon={<CheckCircleIcon className="h-4 w-4" />}
+            >
+              승인
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowDeadlineModal(true)}
+              icon={<CalendarIcon className="h-4 w-4" />}
+            >
+              마감일 변경
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportItems}
+            icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+          >
+            항목 Excel
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadOrder}
+            icon={<ArrowPathIcon className="h-4 w-4" />}
+          >
+            갱신
+          </Button>
+        </div>
       </div>
 
       <OrderDetailComponent
@@ -120,6 +205,28 @@ export default function OrderDetailPage() {
         onCancel={() => handleAction('cancel')}
         actionLoading={actionLoading}
       />
+
+      {/* Deadline Modal */}
+      <Modal
+        isOpen={showDeadlineModal}
+        onClose={() => setShowDeadlineModal(false)}
+        title="마감일 변경"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-600">주문 #{order.order_number}의 마감일을 변경합니다.</p>
+          <input
+            type="datetime-local"
+            value={deadlineValue}
+            onChange={(e) => setDeadlineValue(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowDeadlineModal(false)}>취소</Button>
+            <Button onClick={handleDeadlineUpdate} loading={deadlineLoading} disabled={!deadlineValue}>변경</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

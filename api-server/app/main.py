@@ -15,14 +15,19 @@ from app.routers import (
     balance,
     campaign_templates,
     campaigns,
+    categories,
     companies,
     dashboard,
     extraction_jobs,
     network_presets,
+    notices,
+    notifications,
     orders,
     pipeline,
     places,
     products,
+    scheduler,
+    settlements,
     superap_accounts,
     system_settings,
     users,
@@ -80,6 +85,13 @@ app.include_router(superap_accounts.router, prefix="/api/v1")
 app.include_router(campaign_templates.router, prefix="/api/v1")
 app.include_router(assignment.router, prefix="/api/v1")
 app.include_router(pipeline.router, prefix="/api/v1")
+
+# Routers - Phase 2 (New features)
+app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(notices.router, prefix="/api/v1")
+app.include_router(settlements.router, prefix="/api/v1")
+app.include_router(categories.router, prefix="/api/v1")
+app.include_router(scheduler.router, prefix="/api/v1")
 
 # Internal callback router (no /api/v1 prefix)
 app.include_router(callbacks.router)

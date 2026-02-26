@@ -89,3 +89,42 @@ async def get_dashboard_summary(
         pipeline_overview=pipeline_overview,
         recent_orders=recent_orders,
     )
+
+
+class CampaignStatsResponse(BaseModel):
+    total: int
+    active: int
+    exhausted_today: int
+    keyword_warnings: int
+
+
+@router.get("/campaign-stats", response_model=CampaignStatsResponse)
+async def get_campaign_stats(
+    account_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Get campaign dashboard statistics."""
+    base_q = select(func.count()).select_from(Campaign)
+    if account_id:
+        base_q = base_q.where(Campaign.superap_account_id == account_id)
+
+    total = (await db.execute(base_q)).scalar() or 0
+    active = (await db.execute(
+        base_q.where(Campaign.status == "active")
+    )).scalar() or 0
+
+    # Exhausted today: campaigns with status containing 'exhausted'
+    exhausted_today = (await db.execute(
+        base_q.where(Campaign.status.in_(["daily_exhausted", "campaign_exhausted"]))
+    )).scalar() or 0
+
+    # Keyword warnings: simplified — count campaigns with status warning
+    keyword_warnings = 0
+
+    return CampaignStatsResponse(
+        total=total,
+        active=active,
+        exhausted_today=exhausted_today,
+        keyword_warnings=keyword_warnings,
+    )

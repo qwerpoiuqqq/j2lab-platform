@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import RoleChecker
+from app.core.deps import RoleChecker, get_current_active_user
 from app.models.user import User, UserRole
 from app.schemas.campaign_template import CampaignTemplateResponse, CampaignTemplateUpdate
 from app.schemas.common import PaginatedResponse, PaginationParams
@@ -73,3 +73,39 @@ async def update_template(
         )
     updated = await campaign_template_service.update_template(db, template, body)
     return updated
+
+
+@router.get("/modules")
+async def list_modules(
+    _current_user: User = Depends(get_current_active_user),
+):
+    """List available campaign modules and their variables."""
+    return {
+        "modules": [
+            {
+                "name": "place",
+                "description": "명소 선택 모듈",
+                "variables": ["명소명", "상호명", "가게주소", "카테고리"],
+            },
+            {
+                "name": "steps",
+                "description": "걸음수 모듈",
+                "variables": ["걸음수"],
+            },
+            {
+                "name": "product",
+                "description": "상품 클릭 모듈",
+                "variables": ["상품명"],
+            },
+            {
+                "name": "quiz",
+                "description": "퀴즈 모듈",
+                "variables": ["정답"],
+            },
+            {
+                "name": "review",
+                "description": "리뷰 작성 모듈",
+                "variables": ["리뷰내용"],
+            },
+        ]
+    }

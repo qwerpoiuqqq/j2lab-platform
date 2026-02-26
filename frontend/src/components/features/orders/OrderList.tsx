@@ -11,6 +11,9 @@ import {
 interface OrderListProps {
   orders: Order[];
   loading?: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
 function getStatusBadgeVariant(status: string) {
@@ -26,10 +29,30 @@ function getStatusBadgeVariant(status: string) {
   return map[status] || 'default';
 }
 
-export default function OrderList({ orders, loading }: OrderListProps) {
+export default function OrderList({ orders, loading, selectable, selectedIds, onToggleSelect }: OrderListProps) {
   const navigate = useNavigate();
 
   const columns: Column<Order>[] = [
+    ...(selectable
+      ? [
+          {
+            key: 'checkbox' as keyof Order,
+            header: '',
+            render: (order: Order) => (
+              <input
+                type="checkbox"
+                checked={selectedIds?.has(order.id) || false}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect?.(order.id);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+            ),
+          },
+        ]
+      : []),
     {
       key: 'order_number',
       header: '주문번호',

@@ -345,3 +345,384 @@ export interface ApiError {
   detail: string;
   status_code?: number;
 }
+
+// ============================================================
+// Category
+// ============================================================
+
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface UpdateCategoryRequest {
+  name?: string;
+  description?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface CategoryReorderRequest {
+  items: { id: number; sort_order: number }[];
+}
+
+// ============================================================
+// Notification
+// ============================================================
+
+export type NotificationType = 'order' | 'campaign' | 'system' | 'settlement';
+
+export interface Notification {
+  id: number;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  related_id?: number;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  items: Notification[];
+  total: number;
+  unread_count: number;
+}
+
+// ============================================================
+// Notice
+// ============================================================
+
+export interface Notice {
+  id: number;
+  title: string;
+  content: string;
+  author_id: string;
+  author?: User;
+  is_pinned: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateNoticeRequest {
+  title: string;
+  content: string;
+  is_pinned?: boolean;
+}
+
+export interface UpdateNoticeRequest {
+  title?: string;
+  content?: string;
+  is_pinned?: boolean;
+  is_active?: boolean;
+}
+
+// ============================================================
+// Settlement
+// ============================================================
+
+export type SettlementStatus = 'pending' | 'confirmed' | 'settled';
+
+export interface Settlement {
+  id: number;
+  order_id: number;
+  order_number: string;
+  product_name: string;
+  user_name: string;
+  amount: number;
+  commission: number;
+  settlement_amount: number;
+  status: SettlementStatus;
+  settled_at?: string;
+  created_at: string;
+}
+
+export interface SettlementSummary {
+  total_amount: number;
+  pending_amount: number;
+  settled_amount: number;
+  processing_count: number;
+}
+
+export interface SettlementSecretRequest {
+  password: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface SettlementSecretItem {
+  order_number: string;
+  product: string;
+  seller: string;
+  revenue: number;
+  cost: number;
+  margin: number;
+  commission: number;
+  vat: number;
+  net_profit: number;
+  profit_rate: number;
+  payment_status: string;
+  settlement_status: string;
+  notes?: string;
+}
+
+// ============================================================
+// Product Schema (extended)
+// ============================================================
+
+export type FieldType = 'text' | 'url' | 'number' | 'date' | 'select' | 'calc' | 'date_calc' | 'readonly';
+
+export interface FormFieldExtended extends FormField {
+  type: FieldType;
+  options?: string[];
+  formula?: string;
+  base_field?: string;
+  days_field?: string;
+}
+
+export interface ProductSchema {
+  product: Product;
+  form_schema: FormFieldExtended[];
+  price_policies: PricePolicy[];
+}
+
+export interface PricePolicy {
+  id: number;
+  product_id: number;
+  user_id?: string;
+  role?: UserRole;
+  price: number;
+  min_quantity?: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PriceMatrixRow {
+  product_id: number;
+  product_name: string;
+  base_price: number;
+  prices: Record<string, number>;
+}
+
+// ============================================================
+// Campaign (extended for Dashboard)
+// ============================================================
+
+export interface CampaignDashboardStats {
+  total: number;
+  active: number;
+  exhausted_today: number;
+  keyword_warnings: number;
+}
+
+export interface CampaignListItem extends Campaign {
+  days_running: number;
+  keyword_status: 'normal' | 'warning' | 'critical';
+  keyword_remaining: number;
+  keyword_total: number;
+  extension_history?: ExtensionHistoryItem[];
+  last_keyword_change?: string;
+}
+
+export interface ExtensionHistoryItem {
+  round: number;
+  start_date: string;
+  end_date: string;
+  daily_limit: number;
+}
+
+export interface CampaignSettings {
+  campaign_code?: string;
+  place_name?: string;
+  agency_name?: string;
+  daily_limit?: number;
+  total_limit?: number;
+  start_date?: string;
+  end_date?: string;
+  keywords?: string;
+}
+
+export interface CampaignManualCreate {
+  campaign_code: string;
+  account_id: number;
+  place_url: string;
+  place_name?: string;
+  template_id: number;
+  start_date: string;
+  end_date: string;
+  daily_limit: number;
+  keywords: string;
+}
+
+// ============================================================
+// Campaign Upload
+// ============================================================
+
+export interface CampaignUploadPreviewItem {
+  row_number: number;
+  agency_name?: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  daily_limit: number;
+  keywords: string[];
+  keyword_count: number;
+  place_name?: string;
+  place_url: string;
+  campaign_type: string;
+  is_valid: boolean;
+  errors: string[];
+  extension_eligible: boolean;
+  existing_campaign_code?: string;
+  existing_campaign_id?: number;
+}
+
+export interface CampaignUploadPreviewResponse {
+  items: CampaignUploadPreviewItem[];
+  total: number;
+  valid_count: number;
+  error_count: number;
+}
+
+export interface CampaignUploadConfirmRequest {
+  items: number[];
+}
+
+export interface RegistrationProgressItem {
+  campaign_id: number;
+  place_name?: string;
+  status: string;
+  registration_step: 'queued' | 'logging_in' | 'running_modules' | 'filling_form' | 'submitting' | 'extracting_code' | 'completed' | 'failed';
+  registration_message?: string;
+  campaign_code?: string;
+}
+
+// ============================================================
+// Superap Account
+// ============================================================
+
+export interface SuperapAccount {
+  id: number;
+  user_id: string;
+  agency_name?: string;
+  is_active: boolean;
+  campaign_count: number;
+  created_at?: string;
+}
+
+export interface CreateSuperapAccountRequest {
+  user_id: string;
+  password: string;
+  agency_name?: string;
+}
+
+export interface UpdateSuperapAccountRequest {
+  password?: string;
+  agency_name?: string;
+  is_active?: boolean;
+}
+
+// ============================================================
+// Campaign Template
+// ============================================================
+
+export interface CampaignTemplate {
+  id: number;
+  type_name: string;
+  description_template: string;
+  hint_text: string;
+  campaign_type_selection?: string;
+  links: string[];
+  hashtag?: string;
+  image_url_200x600?: string;
+  image_url_720x780?: string;
+  conversion_text_template?: string;
+  modules: string[];
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateCampaignTemplateRequest {
+  type_name: string;
+  description_template: string;
+  hint_text: string;
+  campaign_type_selection?: string;
+  links?: string[];
+  hashtag?: string;
+  image_url_200x600?: string;
+  image_url_720x780?: string;
+  conversion_text_template?: string;
+  modules?: string[];
+}
+
+export interface UpdateCampaignTemplateRequest {
+  type_name?: string;
+  description_template?: string;
+  hint_text?: string;
+  campaign_type_selection?: string;
+  links?: string[];
+  hashtag?: string;
+  image_url_200x600?: string;
+  image_url_720x780?: string;
+  conversion_text_template?: string;
+  modules?: string[];
+  is_active?: boolean;
+}
+
+export interface ModuleInfo {
+  name: string;
+  description: string;
+  variables: string[];
+}
+
+// ============================================================
+// Scheduler
+// ============================================================
+
+export interface SchedulerStatus {
+  status: 'running' | 'waiting' | 'stopped';
+  last_run?: string;
+  execution_count: number;
+  keyword_changes: number;
+  keyword_failures: number;
+  skipped_today: number;
+  error_message?: string;
+  recent_logs?: SchedulerLog[];
+}
+
+export interface SchedulerLog {
+  timestamp: string;
+  level: 'info' | 'warning' | 'error';
+  message: string;
+}
+
+// ============================================================
+// Order (extended)
+// ============================================================
+
+export interface BulkStatusRequest {
+  order_ids: number[];
+  status: OrderStatus;
+}
+
+export interface DeadlineUpdateRequest {
+  deadline: string;
+}
+
+export interface ExcelUploadResponse {
+  rows: Record<string, any>[];
+  errors: string[];
+}

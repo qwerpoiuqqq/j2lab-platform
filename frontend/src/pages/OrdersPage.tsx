@@ -4,11 +4,17 @@ import OrderForm from '@/components/features/orders/OrderForm';
 import Pagination from '@/components/common/Pagination';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
-import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline';
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
 import type { Order, OrderStatus, Product } from '@/types';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi } from '@/api/orders';
 import { productsApi } from '@/api/products';
+import { downloadBlob } from '@/utils/format';
 
 const statusOptions: { value: string; label: string }[] = [
   { value: '', label: '전체 상태' },
@@ -19,6 +25,14 @@ const statusOptions: { value: string; label: string }[] = [
   { value: 'completed', label: '완료' },
   { value: 'cancelled', label: '취소' },
   { value: 'rejected', label: '반려' },
+];
+
+const bulkStatusOptions: { value: string; label: string }[] = [
+  { value: 'submitted', label: '접수완료' },
+  { value: 'payment_confirmed', label: '입금확인' },
+  { value: 'processing', label: '처리중' },
+  { value: 'completed', label: '완료' },
+  { value: 'cancelled', label: '취소' },
 ];
 
 export default function OrdersPage() {
@@ -35,7 +49,15 @@ export default function OrdersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const canCreate = user && ['distributor', 'sub_account'].includes(user.role);
+  const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +76,7 @@ export default function OrdersPage() {
           setTotalPages(data.pages);
           setTotalItems(data.total);
           setLoading(false);
+          setSelectedIds(new Set());
         }
       })
       .catch((err) => {
@@ -68,7 +91,6 @@ export default function OrdersPage() {
     };
   }, [statusFilter, page, refreshKey]);
 
-  // Load products for create modal
   useEffect(() => {
     productsApi
       .list({ size: 100, is_active: true })
@@ -86,6 +108,55 @@ export default function OrdersPage() {
     }
   };
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === orders.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(orders.map((o) => o.id)));
+    }
+  };
+
+  const handleBulkStatus = async () => {
+    if (!bulkStatus || selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await ordersApi.bulkStatus({
+        order_ids: Array.from(selectedIds),
+        status: bulkStatus as OrderStatus,
+      });
+      setShowBulkModal(false);
+      setBulkStatus('');
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '일괄 변경에 실패했습니다.');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await ordersApi.exportList({
+        status: statusFilter || undefined,
+      });
+      downloadBlob(blob, `주문목록_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch {
+      alert('내보내기에 실패했습니다.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -96,15 +167,40 @@ export default function OrdersPage() {
             주문 목록을 조회하고 관리합니다.
           </p>
         </div>
-        {canCreate && (
-          <Button
-            onClick={() => setShowCreateModal(true)}
-            icon={<PlusIcon className="h-4 w-4" />}
-          >
-            주문 생성
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canBulk && (
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              loading={exporting}
+              icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            >
+              Excel
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              icon={<PlusIcon className="h-4 w-4" />}
+            >
+              주문 생성
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Bulk Actions */}
+      {canBulk && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-lg p-3">
+          <span className="text-sm font-medium text-primary-700">{selectedIds.size}건 선택</span>
+          <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
+            일괄 상태변경
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            선택 해제
+          </Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -141,8 +237,25 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Table */}
-      <OrderList orders={orders} loading={loading} />
+      {/* Table with checkboxes */}
+      {canBulk && orders.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <input
+            type="checkbox"
+            checked={selectedIds.size === orders.length && orders.length > 0}
+            onChange={toggleSelectAll}
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <span className="text-xs text-gray-500">전체 선택</span>
+        </div>
+      )}
+      <OrderList
+        orders={orders}
+        loading={loading}
+        selectable={canBulk || false}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+      />
 
       {/* Pagination */}
       <Pagination
@@ -164,6 +277,32 @@ export default function OrdersPage() {
           products={products}
           onSubmit={handleCreateOrder}
         />
+      </Modal>
+
+      {/* Bulk Status Modal */}
+      <Modal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        title="일괄 상태 변경"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-600">{selectedIds.size}건의 주문 상태를 변경합니다.</p>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">상태 선택</option>
+            {bulkStatusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowBulkModal(false)}>취소</Button>
+            <Button onClick={handleBulkStatus} loading={bulkLoading} disabled={!bulkStatus}>변경</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

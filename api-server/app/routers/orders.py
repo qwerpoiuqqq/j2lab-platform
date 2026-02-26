@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import logging
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -12,6 +15,8 @@ from app.core.deps import RoleChecker, get_current_active_user
 from app.models.user import User, UserRole
 from app.schemas.common import MessageResponse, PaginatedResponse, PaginationParams
 from app.schemas.order import (
+    BulkStatusRequest,
+    DeadlineUpdateRequest,
     OrderBriefResponse,
     OrderCreate,
     OrderRejectRequest,
@@ -80,6 +85,180 @@ async def create_order(
             detail=str(e),
         )
     return order
+
+
+# === Literal-path routes (must be before /{order_id} to avoid path conflicts) ===
+
+
+@router.get("/excel-template/{product_id}")
+async def get_excel_template(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Generate an Excel template based on a product's form_schema."""
+    from openpyxl import Workbook
+    from app.services import product_service
+
+    product = await product_service.get_product_by_id(db, product_id)
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Order Template"
+
+    # Build headers from form_schema
+    headers = ["quantity"]
+    if product.form_schema and isinstance(product.form_schema, list):
+        for field in product.form_schema:
+            if isinstance(field, dict):
+                headers.append(field.get("name", field.get("key", "field")))
+    elif product.form_schema and isinstance(product.form_schema, dict):
+        for key in product.form_schema.get("fields", []):
+            if isinstance(key, dict):
+                headers.append(key.get("name", key.get("key", "field")))
+            elif isinstance(key, str):
+                headers.append(key)
+
+    ws.append(headers)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = f"order_template_{product.code}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.post("/excel-upload", response_model=MessageResponse)
+async def excel_upload(
+    file: UploadFile = File(...),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Parse an uploaded Excel file and return the parsed rows."""
+    from openpyxl import load_workbook
+
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .xlsx files are supported",
+        )
+
+    content = await file.read()
+    try:
+        wb = load_workbook(io.BytesIO(content), read_only=True)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Excel file",
+        )
+
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if len(rows) < 2:
+        return MessageResponse(message="No data rows found", detail={"headers": list(rows[0]) if rows else [], "rows": []})
+
+    headers = [str(h) if h else f"col_{i}" for i, h in enumerate(rows[0])]
+    parsed_rows = []
+    for row in rows[1:]:
+        row_dict = {}
+        for i, val in enumerate(row):
+            if i < len(headers):
+                row_dict[headers[i]] = val
+        parsed_rows.append(row_dict)
+
+    return MessageResponse(
+        message=f"Parsed {len(parsed_rows)} rows",
+        detail={"headers": headers, "rows": parsed_rows},
+    )
+
+
+@router.get("/export")
+async def export_orders(
+    status_filter: str | None = Query(None, alias="status"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+    ),
+):
+    """Export filtered order list as Excel."""
+    from openpyxl import Workbook
+
+    orders, total = await order_service.get_orders(
+        db, skip=0, limit=50000, status=status_filter, current_user=current_user,
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Orders"
+
+    headers = [
+        "ID", "Order Number", "Status", "Payment",
+        "Total Amount", "VAT", "Source", "Created At",
+    ]
+    ws.append(headers)
+
+    for o in orders:
+        ws.append([
+            o.id,
+            o.order_number,
+            o.status,
+            o.payment_status,
+            int(o.total_amount) if o.total_amount else 0,
+            int(o.vat_amount) if o.vat_amount else 0,
+            o.source,
+            o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
+        ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=orders_export.xlsx"},
+    )
+
+
+@router.post("/bulk-status", response_model=MessageResponse)
+async def bulk_status_change(
+    body: BulkStatusRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Bulk status change for multiple orders."""
+    success_count = 0
+    errors = []
+
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+        try:
+            await order_service.transition_order_status(db, order, body.status, current_user)
+            success_count += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+
+    return MessageResponse(
+        message=f"Updated {success_count}/{len(body.order_ids)} orders",
+        detail={"errors": errors} if errors else None,
+    )
+
+
+# === Parameterized /{order_id} routes ===
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -208,7 +387,7 @@ async def confirm_payment(
             detail=str(e),
         )
 
-    # Start E2E pipeline (best-effort — payment confirmation is preserved on failure)
+    # Start E2E pipeline (best-effort -- payment confirmation is preserved on failure)
     try:
         await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
     except Exception as e:
@@ -279,3 +458,125 @@ async def cancel_order(
             detail=str(e),
         )
     return cancelled
+
+
+@router.post("/{order_id}/approve", response_model=OrderResponse)
+async def approve_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Approve order: submitted -> payment_confirmed. Alias for confirm-payment."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.COMPANY_ADMIN:
+        if order.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Company admin can only approve orders in their own company",
+            )
+
+    try:
+        confirmed = await order_service.confirm_payment(db, order, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    try:
+        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
+    except Exception as e:
+        logger.error("Pipeline start failed for order %s: %s", order_id, e)
+
+    await db.refresh(confirmed)
+    return confirmed
+
+
+@router.get("/{order_id}/items/export")
+async def export_order_items(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Export order items as an Excel file."""
+    from openpyxl import Workbook
+
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+    if not order_service.can_view_order(current_user, order):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view this order",
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Order Items"
+
+    headers = [
+        "Row #", "Product ID", "Quantity", "Unit Price",
+        "Subtotal", "Status", "Result",
+    ]
+    ws.append(headers)
+
+    for item in order.items:
+        ws.append([
+            item.row_number,
+            item.product_id,
+            item.quantity,
+            int(item.unit_price) if item.unit_price else 0,
+            int(item.subtotal) if item.subtotal else 0,
+            item.status,
+            item.result_message or "",
+        ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    filename = f"order_{order.order_number}_items.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.patch("/{order_id}/deadline", response_model=OrderResponse)
+async def update_deadline(
+    order_id: int,
+    body: DeadlineUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+    ),
+):
+    """Update the deadline for an order."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    try:
+        updated = await order_service.update_deadline(db, order, body.deadline)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return updated

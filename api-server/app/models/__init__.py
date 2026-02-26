@@ -35,6 +35,11 @@ from app.models.pipeline_state import (
 from app.models.place import Place
 from app.models.superap_account import SuperapAccount
 
+# Phase 2 - New features
+from app.models.category import Category
+from app.models.notice import Notice
+from app.models.notification import Notification
+
 __all__ = [
     # Phase 1A
     "BalanceTransaction",
@@ -70,4 +75,8 @@ __all__ = [
     "Place",
     "SuperapAccount",
     "VALID_PIPELINE_TRANSITIONS",
+    # Phase 2 - New features
+    "Category",
+    "Notice",
+    "Notification",
 ]

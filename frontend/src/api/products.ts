@@ -6,6 +6,7 @@ export const productsApi = {
     page?: number;
     size?: number;
     is_active?: boolean;
+    category?: string;
   }): Promise<PaginatedResponse<Product>> => {
     const response = await apiClient.get<PaginatedResponse<Product>>('/products', { params });
     return response.data;

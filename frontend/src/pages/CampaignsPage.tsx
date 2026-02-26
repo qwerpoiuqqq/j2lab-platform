@@ -1,129 +1,165 @@
-import { useState, useEffect } from 'react';
-import CampaignList from '@/components/features/campaigns/CampaignList';
-import Pagination from '@/components/common/Pagination';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import type { Campaign, CampaignStatus } from '@/types';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { campaignsApi } from '@/api/campaigns';
-
-const statusOptions = [
-  { value: '', label: '전체 상태' },
-  { value: 'pending', label: '대기' },
-  { value: 'queued', label: '대기열' },
-  { value: 'registering', label: '등록중' },
-  { value: 'active', label: '활성' },
-  { value: 'paused', label: '일시정지' },
-  { value: 'completed', label: '완료' },
-  { value: 'failed', label: '실패' },
-  { value: 'expired', label: '만료' },
-];
+import { campaignAccountsApi } from '@/api/campaignAccounts';
+import StatsBar from '@/components/features/campaigns/StatsBar';
+import FilterBar from '@/components/features/campaigns/FilterBar';
+import SchedulerStatus from '@/components/features/campaigns/SchedulerStatus';
+import CampaignTable from '@/components/features/campaigns/CampaignTable';
+import type { SuperapAccount } from '@/types';
 
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [activeAccount, setActiveAccount] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [agencyFilter, setAgencyFilter] = useState<string>('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<CampaignStatus | ''>('');
-  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+  const accountId = activeAccount === 'all' ? undefined : Number(activeAccount);
 
-    campaignsApi
-      .list({
+  // Fetch accounts
+  const { data: accountsData } = useQuery({
+    queryKey: ['superap-accounts'],
+    queryFn: () => campaignAccountsApi.list({ size: 100 }),
+  });
+  const accounts: SuperapAccount[] = accountsData?.items ?? [];
+
+  // Fetch agencies
+  const { data: agenciesData } = useQuery({
+    queryKey: ['agencies'],
+    queryFn: () => campaignAccountsApi.getAgencies(),
+  });
+  const agencies: string[] = agenciesData?.agencies ?? [];
+
+  // Fetch stats
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['campaign-stats', accountId],
+    queryFn: () => campaignsApi.getStats({ account_id: accountId }),
+  });
+
+  // Fetch campaigns
+  const {
+    data: campaignsData,
+    isLoading: campaignsLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ['campaigns', page, accountId, statusFilter, agencyFilter],
+    queryFn: () =>
+      campaignsApi.list({
         page,
         size: 20,
+        account_id: accountId,
         status: statusFilter || undefined,
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setCampaigns(data.items);
-          setTotalPages(data.pages);
-          setTotalItems(data.total);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err?.response?.data?.detail || '캠페인 목록을 불러오지 못했습니다.');
-          setLoading(false);
-        }
-      });
+        agency: agencyFilter || undefined,
+      }),
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [statusFilter, page]);
+  const campaigns = campaignsData?.items ?? [];
+  const totalPages = campaignsData?.pages ?? 1;
+  const totalItems = campaignsData?.total ?? 0;
 
-  // Client-side search filter on loaded data
-  const filteredCampaigns = search
-    ? campaigns.filter((c) => {
-        const s = search.toLowerCase();
-        return (
-          c.campaign_code?.toLowerCase().includes(s) ||
-          c.place_name?.toLowerCase().includes(s)
-        );
-      })
-    : campaigns;
+  // Client-side search filter
+  const filteredCampaigns = useMemo(() => {
+    if (!searchTerm) return campaigns;
+    const term = searchTerm.toLowerCase();
+    return campaigns.filter(
+      (c) =>
+        c.place_name?.toLowerCase().includes(term) ||
+        c.campaign_code?.toLowerCase().includes(term),
+    );
+  }, [campaigns, searchTerm]);
+
+  // Account tabs
+  const tabs = [
+    { key: 'all', label: '전체', count: stats?.total },
+    ...accounts.map((a) => ({
+      key: String(a.id),
+      label: a.user_id,
+      count: a.campaign_count,
+    })),
+  ];
+
+  const handleAccountChange = (key: string) => {
+    setActiveAccount(key);
+    setPage(1);
+  };
+
+  const handleFilter = useCallback(
+    (f: { agency_name?: string; status?: string; search?: string }) => {
+      setSearchTerm(f.search || '');
+      setAgencyFilter(f.agency_name || '');
+      setStatusFilter(f.status || '');
+      setPage(1);
+    },
+    [],
+  );
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">캠페인 관리</h1>
+        <h1 className="text-2xl font-bold text-gray-900">캠페인 대시보드</h1>
         <p className="mt-1 text-sm text-gray-500">
-          캠페인 목록을 조회하고 상태를 관리합니다.
+          캠페인 현황을 모니터링하고 관리합니다.
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="캠페인 코드, 플레이스 검색..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as CampaignStatus | '');
-            setPage(1);
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+      {/* Account tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleAccountChange(tab.key)}
+            className={`
+              flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors
+              ${
+                activeAccount === tab.key
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }
+            `}
+          >
+            {tab.label}
+            {tab.count !== undefined && (
+              <span
+                className={`
+                  text-xs px-1.5 py-0.5 rounded-full
+                  ${
+                    activeAccount === tab.key
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 text-gray-500'
+                  }
+                `}
+              >
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-          {error}
-        </div>
-      )}
+      {/* Stats */}
+      <StatsBar stats={stats ?? null} loading={statsLoading} />
 
-      {/* Table */}
-      <CampaignList campaigns={filteredCampaigns} loading={loading} />
+      {/* Scheduler Status */}
+      <SchedulerStatus />
 
-      {/* Pagination */}
-      <Pagination
+      {/* Filters */}
+      <FilterBar agencies={agencies} onFilter={handleFilter} />
+
+      {/* Campaign Table */}
+      <CampaignTable
+        campaigns={filteredCampaigns}
+        loading={campaignsLoading}
         page={page}
         totalPages={totalPages}
-        onPageChange={setPage}
         totalItems={totalItems}
-        pageSize={20}
+        onPageChange={setPage}
+        onRefresh={handleRefresh}
       />
     </div>
   );

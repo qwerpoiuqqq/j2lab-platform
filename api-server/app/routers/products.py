@@ -65,6 +65,47 @@ async def create_product(
     return product
 
 
+# === Price Matrix (must be before /{product_id} routes) ===
+
+
+@router.get("/prices/matrix")
+async def get_price_matrix(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Cross-product x user price matrix.
+
+    Returns a matrix of products and their prices per role.
+    """
+    from app.models.user import UserRole as UR
+
+    products, _ = await product_service.get_products(db, skip=0, limit=500, is_active=True)
+    roles = [r.value for r in UR]
+
+    matrix = []
+    for product in products:
+        row = {
+            "product_id": product.id,
+            "product_name": product.name,
+            "product_code": product.code,
+            "base_price": int(product.base_price) if product.base_price else None,
+            "prices_by_role": {},
+        }
+        for role in roles:
+            price = await price_service.get_effective_price(
+                db, product=product, user_id=_current_user.id, user_role=role,
+            )
+            row["prices_by_role"][role] = price
+        matrix.append(row)
+
+    return {"matrix": matrix}
+
+
+# === Single Product ===
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(
     product_id: int,
@@ -193,3 +234,34 @@ async def delete_price_policy(
             detail="Price policy not found",
         )
     await price_service.delete_price_policy(db, policy)
+
+
+# === Product Schema ===
+
+
+@router.get("/{product_id}/schema")
+async def get_product_schema(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Return product form_schema + the current user's effective price policies."""
+    product = await product_service.get_product_by_id(db, product_id)
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
+    # Get price policies relevant to this user
+    user_price = await price_service.get_effective_price(
+        db, product=product, user_id=current_user.id, user_role=current_user.role,
+    )
+
+    return {
+        "product_id": product.id,
+        "product_name": product.name,
+        "form_schema": product.form_schema,
+        "base_price": int(product.base_price) if product.base_price else None,
+        "effective_price": user_price,
+    }

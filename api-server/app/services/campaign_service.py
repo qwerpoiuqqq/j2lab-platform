@@ -65,6 +65,22 @@ async def get_campaign_by_id(
     return result.scalar_one_or_none()
 
 
+async def get_campaign_by_code(
+    db: AsyncSession, code: str
+) -> Campaign | None:
+    """Get a campaign by campaign_code."""
+    result = await db.execute(
+        select(Campaign).where(Campaign.campaign_code == code)
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_campaign(db: AsyncSession, campaign: Campaign) -> None:
+    """Delete a campaign."""
+    await db.delete(campaign)
+    await db.commit()
+
+
 async def create_campaign(
     db: AsyncSession, data: CampaignCreate
 ) -> Campaign:

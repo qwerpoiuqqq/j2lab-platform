@@ -297,6 +297,42 @@ async def reject_order(
     return order
 
 
+async def transition_order_status(
+    db: AsyncSession,
+    order: Order,
+    target_status_str: str,
+    actor: User,
+) -> Order:
+    """Generic status transition for bulk operations."""
+    try:
+        target = OrderStatus(target_status_str)
+    except ValueError:
+        raise ValueError(f"Invalid status: {target_status_str}")
+
+    current = OrderStatus(order.status)
+    if not _can_transition(current, target):
+        raise ValueError(
+            f"Cannot transition from '{order.status}' to '{target_status_str}'"
+        )
+
+    order.status = target.value
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
+async def update_deadline(
+    db: AsyncSession,
+    order: Order,
+    deadline: datetime,
+) -> Order:
+    """Update the completed_at (deadline) field on an order."""
+    order.completed_at = deadline
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
 async def cancel_order(
     db: AsyncSession,
     order: Order,

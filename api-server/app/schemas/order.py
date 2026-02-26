@@ -102,6 +102,19 @@ class OrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BulkStatusRequest(BaseModel):
+    """Schema for bulk status change."""
+
+    order_ids: list[int] = Field(..., min_length=1)
+    status: str = Field(..., min_length=1)
+
+
+class DeadlineUpdateRequest(BaseModel):
+    """Schema for updating order deadline."""
+
+    deadline: datetime
+
+
 class OrderBriefResponse(BaseModel):
     """Brief order info for list responses (without items)."""
 
