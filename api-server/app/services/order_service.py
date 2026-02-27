@@ -29,6 +29,51 @@ from app.schemas.order import OrderCreate, OrderItemCreate
 from app.services import balance_service, price_service
 
 
+def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
+    """Validate item_data against product.form_schema.
+    Returns list of error messages (empty = valid).
+    """
+    import re
+
+    errors = []
+    schema = product.form_schema
+    if not schema or not isinstance(schema, list):
+        return errors
+
+    data = item_data or {}
+
+    for field in schema:
+        if not isinstance(field, dict):
+            continue
+        name = field.get("name", "")
+        field_type = field.get("type", "text")
+        required = field.get("required", False)
+        value = data.get(name)
+
+        if required and (value is None or str(value).strip() == ""):
+            errors.append(f"필드 '{name}'은(는) 필수입니다.")
+            continue
+
+        if value is None or str(value).strip() == "":
+            continue
+
+        if field_type == "url":
+            val_str = str(value)
+            if not (val_str.startswith("http://") or val_str.startswith("https://")):
+                errors.append(f"필드 '{name}': 유효한 URL이 아닙니다.")
+        elif field_type == "number":
+            try:
+                float(value)
+            except (ValueError, TypeError):
+                errors.append(f"필드 '{name}': 숫자를 입력해야 합니다.")
+        elif field_type == "date":
+            val_str = str(value)
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", val_str):
+                errors.append(f"필드 '{name}': 날짜 형식(YYYY-MM-DD)이어야 합니다.")
+
+    return errors
+
+
 def _generate_order_number() -> str:
     """Generate a unique order number: ORD-YYYYMMDD-XXXX (random suffix)."""
     import secrets
@@ -48,6 +93,7 @@ async def get_orders(
     skip: int = 0,
     limit: int = 20,
     status: str | None = None,
+    search: str | None = None,
     current_user: User | None = None,
 ) -> tuple[list[Order], int]:
     """Get paginated list of orders with role-based filtering.
@@ -85,6 +131,15 @@ async def get_orders(
     if status is not None:
         query = query.where(Order.status == status)
         count_query = count_query.where(Order.status == status)
+
+    if search:
+        search_pattern = f"%{search}%"
+        search_filter = (
+            Order.order_number.ilike(search_pattern)
+            | Order.user.has(User.name.ilike(search_pattern))
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
     query = query.order_by(Order.created_at.desc()).offset(skip).limit(limit)
 
@@ -165,6 +220,13 @@ async def create_order(
         if not product.is_active:
             raise ValueError(f"Product '{product.name}' is not active")
 
+        # Validate item_data against form_schema
+        validation_errors = validate_item_data(product, item_data.item_data)
+        if validation_errors:
+            raise ValueError(
+                f"Item {idx} validation failed: {'; '.join(validation_errors)}"
+            )
+
         # Resolve price
         unit_price = await price_service.get_effective_price(
             db,
@@ -191,6 +253,62 @@ async def create_order(
     order.total_amount = total_amount
     order.vat_amount = vat_amount
 
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
+async def create_order_from_excel(
+    db: AsyncSession,
+    product_id: int,
+    rows: list[dict],
+    current_user: User,
+    notes: str | None = None,
+) -> Order:
+    """Create an order from validated Excel rows."""
+    product_result = await db.execute(
+        select(Product).where(Product.id == product_id)
+    )
+    product = product_result.scalar_one_or_none()
+    if product is None:
+        raise ValueError(f"Product {product_id} not found")
+    if not product.is_active:
+        raise ValueError(f"Product '{product.name}' is not active")
+
+    order = Order(
+        order_number=_generate_order_number(),
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        status=OrderStatus.DRAFT.value,
+        payment_status=PaymentStatus.UNPAID.value,
+        notes=notes,
+        source="excel",
+    )
+    db.add(order)
+    await db.flush()
+
+    total_amount = 0
+    for idx, row_data in enumerate(rows, start=1):
+        quantity = int(row_data.get("quantity", 1) or 1)
+        unit_price = await price_service.get_effective_price(
+            db, product=product, user_id=current_user.id, user_role=current_user.role,
+        )
+        subtotal = unit_price * quantity
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product_id,
+            row_number=idx,
+            quantity=quantity,
+            unit_price=unit_price,
+            subtotal=subtotal,
+            item_data=row_data,
+        )
+        db.add(order_item)
+        total_amount += subtotal
+
+    vat_amount = int(total_amount * 0.1)
+    order.total_amount = total_amount
+    order.vat_amount = vat_amount
     await db.flush()
     await db.refresh(order)
     return order

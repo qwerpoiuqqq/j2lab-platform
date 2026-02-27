@@ -4,6 +4,7 @@ import { getCampaignExtendedStatusLabel, getCampaignExtendedStatusColor, getKeyw
 import Pagination from '@/components/common/Pagination';
 import CampaignDetailModal from './CampaignDetailModal';
 import CampaignEditModal from './CampaignEditModal';
+import CampaignExtendModal from './CampaignExtendModal';
 import KeywordAddModal from './KeywordAddModal';
 import { campaignsApi } from '@/api/campaigns';
 
@@ -55,10 +56,12 @@ export default function CampaignTable({
 }: CampaignTableProps) {
   const [keywordModal, setKeywordModal] = useState<{ id: number; name: string } | null>(null);
   const [editModal, setEditModal] = useState<CampaignListItem | null>(null);
+  const [extendModal, setExtendModal] = useState<CampaignListItem | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -115,6 +118,42 @@ export default function CampaignTable({
       alert(err?.response?.data?.detail || '재시도 실패');
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const handleRegister = async (id: number) => {
+    try {
+      setActionLoading(id);
+      await campaignsApi.register(id);
+      onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '등록 실패');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRotateKeywords = async (id: number) => {
+    try {
+      setActionLoading(id);
+      await campaignsApi.rotateKeywords(id);
+      onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '키워드 로테이션 실패');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSync = async (id: number) => {
+    try {
+      setActionLoading(id);
+      await campaignsApi.syncToSuperap(id);
+      onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '동기화 실패');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -249,8 +288,19 @@ export default function CampaignTable({
                     {fmtDate(c.last_keyword_change)}
                   </td>
                   <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1">
-                      {c.status === 'pending' && c.registration_step === 'failed' && (
+                    <div className="flex gap-1 flex-wrap">
+                      {/* Pending with no registration step: Register button */}
+                      {c.status === 'pending' && !c.registration_step && (
+                        <button
+                          onClick={() => handleRegister(c.id)}
+                          disabled={actionLoading === c.id}
+                          className="text-xs px-2 py-1 bg-green-50 text-green-600 rounded-md hover:bg-green-100 disabled:opacity-50"
+                        >
+                          등록
+                        </button>
+                      )}
+                      {/* Failed registration: Retry */}
+                      {(c.status === 'failed' || (c.status === 'pending' && c.registration_step === 'failed')) && (
                         <button
                           onClick={() => handleRetry(c.id)}
                           disabled={retrying}
@@ -258,6 +308,31 @@ export default function CampaignTable({
                         >
                           재시도
                         </button>
+                      )}
+                      {/* Active: Extend, Rotate, Sync */}
+                      {c.status === 'active' && (
+                        <>
+                          <button
+                            onClick={() => setExtendModal(c)}
+                            className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-md hover:bg-purple-100"
+                          >
+                            연장
+                          </button>
+                          <button
+                            onClick={() => handleRotateKeywords(c.id)}
+                            disabled={actionLoading === c.id}
+                            className="text-xs px-2 py-1 bg-teal-50 text-teal-600 rounded-md hover:bg-teal-100 disabled:opacity-50"
+                          >
+                            키워드변경
+                          </button>
+                          <button
+                            onClick={() => handleSync(c.id)}
+                            disabled={actionLoading === c.id}
+                            className="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 disabled:opacity-50"
+                          >
+                            동기화
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => setEditModal(c)}
@@ -317,6 +392,14 @@ export default function CampaignTable({
         <CampaignEditModal
           campaign={editModal}
           onClose={() => setEditModal(null)}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {extendModal && (
+        <CampaignExtendModal
+          campaign={extendModal}
+          onClose={() => setExtendModal(null)}
           onSuccess={onRefresh}
         />
       )}

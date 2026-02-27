@@ -77,8 +77,8 @@ export const campaignsApi = {
     return response.data;
   },
 
-  extend: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post<Campaign>(`/campaigns/${id}/extend`);
+  extend: async (id: number, data: { new_end_date: string; additional_total: number; new_daily_limit?: number }): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/campaigns/${id}/extend`, data);
     return response.data;
   },
 

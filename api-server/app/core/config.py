@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # === CORS ===
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
+    # === Settlement ===
+    SETTLEMENT_SECRET_PASSWORD: str = "j2lab-settlement-2026"
+
+    # === Internal API ===
+    INTERNAL_API_SECRET: str = "change_me_to_internal_secret"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

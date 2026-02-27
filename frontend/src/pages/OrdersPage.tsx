@@ -59,6 +59,16 @@ export default function OrdersPage() {
   const canCreate = user && ['distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -69,6 +79,7 @@ export default function OrdersPage() {
         page,
         size: 20,
         status: statusFilter || undefined,
+        search: debouncedSearch || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -89,7 +100,7 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter, page, refreshKey]);
+  }, [statusFilter, page, refreshKey, debouncedSearch]);
 
   useEffect(() => {
     productsApi

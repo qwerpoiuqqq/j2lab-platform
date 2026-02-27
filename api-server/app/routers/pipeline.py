@@ -6,15 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user
-from app.models.user import User
-from app.schemas.common import PaginatedResponse, PaginationParams
+from app.core.deps import RoleChecker, get_current_active_user
+from app.models.user import User, UserRole
+from app.schemas.common import MessageResponse, PaginatedResponse, PaginationParams
 from app.schemas.pipeline import (
     PipelineLogResponse,
     PipelineOverviewItem,
     PipelineStateResponse,
 )
-from app.services import pipeline_service
+from app.services import pipeline_orchestrator, pipeline_service
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -32,6 +32,19 @@ async def get_pipeline_overview(
             for stage, count in rows
         ]
     }
+
+
+@router.post("/retry-stuck", response_model=MessageResponse)
+async def retry_stuck_pipelines(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(RoleChecker([UserRole.SYSTEM_ADMIN])),
+):
+    """Retry pipelines stuck for >5 minutes. system_admin only."""
+    result = await pipeline_orchestrator.retry_stuck_pipelines(db)
+    return MessageResponse(
+        message=f"Retried {result['retried']} pipelines ({result['skipped']} skipped, {result['total_stuck']} total stuck)",
+        detail=result,
+    )
 
 
 @router.get("/{order_item_id}", response_model=PipelineStateResponse)

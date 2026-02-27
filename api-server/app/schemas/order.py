@@ -115,6 +115,29 @@ class DeadlineUpdateRequest(BaseModel):
     deadline: datetime
 
 
+class ExcelUploadPreviewItem(BaseModel):
+    row_number: int
+    data: dict[str, Any]
+    is_valid: bool
+    errors: list[str]
+
+
+class ExcelUploadPreviewResponse(BaseModel):
+    items: list[ExcelUploadPreviewItem]
+    total: int
+    valid_count: int
+    error_count: int
+    product_id: int
+    product_name: str
+
+
+class ExcelUploadConfirmRequest(BaseModel):
+    product_id: int
+    row_indices: list[int] = Field(..., min_length=1)
+    rows: list[dict[str, Any]]
+    notes: str | None = None
+
+
 class OrderBriefResponse(BaseModel):
     """Brief order info for list responses (without items)."""
 

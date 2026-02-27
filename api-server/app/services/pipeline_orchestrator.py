@@ -372,6 +372,67 @@ async def on_assignment_confirmed(
         )
 
 
+async def retry_stuck_pipelines(db: AsyncSession) -> dict:
+    """Find pipelines stuck for >5 minutes and retry, up to 3 times.
+
+    Returns dict with counts of retried and skipped pipelines.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    # Find stuck pipelines (in transitional stages, not updated recently)
+    stuck_stages = ["extraction_queued", "campaign_registering"]
+    result = await db.execute(
+        select(PipelineState).where(
+            PipelineState.current_stage.in_(stuck_stages),
+            PipelineState.updated_at < cutoff,
+        )
+    )
+    stuck_states = list(result.scalars().all())
+
+    retried = 0
+    skipped = 0
+
+    for state in stuck_states:
+        # Check retry count (stored in error_message)
+        retry_count = 0
+        if state.error_message and "retry_count:" in state.error_message:
+            try:
+                retry_count = int(state.error_message.split("retry_count:")[1].split()[0])
+            except (ValueError, IndexError):
+                pass
+
+        if retry_count >= 3:
+            skipped += 1
+            continue
+
+        try:
+            if state.current_stage == "extraction_queued" and state.extraction_job_id:
+                ej_result = await db.execute(
+                    select(ExtractionJob).where(ExtractionJob.id == state.extraction_job_id)
+                )
+                ej = ej_result.scalar_one_or_none()
+                if ej:
+                    await dispatch_extraction_job(
+                        job_id=ej.id,
+                        naver_url=ej.naver_url,
+                        order_item_id=ej.order_item_id,
+                    )
+            elif state.current_stage == "campaign_registering" and state.campaign_id:
+                await dispatch_campaign_registration(campaign_id=state.campaign_id)
+
+            state.error_message = f"retry_count:{retry_count + 1} Retried at {datetime.now(timezone.utc).isoformat()}"
+            state.updated_at = datetime.now(timezone.utc)
+            retried += 1
+        except WorkerDispatchError:
+            logger.warning("Retry dispatch failed for pipeline state %s", state.id)
+            skipped += 1
+
+    await db.flush()
+    return {"retried": retried, "skipped": skipped, "total_stuck": len(stuck_states)}
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

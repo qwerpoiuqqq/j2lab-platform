@@ -1,13 +1,18 @@
-"""Scheduler router: status and manual trigger (stub for campaign-worker integration)."""
+"""Scheduler router: status and manual trigger (proxied to campaign-worker)."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.deps import RoleChecker, get_current_active_user
+from app.core.deps import RoleChecker
 from app.models.user import User, UserRole
 from app.schemas.common import MessageResponse
+from app.services.worker_clients import (
+    WorkerDispatchError,
+    get_campaign_worker_scheduler_status,
+    trigger_campaign_worker_scheduler,
+)
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/scheduler", tags=["scheduler"])
 
@@ -33,26 +38,27 @@ class SchedulerStatusResponse(BaseModel):
 async def get_scheduler_status(
     _current_user: User = Depends(admin_checker),
 ):
-    """Get keyword rotation scheduler status.
-
-    This is a stub — will be connected to campaign-worker in Phase 3.
-    """
-    return SchedulerStatusResponse(
-        status="waiting",
-        last_run=None,
-        execution_count=0,
-        keyword_changes=0,
-        keyword_failures=0,
-        skipped_today=0,
-    )
+    """Get keyword rotation scheduler status from campaign-worker."""
+    try:
+        data = await get_campaign_worker_scheduler_status()
+        return SchedulerStatusResponse(**data)
+    except WorkerDispatchError:
+        return SchedulerStatusResponse(
+            status="unreachable",
+            error_message="Campaign worker is not reachable",
+        )
 
 
 @router.post("/trigger", response_model=MessageResponse)
 async def trigger_scheduler(
     _current_user: User = Depends(admin_checker),
 ):
-    """Manually trigger keyword rotation.
-
-    This is a stub — will be connected to campaign-worker in Phase 3.
-    """
-    return MessageResponse(message="Scheduler trigger queued (stub)")
+    """Manually trigger keyword rotation on campaign-worker."""
+    try:
+        await trigger_campaign_worker_scheduler()
+        return MessageResponse(message="Scheduler triggered successfully")
+    except WorkerDispatchError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Campaign worker error: {e}",
+        )

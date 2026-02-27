@@ -310,11 +310,53 @@ export interface DashboardSummary {
   campaigns_by_status: Record<string, number>;
   pipeline_overview: PipelineOverview[];
   recent_orders: Order[];
+  user_role: UserRole;
 }
 
 export interface PipelineOverview {
   stage: PipelineStage;
   count: number;
+}
+
+export interface DeadlineAlert {
+  order_id: number;
+  order_number: string;
+  deadline: string;
+  days_remaining: number;
+  urgency: 'red' | 'orange' | 'yellow';
+  status: string;
+}
+
+export interface KeywordWarning {
+  campaign_id: number;
+  place_name: string;
+  campaign_code?: string;
+  remaining: number;
+  total: number;
+}
+
+export interface EnhancedDashboard {
+  upcoming_deadlines: DeadlineAlert[];
+  keyword_warnings: KeywordWarning[];
+  registration_queue: { status: string; registration_step: string; count: number }[];
+  weekly_trend: { date: string; count: number }[];
+}
+
+export interface CalendarDeadlines {
+  orders: {
+    id: number;
+    order_number: string;
+    deadline: string | null;
+    status: string;
+    total_amount: number;
+  }[];
+  campaigns: {
+    id: number;
+    campaign_code?: string;
+    place_name: string;
+    end_date: string | null;
+    status: string;
+  }[];
 }
 
 // ============================================================
@@ -725,4 +767,27 @@ export interface DeadlineUpdateRequest {
 export interface ExcelUploadResponse {
   rows: Record<string, any>[];
   errors: string[];
+}
+
+export interface ExcelUploadPreviewItem {
+  row_number: number;
+  data: Record<string, any>;
+  is_valid: boolean;
+  errors: string[];
+}
+
+export interface ExcelUploadPreviewResponse {
+  items: ExcelUploadPreviewItem[];
+  total: number;
+  valid_count: number;
+  error_count: number;
+  product_id: number;
+  product_name: string;
+}
+
+export interface ExcelUploadConfirmRequest {
+  product_id: number;
+  row_indices: number[];
+  rows: Record<string, any>[];
+  notes?: string;
 }

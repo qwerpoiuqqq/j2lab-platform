@@ -4,11 +4,19 @@ import Badge from '@/components/common/Badge';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { formatCurrency, getOrderStatusLabel, getOrderStatusColor } from '@/utils/format';
 import { ordersApi } from '@/api/orders';
-import type { Order } from '@/types';
+import type { CalendarDeadlines } from '@/types';
+
+interface CalendarEntry {
+  type: 'order' | 'campaign';
+  id: number;
+  label: string;
+  status: string;
+  amount?: number;
+}
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [data, setData] = useState<CalendarDeadlines | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -20,10 +28,10 @@ export default function CalendarPage() {
     setLoading(true);
 
     ordersApi
-      .list({ page: 1, size: 100, status: 'processing' })
-      .then((data) => {
+      .getDeadlines(year, month + 1)
+      .then((result) => {
         if (!cancelled) {
-          setOrders(data.items);
+          setData(result);
           setLoading(false);
         }
       })
@@ -63,16 +71,38 @@ export default function CalendarPage() {
     return days;
   }, [year, month]);
 
-  // Group orders by created_at date (simplified - in real app, use deadline field)
-  const ordersByDate = useMemo(() => {
-    const map: Record<string, Order[]> = {};
-    orders.forEach((order) => {
-      const dateKey = order.created_at.split('T')[0];
+  // Group entries by date (orders by deadline, campaigns by end_date)
+  const entriesByDate = useMemo(() => {
+    const map: Record<string, CalendarEntry[]> = {};
+    if (!data) return map;
+
+    data.orders.forEach((order) => {
+      if (!order.deadline) return;
+      const dateKey = order.deadline.split('T')[0];
       if (!map[dateKey]) map[dateKey] = [];
-      map[dateKey].push(order);
+      map[dateKey].push({
+        type: 'order',
+        id: order.id,
+        label: order.order_number,
+        status: order.status,
+        amount: order.total_amount,
+      });
     });
+
+    data.campaigns.forEach((campaign) => {
+      if (!campaign.end_date) return;
+      const dateKey = campaign.end_date.split('T')[0];
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push({
+        type: 'campaign',
+        id: campaign.id,
+        label: campaign.place_name || campaign.campaign_code || `C-${campaign.id}`,
+        status: campaign.status,
+      });
+    });
+
     return map;
-  }, [orders]);
+  }, [data]);
 
   const navigateMonth = (delta: number) => {
     setCurrentDate(new Date(year, month + delta, 1));
@@ -90,7 +120,7 @@ export default function CalendarPage() {
     return 'bg-green-500';
   };
 
-  const selectedOrders = selectedDate ? (ordersByDate[selectedDate] || []) : [];
+  const selectedEntries = selectedDate ? (entriesByDate[selectedDate] || []) : [];
 
   const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -100,7 +130,7 @@ export default function CalendarPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">마감 캘린더</h1>
-        <p className="mt-1 text-sm text-gray-500">주문 마감일을 캘린더에서 확인합니다.</p>
+        <p className="mt-1 text-sm text-gray-500">주문 마감일과 캠페인 종료일을 캘린더에서 확인합니다.</p>
       </div>
 
       {/* Calendar Navigation */}
@@ -120,10 +150,11 @@ export default function CalendarPage() {
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-500" /> 1일 후</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-500" /> 2일 후</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> 3일+</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> 캠페인 종료</div>
       </div>
 
       {loading && (
-        <div className="text-center py-4 text-sm text-gray-400">주문 데이터 로딩 중...</div>
+        <div className="text-center py-4 text-sm text-gray-400">데이터 로딩 중...</div>
       )}
 
       <div className="flex gap-6">
@@ -142,7 +173,7 @@ export default function CalendarPage() {
           <div className="grid grid-cols-7">
             {calendarDays.map((day, idx) => {
               const dateStr = `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, '0')}-${String(day.date.getDate()).padStart(2, '0')}`;
-              const dayOrders = ordersByDate[dateStr] || [];
+              const dayEntries = entriesByDate[dateStr] || [];
               const isToday = dateStr === todayStr;
               const isSelected = dateStr === selectedDate;
 
@@ -160,16 +191,18 @@ export default function CalendarPage() {
                   `}>
                     {day.date.getDate()}
                   </div>
-                  {dayOrders.slice(0, 3).map((order) => (
+                  {dayEntries.slice(0, 3).map((entry) => (
                     <div
-                      key={order.id}
-                      className={`text-[10px] px-1 py-0.5 mb-0.5 rounded truncate text-white ${getUrgencyColor(dateStr)}`}
+                      key={`${entry.type}-${entry.id}`}
+                      className={`text-[10px] px-1 py-0.5 mb-0.5 rounded truncate text-white ${
+                        entry.type === 'campaign' ? 'bg-blue-500' : getUrgencyColor(dateStr)
+                      }`}
                     >
-                      {order.order_number}
+                      {entry.type === 'campaign' ? `C: ${entry.label}` : entry.label}
                     </div>
                   ))}
-                  {dayOrders.length > 3 && (
-                    <div className="text-[10px] text-gray-400 px-1">+{dayOrders.length - 3}건</div>
+                  {dayEntries.length > 3 && (
+                    <div className="text-[10px] text-gray-400 px-1">+{dayEntries.length - 3}건</div>
                   )}
                 </button>
               );
@@ -181,22 +214,26 @@ export default function CalendarPage() {
         <div className="w-80 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sticky top-20">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
-              {selectedDate ? `${selectedDate} 주문` : '날짜를 선택하세요'}
+              {selectedDate ? `${selectedDate}` : '날짜를 선택하세요'}
             </h3>
-            {selectedOrders.length === 0 ? (
-              <p className="text-sm text-gray-400">해당 날짜에 주문이 없습니다.</p>
+            {selectedEntries.length === 0 ? (
+              <p className="text-sm text-gray-400">해당 날짜에 항목이 없습니다.</p>
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {selectedOrders.map((order) => (
-                  <div key={order.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                {selectedEntries.map((entry) => (
+                  <div key={`${entry.type}-${entry.id}`} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-xs text-gray-600">{order.order_number}</span>
-                      <Badge className={getOrderStatusColor(order.status)} variant="default">
-                        {getOrderStatusLabel(order.status)}
+                      <span className="font-mono text-xs text-gray-600">{entry.label}</span>
+                      <Badge
+                        className={entry.type === 'campaign' ? 'bg-blue-100 text-blue-800' : getOrderStatusColor(entry.status)}
+                        variant="default"
+                      >
+                        {entry.type === 'campaign' ? '캠페인' : getOrderStatusLabel(entry.status)}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-900">{order.user?.name || '-'}</p>
-                    <p className="text-xs text-gray-500 mt-1">{formatCurrency(order.total_amount)}</p>
+                    {entry.type === 'order' && entry.amount !== undefined && (
+                      <p className="text-xs text-gray-500 mt-1">{formatCurrency(entry.amount)}</p>
+                    )}
                   </div>
                 ))}
               </div>

@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react';
 import StatsCards from '@/components/features/dashboard/StatsCards';
 import PipelineChart from '@/components/features/dashboard/PipelineChart';
 import RecentOrders from '@/components/features/dashboard/RecentOrders';
+import DeadlineAlerts from '@/components/features/dashboard/DeadlineAlerts';
+import KeywordWarnings from '@/components/features/dashboard/KeywordWarnings';
+import RegistrationFunnel from '@/components/features/dashboard/RegistrationFunnel';
 import { dashboardApi } from '@/api/dashboard';
-import type { DashboardSummary } from '@/types';
+import type { DashboardSummary, EnhancedDashboard, UserRole } from '@/types';
+
+const CAMPAIGN_VISIBLE_ROLES: UserRole[] = ['system_admin', 'company_admin', 'order_handler'];
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [enhanced, setEnhanced] = useState<EnhancedDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,11 +21,11 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
-    dashboardApi
-      .getSummary()
-      .then((data) => {
+    Promise.all([dashboardApi.getSummary(), dashboardApi.getEnhanced()])
+      .then(([summaryData, enhancedData]) => {
         if (!cancelled) {
-          setSummary(data);
+          setSummary(summaryData);
+          setEnhanced(enhancedData);
           setLoading(false);
         }
       })
@@ -57,6 +63,8 @@ export default function DashboardPage() {
     );
   }
 
+  const canSeeCampaigns = CAMPAIGN_VISIBLE_ROLES.includes(summary.user_role);
+
   return (
     <div className="space-y-6">
       <div>
@@ -68,15 +76,29 @@ export default function DashboardPage() {
 
       <StatsCards
         totalOrders={summary.total_orders}
-        activeCampaigns={summary.active_campaigns}
+        activeCampaigns={canSeeCampaigns ? summary.active_campaigns : undefined}
         pendingOrders={summary.pending_orders}
         todayRevenue={summary.today_revenue}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PipelineChart data={summary.pipeline_overview} />
+      <div className={`grid grid-cols-1 ${canSeeCampaigns ? 'lg:grid-cols-2' : ''} gap-6`}>
+        {canSeeCampaigns && (
+          <PipelineChart data={summary.pipeline_overview} />
+        )}
         <RecentOrders orders={summary.recent_orders} />
       </div>
+
+      {enhanced && (
+        <div className={`grid grid-cols-1 ${canSeeCampaigns ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
+          <DeadlineAlerts deadlines={enhanced.upcoming_deadlines} />
+          {canSeeCampaigns && (
+            <>
+              <KeywordWarnings warnings={enhanced.keyword_warnings} />
+              <RegistrationFunnel queue={enhanced.registration_queue} />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

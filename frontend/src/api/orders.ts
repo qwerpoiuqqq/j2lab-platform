@@ -4,8 +4,11 @@ import type {
   OrderItem,
   CreateOrderRequest,
   BulkStatusRequest,
+  CalendarDeadlines,
   DeadlineUpdateRequest,
   ExcelUploadResponse,
+  ExcelUploadPreviewResponse,
+  ExcelUploadConfirmRequest,
   PaginatedResponse,
 } from '@/types';
 
@@ -61,6 +64,13 @@ export const ordersApi = {
     return response.data;
   },
 
+  getDeadlines: async (year: number, month: number): Promise<CalendarDeadlines> => {
+    const response = await apiClient.get<CalendarDeadlines>('/orders/deadlines', {
+      params: { year, month },
+    });
+    return response.data;
+  },
+
   getDeadlineStatus: async (): Promise<{ product_id: number; product_name: string; deadline: string; remaining: string }[]> => {
     const response = await apiClient.get('/orders/deadline-status');
     return response.data;
@@ -97,6 +107,21 @@ export const ordersApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000,
     });
+    return response.data;
+  },
+
+  uploadExcelPreview: async (file: File, productId: number): Promise<ExcelUploadPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/orders/excel-upload?product_id=${productId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+    return response.data;
+  },
+
+  confirmExcelUpload: async (data: ExcelUploadConfirmRequest): Promise<Order> => {
+    const response = await apiClient.post<Order>('/orders/excel-upload/confirm', data);
     return response.data;
   },
 

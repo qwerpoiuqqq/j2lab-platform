@@ -8,7 +8,7 @@ import { formatCurrency, formatNumber } from '@/utils/format';
 
 interface StatsCardsProps {
   totalOrders: number;
-  activeCampaigns: number;
+  activeCampaigns?: number;
   pendingOrders: number;
   todayRevenue: number;
 }
@@ -26,13 +26,15 @@ export default function StatsCards({
       icon: ClipboardDocumentListIcon,
       color: 'bg-blue-50 text-blue-600',
       iconBg: 'bg-blue-100',
+      show: true,
     },
     {
       name: '활성 캠페인',
-      value: formatNumber(activeCampaigns),
+      value: formatNumber(activeCampaigns ?? 0),
       icon: MegaphoneIcon,
       color: 'bg-green-50 text-green-600',
       iconBg: 'bg-green-100',
+      show: activeCampaigns !== undefined,
     },
     {
       name: '대기 주문',
@@ -40,6 +42,7 @@ export default function StatsCards({
       icon: ClockIcon,
       color: 'bg-yellow-50 text-yellow-600',
       iconBg: 'bg-yellow-100',
+      show: true,
     },
     {
       name: '오늘 매출',
@@ -47,11 +50,14 @@ export default function StatsCards({
       icon: CurrencyDollarIcon,
       color: 'bg-purple-50 text-purple-600',
       iconBg: 'bg-purple-100',
+      show: true,
     },
-  ];
+  ].filter((s) => s.show);
+
+  const gridCols = stats.length <= 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridCols} gap-4`}>
       {stats.map((stat) => (
         <div
           key={stat.name}

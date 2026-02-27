@@ -17,15 +17,13 @@ from app.schemas.settlement import (
     SettlementSecretRequest,
     SettlementSecretResponse,
 )
+from app.core.config import settings
 from app.services import settlement_service
 
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 
 admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
 system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
-
-# Hardcoded settlement secret password (could be moved to system_settings)
-SETTLEMENT_SECRET_PASSWORD = "j2lab-settlement-2026"
 
 
 @router.get("/", response_model=SettlementResponse)
@@ -60,7 +58,7 @@ async def settlement_secret(
     _current_user: User = Depends(system_admin_checker),
 ):
     """Password-protected detailed settlement analysis (system_admin only)."""
-    if body.password != SETTLEMENT_SECRET_PASSWORD:
+    if body.password != settings.SETTLEMENT_SECRET_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid settlement password",

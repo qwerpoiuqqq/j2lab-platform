@@ -127,6 +127,20 @@ class CampaignKeywordAddRequest(BaseModel):
         return self
 
 
+class ExtendCampaignRequest(BaseModel):
+    """Request to extend an active campaign."""
+
+    new_end_date: date
+    additional_total: int = Field(..., ge=1)
+    new_daily_limit: int | None = Field(None, ge=1)
+
+
+class RegistrationProgressResponse(BaseModel):
+    """Response for registration progress query."""
+
+    items: list[dict[str, Any]]
+
+
 class CampaignCallbackRequest(BaseModel):
     """Callback request from campaign-worker."""
 

@@ -162,6 +162,53 @@ async def dispatch_campaign_extension(
         raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
 
 
+async def dispatch_keyword_rotation(
+    campaign_id: int,
+) -> dict[str, Any]:
+    """Dispatch keyword rotation for a campaign to campaign-worker."""
+    url = f"{settings.CAMPAIGN_WORKER_URL}/internal/campaigns/{campaign_id}/rotate-keywords"
+    try:
+        async with _client() as client:
+            resp = await client.post(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Campaign worker keyword rotation failed: %s", exc)
+        raise WorkerDispatchError("campaign", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
+
+
+async def get_campaign_worker_scheduler_status() -> dict[str, Any]:
+    """Get scheduler status from campaign-worker."""
+    url = f"{settings.CAMPAIGN_WORKER_URL}/internal/scheduler/status"
+    try:
+        async with _client() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Campaign worker scheduler status check failed: %s", exc)
+        raise WorkerDispatchError("campaign", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
+
+
+async def trigger_campaign_worker_scheduler() -> dict[str, Any]:
+    """Manually trigger scheduler on campaign-worker."""
+    url = f"{settings.CAMPAIGN_WORKER_URL}/internal/scheduler/trigger"
+    try:
+        async with _client() as client:
+            resp = await client.post(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Campaign worker scheduler trigger failed: %s", exc)
+        raise WorkerDispatchError("campaign", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
+
+
 # ---------------------------------------------------------------------------
 # Health Check
 # ---------------------------------------------------------------------------

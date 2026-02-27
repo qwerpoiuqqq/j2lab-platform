@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.deps import verify_internal_secret
 from app.schemas.campaign import CampaignCallbackRequest
 from app.schemas.extraction_job import ExtractionCallbackRequest
 from app.services import campaign_service, extraction_service, pipeline_service
@@ -29,6 +30,7 @@ async def extraction_callback(
     job_id: int,
     body: ExtractionCallbackRequest,
     db: AsyncSession = Depends(get_db),
+    _auth: None = Depends(verify_internal_secret),
 ):
     """Callback from keyword-worker when extraction completes or fails.
 
@@ -110,6 +112,7 @@ async def campaign_callback(
     campaign_id: int,
     body: CampaignCallbackRequest,
     db: AsyncSession = Depends(get_db),
+    _auth: None = Depends(verify_internal_secret),
 ):
     """Callback from campaign-worker when registration completes or fails.
 

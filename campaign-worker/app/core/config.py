@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # === API Server callback URL ===
     API_SERVER_URL: str = "http://api-server:8000"
 
+    # === Internal API Secret (for callback auth) ===
+    INTERNAL_API_SECRET: str = "change_me_to_internal_secret"
+
     # === Playwright ===
     PLAYWRIGHT_HEADLESS: bool = True
 

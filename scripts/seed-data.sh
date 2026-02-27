@@ -16,8 +16,8 @@
 
 set -euo pipefail
 
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@j2lab.com}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123!}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@jtwolab.kr}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-jjlab1234!j}"
 ADMIN_NAME="${ADMIN_NAME:-시스템관리자}"
 
 echo "=========================================="

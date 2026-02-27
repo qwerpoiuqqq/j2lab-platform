@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,6 +96,19 @@ def require_roles(*roles: UserRole):
         @router.get("/", dependencies=[Depends(require_roles(UserRole.SYSTEM_ADMIN))])
     """
     return RoleChecker(list(roles))
+
+
+async def verify_internal_secret(
+    x_internal_secret: str = Header(..., alias="X-Internal-Secret"),
+) -> None:
+    """Verify the internal API secret header for worker callbacks."""
+    from app.core.config import settings
+
+    if x_internal_secret != settings.INTERNAL_API_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid internal secret",
+        )
 
 
 def can_create_role(creator_role: UserRole, target_role: UserRole) -> bool:
