@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # === Playwright ===
     PLAYWRIGHT_HEADLESS: bool = True
 
+    # === DRY_RUN: true면 superap.io 실제 조작 안 함 (폼 제출/키워드 변경 스킵) ===
+    DRY_RUN: bool = True
+
     # === Scheduler ===
     ROTATION_INTERVAL_MINUTES: int = 10
 

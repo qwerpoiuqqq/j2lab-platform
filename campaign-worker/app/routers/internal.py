@@ -184,7 +184,7 @@ async def api_extend_campaign(
     )
 
 
-@router.post("/campaigns/{campaign_id}/rotate", response_model=RotateKeywordsResponse)
+@router.post("/campaigns/{campaign_id}/rotate-keywords", response_model=RotateKeywordsResponse)
 async def api_rotate_keywords(campaign_id: int):
     """Manually trigger keyword rotation for a specific campaign.
 

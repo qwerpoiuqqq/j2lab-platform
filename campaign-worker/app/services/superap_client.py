@@ -908,9 +908,25 @@ class SuperapClient:
     async def submit_campaign(
         self, account_id: str, campaign_name: Optional[str] = None
     ) -> SubmitResult:
-        """Click the submit button and capture the campaign code."""
+        """Click the submit button and capture the campaign code.
+
+        If DRY_RUN is enabled, skips actual submission and returns a fake code.
+        """
+        from app.core.config import settings as worker_settings
+
         page = await self.get_page(account_id)
         result = SubmitResult(success=False)
+
+        # --- DRY_RUN: 실제 제출 스킵 ---
+        if worker_settings.DRY_RUN:
+            import secrets
+            fake_code = f"DRY{secrets.token_hex(3).upper()}"
+            logger.info(f"[DRY_RUN] submit_campaign skipped — fake code: {fake_code}")
+            await self._save_screenshot(page, f"dryrun_submit_{account_id}")
+            result.success = True
+            result.campaign_code = fake_code
+            return result
+
         try:
             selectors = [
                 s.strip()
@@ -1118,7 +1134,16 @@ class SuperapClient:
         campaign_code: str,
         new_keywords: str,
     ) -> bool:
-        """Edit campaign keywords on superap.io."""
+        """Edit campaign keywords on superap.io.
+
+        If DRY_RUN is enabled, skips actual edit and returns True.
+        """
+        from app.core.config import settings as worker_settings
+
+        if worker_settings.DRY_RUN:
+            logger.info(f"[DRY_RUN] edit_campaign_keywords skipped for campaign {campaign_code}")
+            return True
+
         page = await self.get_page(account_id)
         try:
             if not await self._search_on_report_page(page, campaign_code):
@@ -1201,7 +1226,16 @@ class SuperapClient:
         new_end_date: Optional[Union[date, datetime, str]] = None,
         new_keywords: Optional[str] = None,
     ) -> bool:
-        """Edit an existing campaign (total limit, daily limit, end date, keywords)."""
+        """Edit an existing campaign (total limit, daily limit, end date, keywords).
+
+        If DRY_RUN is enabled, skips actual edit and returns True.
+        """
+        from app.core.config import settings as worker_settings
+
+        if worker_settings.DRY_RUN:
+            logger.info(f"[DRY_RUN] edit_campaign skipped for campaign {campaign_code}")
+            return True
+
         page = await self.get_page(account_id)
         try:
             if not await self._search_on_report_page(page, campaign_code):

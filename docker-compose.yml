@@ -112,6 +112,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
       DEBUG: ${DEBUG:-false}
       PLAYWRIGHT_HEADLESS: "true"
+      DRY_RUN: ${DRY_RUN:-true}
     depends_on:
       db:
         condition: service_healthy

@@ -542,8 +542,76 @@ async def check_and_rotate_keywords() -> Dict[str, Any]:
 # ============================================================
 
 
+async def retry_stuck_registrations() -> None:
+    """Retry campaigns stuck in pending/queued state for >5 minutes.
+
+    Runs every 5 minutes. Max 3 retries per campaign.
+    Ported from reference/quantum-campaign scheduler.retry_stuck_registrations.
+    """
+    from app.services.campaign_registrar import register_campaign
+
+    _log("INFO", "Checking for stuck registrations...")
+    try:
+        async with async_session_factory() as session:
+            now = datetime.now(timezone.utc)
+            cutoff = now - timedelta(minutes=5)
+
+            # Find stuck campaigns: pending, no campaign_code, not updated in 5+ min
+            result = await session.execute(
+                select(Campaign).where(
+                    Campaign.status.in_(["pending", "queued"]),
+                    Campaign.campaign_code.is_(None),
+                    Campaign.updated_at < cutoff,
+                )
+            )
+            stuck = list(result.scalars().all())
+
+            if not stuck:
+                _log("INFO", "No stuck registrations found")
+                return
+
+            _log("INFO", f"Found {len(stuck)} stuck registrations")
+            retried = 0
+
+            for campaign in stuck:
+                # Check retry count from registration_message
+                retry_count = 0
+                msg = campaign.registration_message or ""
+                if "[재試" in msg:
+                    try:
+                        retry_count = msg.count("[재試")
+                    except Exception:
+                        pass
+
+                if retry_count >= 3:
+                    _log("WARNING", f"Campaign {campaign.id} exceeded max retries (3), skipping")
+                    continue
+
+                _log("INFO", f"Retrying stuck campaign {campaign.id} (attempt {retry_count + 1})")
+                try:
+                    await register_campaign(campaign.id)
+                    retried += 1
+                except Exception as e:
+                    _log("ERROR", f"Retry failed for campaign {campaign.id}: {e}")
+                    # Mark retry in message
+                    async with async_session_factory() as update_session:
+                        await update_session.execute(
+                            update(Campaign)
+                            .where(Campaign.id == campaign.id)
+                            .values(
+                                registration_message=f"{msg} [재試{retry_count + 1}] {str(e)[:100]}",
+                                updated_at=now,
+                            )
+                        )
+                        await update_session.commit()
+
+            _log("INFO", f"Stuck registration retry complete: {retried} retried")
+    except Exception as e:
+        _log("ERROR", f"retry_stuck_registrations error: {e}")
+
+
 def start_scheduler() -> None:
-    """Start the APScheduler with keyword rotation job."""
+    """Start the APScheduler with keyword rotation + registration retry jobs."""
     scheduler.add_job(
         check_and_rotate_keywords,
         trigger=IntervalTrigger(minutes=settings.ROTATION_INTERVAL_MINUTES),
@@ -551,10 +619,17 @@ def start_scheduler() -> None:
         name="Keyword auto-rotation",
         replace_existing=True,
     )
+    scheduler.add_job(
+        retry_stuck_registrations,
+        trigger=IntervalTrigger(minutes=5),
+        id="retry_stuck",
+        name="Retry stuck registrations",
+        replace_existing=True,
+    )
     scheduler.start()
     _log(
         "INFO",
-        f"APScheduler started (keyword rotation every {settings.ROTATION_INTERVAL_MINUTES} min)",
+        f"APScheduler started (keyword rotation every {settings.ROTATION_INTERVAL_MINUTES} min, retry every 5 min)",
     )
 
 
