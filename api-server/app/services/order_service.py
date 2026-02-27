@@ -32,12 +32,19 @@ from app.services import balance_service, price_service
 def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
     """Validate item_data against product.form_schema.
     Returns list of error messages (empty = valid).
+    Supports both old format ({fields: [{key, ...}]}) and new format ([{name, ...}]).
     """
     import re
 
     errors = []
     schema = product.form_schema
-    if not schema or not isinstance(schema, list):
+    if not schema:
+        return errors
+
+    # Normalize schema: old format {fields: [...]} → [...]
+    if isinstance(schema, dict):
+        schema = schema.get("fields", [])
+    if not isinstance(schema, list):
         return errors
 
     data = item_data or {}
@@ -45,7 +52,8 @@ def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
     for field in schema:
         if not isinstance(field, dict):
             continue
-        name = field.get("name", "")
+        # Support both 'name' (new) and 'key' (old) field identifiers
+        name = field.get("name") or field.get("key", "")
         field_type = field.get("type", "text")
         required = field.get("required", False)
         value = data.get(name)

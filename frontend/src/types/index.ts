@@ -491,46 +491,50 @@ export interface UpdateNoticeRequest {
 export type SettlementStatus = 'pending' | 'confirmed' | 'settled';
 
 export interface Settlement {
-  id: number;
   order_id: number;
   order_number: string;
   product_name: string;
   user_name: string;
-  amount: number;
-  commission: number;
-  settlement_amount: number;
-  status: SettlementStatus;
-  settled_at?: string;
+  user_role: string;
+  quantity: number;
+  unit_price: number;
+  base_price: number;
+  subtotal: number;
+  cost: number;
+  profit: number;
+  margin_pct: number;
   created_at: string;
 }
 
 export interface SettlementSummary {
-  total_amount: number;
-  pending_amount: number;
-  settled_amount: number;
-  processing_count: number;
+  total_revenue: number;
+  total_cost: number;
+  total_profit: number;
+  avg_margin_pct: number;
+  order_count: number;
+  item_count: number;
 }
 
 export interface SettlementSecretRequest {
   password: string;
-  start_date?: string;
-  end_date?: string;
+  date_from?: string;
+  date_to?: string;
 }
 
 export interface SettlementSecretItem {
+  order_id: number;
   order_number: string;
-  product: string;
-  seller: string;
-  revenue: number;
+  product_name: string;
+  user_name: string;
+  user_role: string;
+  quantity: number;
+  unit_price: number;
+  base_price: number;
+  subtotal: number;
   cost: number;
-  margin: number;
-  commission: number;
-  vat: number;
-  net_profit: number;
-  profit_rate: number;
-  payment_status: string;
-  settlement_status: string;
-  notes?: string;
+  profit: number;
+  margin_pct: number;
+  created_at: string;
 }
 
 // ============================================================

@@ -115,11 +115,13 @@ export default function OrderGridPage() {
   };
 
   const handleSubmit = (items: OrderGridRow[], notes: string) => {
-    if (!selectedProduct) return;
+    if (!selectedProduct || !schema) return;
+    // Find the is_quantity field from schema to get correct quantity value
+    const quantityField = schema.form_schema.find((f) => f.is_quantity);
     const request: CreateOrderRequest = {
       items: items.map((row) => ({
         product_id: selectedProduct.id,
-        quantity: Number(row['quantity']) || 1,
+        quantity: quantityField ? (Number(row[quantityField.name]) || 1) : (Number(row['quantity']) || 1),
         item_data: row,
       })),
       notes: notes || undefined,

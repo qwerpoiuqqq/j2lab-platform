@@ -12,19 +12,11 @@ import {
   formatCurrency,
   formatDate,
   formatNumber,
-  getSettlementStatusLabel,
-  getSettlementStatusColor,
+  getRoleLabel,
   downloadBlob,
 } from '@/utils/format';
 import { settlementsApi } from '@/api/settlements';
 import type { Settlement, SettlementSummary } from '@/types';
-
-const statusOptions = [
-  { value: '', label: '전체 상태' },
-  { value: 'pending', label: '대기' },
-  { value: 'confirmed', label: '확인' },
-  { value: 'settled', label: '정산완료' },
-];
 
 export default function SettlementPage() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -34,7 +26,6 @@ export default function SettlementPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -48,7 +39,6 @@ export default function SettlementPage() {
       .list({
         page,
         size: 20,
-        status: statusFilter || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
       })
@@ -69,7 +59,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [page, statusFilter, startDate, endDate]);
+  }, [page, startDate, endDate]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -100,29 +90,43 @@ export default function SettlementPage() {
     {
       key: 'user_name',
       header: '주문자',
-      render: (s) => <span className="text-gray-700">{s.user_name}</span>,
-    },
-    {
-      key: 'amount',
-      header: '금액',
-      render: (s) => <span className="font-medium">{formatCurrency(s.amount)}</span>,
-    },
-    {
-      key: 'commission',
-      header: '수수료',
-      render: (s) => <span className="text-gray-600">{formatCurrency(s.commission)}</span>,
-    },
-    {
-      key: 'settlement_amount',
-      header: '정산액',
-      render: (s) => <span className="font-medium text-primary-600">{formatCurrency(s.settlement_amount)}</span>,
-    },
-    {
-      key: 'status',
-      header: '상태',
       render: (s) => (
-        <Badge className={getSettlementStatusColor(s.status)}>
-          {getSettlementStatusLabel(s.status)}
+        <div>
+          <span className="text-gray-700">{s.user_name}</span>
+          <span className="ml-1 text-xs text-gray-400">({getRoleLabel(s.user_role)})</span>
+        </div>
+      ),
+    },
+    {
+      key: 'quantity',
+      header: '수량',
+      render: (s) => <span className="text-gray-700">{formatNumber(s.quantity)}</span>,
+    },
+    {
+      key: 'subtotal',
+      header: '매출',
+      render: (s) => <span className="font-medium">{formatCurrency(s.subtotal)}</span>,
+    },
+    {
+      key: 'cost',
+      header: '매입',
+      render: (s) => <span className="text-gray-600">{formatCurrency(s.cost)}</span>,
+    },
+    {
+      key: 'profit',
+      header: '이익',
+      render: (s) => (
+        <span className={`font-medium ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          {formatCurrency(s.profit)}
+        </span>
+      ),
+    },
+    {
+      key: 'margin_pct',
+      header: '마진율',
+      render: (s) => (
+        <Badge className={s.margin_pct >= 20 ? 'bg-green-100 text-green-800' : s.margin_pct >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+          {s.margin_pct.toFixed(1)}%
         </Badge>
       ),
     },
@@ -139,7 +143,7 @@ export default function SettlementPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">정산 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">주문별 정산 현황을 관리합니다.</p>
+          <p className="mt-1 text-sm text-gray-500">주문별 수익/비용 현황을 관리합니다.</p>
         </div>
         <Button
           variant="secondary"
@@ -154,10 +158,19 @@ export default function SettlementPage() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard label="총 정산액" value={formatCurrency(summary.total_amount)} color="blue" />
-          <SummaryCard label="미정산" value={formatCurrency(summary.pending_amount)} color="yellow" />
-          <SummaryCard label="정산완료" value={formatCurrency(summary.settled_amount)} color="green" />
-          <SummaryCard label="진행중" value={`${formatNumber(summary.processing_count)}건`} color="purple" />
+          <SummaryCard label="총 매출" value={formatCurrency(summary.total_revenue)} color="blue" />
+          <SummaryCard label="총 매입" value={formatCurrency(summary.total_cost)} color="yellow" />
+          <SummaryCard
+            label="총 이익"
+            value={formatCurrency(summary.total_profit)}
+            color={summary.total_profit >= 0 ? 'green' : 'red'}
+          />
+          <SummaryCard
+            label="평균 마진율"
+            value={`${summary.avg_margin_pct.toFixed(1)}%`}
+            subtitle={`주문 ${formatNumber(summary.order_count)}건 / 아이템 ${formatNumber(summary.item_count)}건`}
+            color="purple"
+          />
         </div>
       )}
 
@@ -179,18 +192,6 @@ export default function SettlementPage() {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <FunnelIcon className="h-4 w-4 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Error */}
@@ -202,7 +203,7 @@ export default function SettlementPage() {
       <Table<Settlement>
         columns={columns}
         data={settlements}
-        keyExtractor={(s) => s.id}
+        keyExtractor={(s) => `${s.order_id}-${s.order_number}`}
         loading={loading}
         emptyMessage="정산 내역이 없습니다."
       />
@@ -219,11 +220,12 @@ export default function SettlementPage() {
   );
 }
 
-function SummaryCard({ label, value, color }: { label: string; value: string; color: string }) {
+function SummaryCard({ label, value, color, subtitle }: { label: string; value: string; color: string; subtitle?: string }) {
   const borderColors: Record<string, string> = {
     blue: 'border-l-blue-500',
     yellow: 'border-l-yellow-500',
     green: 'border-l-green-500',
+    red: 'border-l-red-500',
     purple: 'border-l-purple-500',
   };
 
@@ -231,6 +233,7 @@ function SummaryCard({ label, value, color }: { label: string; value: string; co
     <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 ${borderColors[color] || 'border-l-gray-500'}`}>
       <p className="text-sm text-gray-500">{label}</p>
       <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+      {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
     </div>
   );
 }

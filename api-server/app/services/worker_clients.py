@@ -101,6 +101,36 @@ async def cancel_extraction_job(job_id: int) -> dict[str, Any]:
         raise WorkerDispatchError("keyword", f"HTTP {exc.response.status_code}") from exc
 
 
+async def get_extraction_job_results(job_id: int) -> dict[str, Any]:
+    """Get extraction job results from keyword-worker."""
+    url = f"{settings.KEYWORD_WORKER_URL}/internal/jobs/{job_id}/results"
+    try:
+        async with _client() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Keyword worker results fetch failed: %s", exc)
+        raise WorkerDispatchError("keyword", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("keyword", f"HTTP {exc.response.status_code}") from exc
+
+
+async def get_keyword_worker_capacity() -> dict[str, Any]:
+    """Get keyword-worker capacity info."""
+    url = f"{settings.KEYWORD_WORKER_URL}/internal/capacity"
+    try:
+        async with _client() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Keyword worker capacity check failed: %s", exc)
+        raise WorkerDispatchError("keyword", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("keyword", f"HTTP {exc.response.status_code}") from exc
+
+
 # ---------------------------------------------------------------------------
 # Campaign Worker
 # ---------------------------------------------------------------------------
@@ -204,6 +234,27 @@ async def trigger_campaign_worker_scheduler() -> dict[str, Any]:
             return resp.json()
     except httpx.RequestError as exc:
         logger.error("Campaign worker scheduler trigger failed: %s", exc)
+        raise WorkerDispatchError("campaign", str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
+
+
+async def dispatch_campaign_bulk_sync(
+    account_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    """Dispatch bulk sync to campaign-worker."""
+    url = f"{settings.CAMPAIGN_WORKER_URL}/internal/campaigns/bulk-sync"
+    payload: dict[str, Any] = {}
+    if account_ids is not None:
+        payload["account_ids"] = account_ids
+
+    try:
+        async with _client() as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.RequestError as exc:
+        logger.error("Campaign worker bulk sync failed: %s", exc)
         raise WorkerDispatchError("campaign", str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         raise WorkerDispatchError("campaign", f"HTTP {exc.response.status_code}") from exc
