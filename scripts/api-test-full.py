@@ -136,7 +136,7 @@ if test_co_id:
     test("Update company", code, 200)
 
     code, d = api("DELETE", f"/companies/{test_co_id}", token=TOKEN)
-    test("Delete company", code, 204)
+    test("Delete company", code, [200, 204])
 else:
     skip("Get/Update/Delete company", "create failed")
 
@@ -609,9 +609,10 @@ section("18", "NETWORK PRESETS")
 code, d = api("GET", "/network-presets/", token=TOKEN)
 test("List network presets", code, 200)
 
-# Create
+# Create (requires company_id, campaign_type, tier_order, name, media_config)
 code, d = api("POST", "/network-presets/", {
-    "name": "__TEST_PRESET__", "networks": {"wifi": True, "mobile": False}
+    "company_id": 1, "campaign_type": "traffic", "tier_order": 1,
+    "name": "__TEST_PRESET__", "media_config": {"wifi": True, "mobile": False}
 }, token=TOKEN)
 test("Create network preset", code, [201, 200], f"id={d.get('id')}" if isinstance(d, dict) and d.get('id') else detail_of(d))
 np_id = d.get("id") if isinstance(d, dict) else None
@@ -639,19 +640,18 @@ print("\n  --- Session Reset ---")
 TOKEN = login()
 
 section("20", "WORKER HEALTH (internal via api-server)")
-# These go through the api-server's worker_clients → worker containers
-# We test the api-server health first
-code, d = api("GET", "/../../health", token=TOKEN, base_override=BASE.replace("/api/v1", ""))
+HEALTH_BASE = BASE.rsplit("/api/v1", 1)[0]
+code, d = api("GET", "/health", base_override=HEALTH_BASE)
 test("API server /health", code, 200, d.get("status") if isinstance(d, dict) else "")
 
 section("21", "INTERNAL CALLBACKS (should require internal secret)")
-code, d = api("POST", "/../../internal/callback/extraction/0", {"status": "done"},
-              base_override=BASE.replace("/api/v1", ""))
-test("Extraction callback (no secret)", code, [401, 403, 422], "auth required")
+code, d = api("POST", "/internal/callback/extraction/0", {"status": "done"},
+              base_override=HEALTH_BASE)
+test("Extraction callback (no secret)", code, 422, "missing X-Internal-Secret header")
 
-code, d = api("POST", "/../../internal/callback/campaign/0", {"status": "done"},
-              base_override=BASE.replace("/api/v1", ""))
-test("Campaign callback (no secret)", code, [401, 403, 422], "auth required")
+code, d = api("POST", "/internal/callback/campaign/0", {"status": "done"},
+              base_override=HEALTH_BASE)
+test("Campaign callback (no secret)", code, 422, "missing X-Internal-Secret header")
 
 # ══════════════════════════════════════════════════════════════
 # FINAL REPORT

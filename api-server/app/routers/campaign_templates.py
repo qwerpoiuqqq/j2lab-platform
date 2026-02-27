@@ -41,40 +41,6 @@ async def list_templates(
     )
 
 
-@router.get("/{template_id}", response_model=CampaignTemplateResponse)
-async def get_template(
-    template_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
-):
-    """Get a single template by ID."""
-    template = await campaign_template_service.get_template_by_id(db, template_id)
-    if template is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign template not found",
-        )
-    return template
-
-
-@router.patch("/{template_id}", response_model=CampaignTemplateResponse)
-async def update_template(
-    template_id: int,
-    body: CampaignTemplateUpdate,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
-):
-    """Update a campaign template (system_admin only)."""
-    template = await campaign_template_service.get_template_by_id(db, template_id)
-    if template is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign template not found",
-        )
-    updated = await campaign_template_service.update_template(db, template, body)
-    return updated
-
-
 @router.get("/modules")
 async def list_modules(
     _current_user: User = Depends(get_current_active_user),
@@ -109,3 +75,37 @@ async def list_modules(
             },
         ]
     }
+
+
+@router.get("/{template_id}", response_model=CampaignTemplateResponse)
+async def get_template(
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(system_admin_checker),
+):
+    """Get a single template by ID."""
+    template = await campaign_template_service.get_template_by_id(db, template_id)
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign template not found",
+        )
+    return template
+
+
+@router.patch("/{template_id}", response_model=CampaignTemplateResponse)
+async def update_template(
+    template_id: int,
+    body: CampaignTemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(system_admin_checker),
+):
+    """Update a campaign template (system_admin only)."""
+    template = await campaign_template_service.get_template_by_id(db, template_id)
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign template not found",
+        )
+    updated = await campaign_template_service.update_template(db, template, body)
+    return updated
