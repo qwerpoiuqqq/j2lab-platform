@@ -46,8 +46,11 @@ def _apply_campaign_scope(query, user: User):
     role = UserRole(user.role)
     if role == UserRole.SYSTEM_ADMIN:
         return query
-    if role in (UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER):
+    if role == UserRole.COMPANY_ADMIN:
         return query.where(Campaign.company_id == user.company_id)
+    if role == UserRole.ORDER_HANDLER:
+        # order_handler: 본인에게 배정된 캠페인만
+        return query.where(Campaign.managed_by == user.id)
     # distributor/sub_account should not see campaigns at all
     return query.where(False)
 

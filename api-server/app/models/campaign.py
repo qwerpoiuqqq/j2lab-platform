@@ -6,6 +6,7 @@ Source: reference/quantum-campaign/backend/app/models/campaign.py
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, List, Optional, TYPE_CHECKING
@@ -20,6 +21,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -115,7 +117,7 @@ class Campaign(Base):
         DateTime(timezone=True)
     )
 
-    # === Network + Company ===
+    # === Network + Company + Handler ===
     network_preset_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("network_presets.id"),
@@ -123,6 +125,10 @@ class Campaign(Base):
     company_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("companies.id"),
+    )
+    managed_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id"),
     )
 
     # === Timestamps ===
@@ -152,4 +158,5 @@ class Campaign(Base):
         Index("idx_campaigns_end_date", "end_date"),
         Index("idx_campaigns_company_id", "company_id"),
         Index("idx_campaigns_network_preset_id", "network_preset_id"),
+        Index("idx_campaigns_managed_by", "managed_by"),
     )

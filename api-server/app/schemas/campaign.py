@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
 from typing import Any
 
@@ -86,6 +87,7 @@ class CampaignResponse(BaseModel):
     extend_target_id: int | None = None
     network_preset_id: int | None = None
     company_id: int | None = None
+    managed_by: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
 

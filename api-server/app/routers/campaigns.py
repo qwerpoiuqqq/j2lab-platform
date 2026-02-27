@@ -91,9 +91,15 @@ async def list_campaigns(
     """List campaigns with filtering."""
     pagination = PaginationParams(page=page, size=size)
 
-    # Company-scoped for non-system_admin
+    # Role-based scoping
     effective_company_id = company_id
-    if UserRole(current_user.role) != UserRole.SYSTEM_ADMIN:
+    managed_by_id = None
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.ORDER_HANDLER:
+        # order_handler: 본인 담당 캠페인만
+        managed_by_id = current_user.id
+        effective_company_id = current_user.company_id
+    elif user_role != UserRole.SYSTEM_ADMIN:
         effective_company_id = current_user.company_id
 
     campaigns, total = await campaign_service.get_campaigns(
@@ -104,6 +110,7 @@ async def list_campaigns(
         company_id=effective_company_id,
         place_id=place_id,
         campaign_type=campaign_type,
+        managed_by=managed_by_id,
     )
     return PaginatedResponse.create(
         items=[CampaignResponse.model_validate(c) for c in campaigns],

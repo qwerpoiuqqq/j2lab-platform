@@ -24,6 +24,7 @@ async def get_campaigns(
     company_id: int | None = None,
     place_id: int | None = None,
     campaign_type: str | None = None,
+    managed_by: object | None = None,
 ) -> tuple[list[Campaign], int]:
     """Get paginated list of campaigns."""
     query = select(Campaign)
@@ -43,6 +44,9 @@ async def get_campaigns(
         count_query = count_query.where(
             Campaign.campaign_type == campaign_type
         )
+    if managed_by is not None:
+        query = query.where(Campaign.managed_by == managed_by)
+        count_query = count_query.where(Campaign.managed_by == managed_by)
 
     query = query.order_by(Campaign.created_at.desc()).offset(skip).limit(limit)
 
