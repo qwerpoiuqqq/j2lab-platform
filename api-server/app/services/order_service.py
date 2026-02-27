@@ -195,6 +195,10 @@ async def create_order(
 
     Resolves prices for each item using the price service.
     """
+    from app.core.config import settings
+    if len(data.items) > settings.ORDER_MAX_ITEMS:
+        raise ValueError(f"최대 {settings.ORDER_MAX_ITEMS}건까지 접수 가능합니다.")
+
     order = Order(
         order_number=_generate_order_number(),
         user_id=current_user.id,
@@ -234,7 +238,7 @@ async def create_order(
             user_id=current_user.id,
             user_role=current_user.role,
         )
-        subtotal = unit_price * item_data.quantity
+        subtotal = price_service.apply_reduction(unit_price, item_data.quantity, product)
 
         order_item = OrderItem(
             order_id=order.id,
@@ -253,6 +257,17 @@ async def create_order(
     order.total_amount = total_amount
     order.vat_amount = vat_amount
 
+    # Auto-calculate deadline from product's max_work_days
+    if data.items:
+        first_product_id = data.items[0].product_id
+        prod_result = await db.execute(
+            select(Product).where(Product.id == first_product_id)
+        )
+        prod = prod_result.scalar_one_or_none()
+        if prod and prod.max_work_days:
+            from datetime import timedelta
+            order.completed_at = datetime.now(timezone.utc) + timedelta(days=prod.max_work_days)
+
     await db.flush()
     await db.refresh(order)
     return order
@@ -266,6 +281,10 @@ async def create_order_from_excel(
     notes: str | None = None,
 ) -> Order:
     """Create an order from validated Excel rows."""
+    from app.core.config import settings
+    if len(rows) > settings.ORDER_MAX_ITEMS:
+        raise ValueError(f"최대 {settings.ORDER_MAX_ITEMS}건까지 접수 가능합니다.")
+
     product_result = await db.execute(
         select(Product).where(Product.id == product_id)
     )
@@ -289,11 +308,14 @@ async def create_order_from_excel(
 
     total_amount = 0
     for idx, row_data in enumerate(rows, start=1):
-        quantity = int(row_data.get("quantity", 1) or 1)
+        try:
+            quantity = max(1, int(float(row_data.get("quantity", 1) or 1)))
+        except (ValueError, TypeError):
+            quantity = 1
         unit_price = await price_service.get_effective_price(
             db, product=product, user_id=current_user.id, user_role=current_user.role,
         )
-        subtotal = unit_price * quantity
+        subtotal = price_service.apply_reduction(unit_price, quantity, product)
         order_item = OrderItem(
             order_id=order.id,
             product_id=product_id,
@@ -309,6 +331,11 @@ async def create_order_from_excel(
     vat_amount = int(total_amount * 0.1)
     order.total_amount = total_amount
     order.vat_amount = vat_amount
+
+    if product.max_work_days:
+        from datetime import timedelta
+        order.completed_at = datetime.now(timezone.utc) + timedelta(days=product.max_work_days)
+
     await db.flush()
     await db.refresh(order)
     return order

@@ -75,7 +75,19 @@ async def get_effective_price(
     if product.base_price is not None:
         return int(product.base_price)
 
-    return 0
+    raise ValueError(f"상품 '{product.name}'에 가격이 설정되지 않았습니다.")
+
+
+def apply_reduction(unit_price: int, quantity: int, product: Product) -> int:
+    """Apply volume reduction rate to subtotal.
+
+    Returns the reduced subtotal.
+    """
+    subtotal = unit_price * quantity
+    if product.reduction_rate and product.reduction_rate > 0 and quantity > 1:
+        discount = subtotal * product.reduction_rate / 100
+        return int(subtotal - discount)
+    return subtotal
 
 
 async def get_price_policies(

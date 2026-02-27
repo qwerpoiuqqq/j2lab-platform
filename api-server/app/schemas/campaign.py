@@ -27,6 +27,7 @@ class CampaignCreate(BaseModel):
     superap_account_id: int | None = None
     network_preset_id: int | None = None
     company_id: int | None = None
+    template_id: int | None = None
 
     @model_validator(mode="after")
     def validate_dates(self):

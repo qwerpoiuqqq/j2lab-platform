@@ -78,13 +78,12 @@ async def _start_pipeline_for_item(
         await pipeline_service.transition_stage(
             db,
             state=state,
-            to_stage="extraction_queued",
-            trigger_type="auto_extraction_dispatch",
-            error_message="No place_url in item_data",
-            message="place_url missing — will need manual extraction setup",
+            to_stage="cancelled",
+            trigger_type="validation_error",
+            error_message="item_data에 place_url이 없습니다. 수동 설정이 필요합니다.",
         )
         logger.warning(
-            "OrderItem %s has no place_url in item_data, skipping dispatch",
+            "OrderItem %s has no place_url in item_data, pipeline cancelled",
             item.id,
         )
         return
@@ -228,6 +227,44 @@ async def on_extraction_complete(
                 "Pipeline transition to account_assigned failed for item %s",
                 order_item_id,
             )
+            return
+
+        # If this is an extension, dispatch immediately (no manual confirm needed)
+        if assignment_result.is_extension and assignment_result.extend_target_campaign_id:
+            try:
+                from app.services.worker_clients import dispatch_campaign_extension
+                # Calculate extension params from item_data
+                item_data_dict = item.item_data or {}
+                duration_days = item_data_dict.get("duration_days", 30)
+                new_end = (date.today() + timedelta(days=duration_days)).isoformat()
+                additional_total = item_data_dict.get("total_limit", 3000)
+
+                await dispatch_campaign_extension(
+                    campaign_id=assignment_result.extend_target_campaign_id,
+                    new_end_date=new_end,
+                    additional_total=additional_total,
+                )
+
+                # Transition through proper stages
+                await pipeline_service.transition_stage(
+                    db, state=state,
+                    to_stage="assignment_confirmed",
+                    trigger_type="auto_extension",
+                    message="Extension auto-confirmed",
+                )
+                state.campaign_id = assignment_result.extend_target_campaign_id
+                await pipeline_service.transition_stage(
+                    db, state=state,
+                    to_stage="campaign_registering",
+                    trigger_type="auto_extension",
+                    message=f"Extension dispatched for campaign {assignment_result.extend_target_campaign_id}",
+                )
+                logger.info(
+                    "Auto-extension dispatched for OrderItem %s → Campaign %s",
+                    order_item_id, assignment_result.extend_target_campaign_id,
+                )
+            except Exception as e:
+                logger.error("Extension dispatch failed for item %s: %s", order_item_id, e)
     else:
         # No account available — admin must manually assign
         suggestion = assignment_result.suggestion or assignment_result.error or "No account available"
@@ -311,7 +348,20 @@ async def on_assignment_confirmed(
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
 
-    # 4. Create campaign
+    # 4. Select appropriate template based on campaign_type
+    from app.models.campaign_template import CampaignTemplate
+    template_result = await db.execute(
+        select(CampaignTemplate)
+        .where(
+            CampaignTemplate.campaign_type_selection.ilike(f"%{campaign_type}%"),
+            CampaignTemplate.is_active == True,
+        )
+        .limit(1)
+    )
+    template = template_result.scalar_one_or_none()
+    template_id = template.id if template else None
+
+    # 5. Create campaign
     campaign = await campaign_service.create_campaign(
         db,
         CampaignCreate(
@@ -326,6 +376,7 @@ async def on_assignment_confirmed(
             total_limit=total_limit,
             superap_account_id=item.assigned_account_id,
             company_id=order.company_id,
+            template_id=template_id,
         ),
     )
 
@@ -363,6 +414,7 @@ async def on_assignment_confirmed(
         await dispatch_campaign_registration(
             campaign_id=campaign.id,
             account_id=item.assigned_account_id,
+            template_id=template_id,
         )
         logger.info("Dispatched campaign %s registration to campaign-worker", campaign.id)
     except WorkerDispatchError:

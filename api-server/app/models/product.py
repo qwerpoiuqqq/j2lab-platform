@@ -38,6 +38,8 @@ class Product(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     form_schema: Mapped[Optional[Any]] = mapped_column(JSON)
     base_price: Mapped[Optional[int]] = mapped_column(Numeric(12, 0))
+    cost_price: Mapped[Optional[int]] = mapped_column(Numeric(12, 0))
+    reduction_rate: Mapped[Optional[int]] = mapped_column(Integer)  # 0-100%
     min_work_days: Mapped[Optional[int]] = mapped_column(Integer)
     max_work_days: Mapped[Optional[int]] = mapped_column(Integer)
     daily_deadline: Mapped[time] = mapped_column(

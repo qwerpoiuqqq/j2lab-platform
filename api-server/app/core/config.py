@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # === Internal API ===
     INTERNAL_API_SECRET: str = "change_me_to_internal_secret"
 
+    # === Order limits ===
+    ORDER_MAX_ITEMS: int = 500
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

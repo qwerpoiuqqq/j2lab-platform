@@ -18,6 +18,8 @@ class ProductCreate(BaseModel):
     description: str | None = None
     form_schema: Any = None
     base_price: int | None = None
+    cost_price: int | None = None
+    reduction_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
     daily_deadline: time = time(18, 0)
@@ -34,6 +36,8 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     form_schema: Any = None
     base_price: int | None = None
+    cost_price: int | None = None
+    reduction_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
     daily_deadline: time | None = None
@@ -51,6 +55,8 @@ class ProductResponse(BaseModel):
     description: str | None = None
     form_schema: Any = None
     base_price: int | None = None
+    cost_price: int | None = None
+    reduction_rate: int | None = None
     min_work_days: int | None = None
     max_work_days: int | None = None
     daily_deadline: time
@@ -59,9 +65,9 @@ class ProductResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
 
-    @field_validator("base_price", mode="before")
+    @field_validator("base_price", "cost_price", mode="before")
     @classmethod
-    def coerce_base_price(cls, v):
+    def coerce_numeric(cls, v):
         if isinstance(v, Decimal):
             return int(v)
         return v

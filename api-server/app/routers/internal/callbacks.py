@@ -9,8 +9,10 @@ In production, these should only be accessible from the Docker internal network.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -155,6 +157,34 @@ async def campaign_callback(
                     # Link campaign to pipeline
                     pipeline_state.campaign_id = updated_campaign.id
                     await db.flush()
+
+                    # Auto-complete order item
+                    from app.models.order import OrderItem, OrderItemStatus, Order, OrderStatus
+                    item_result = await db.execute(
+                        select(OrderItem).where(OrderItem.id == updated_campaign.order_item_id)
+                    )
+                    order_item = item_result.scalar_one_or_none()
+                    if order_item and order_item.status != OrderItemStatus.COMPLETED.value:
+                        order_item.status = OrderItemStatus.COMPLETED.value
+                        order_item.result_message = f"캠페인 등록 완료: {body.campaign_code}"
+                        await db.flush()
+
+                        # Check if all items in order are completed
+                        order_result = await db.execute(
+                            select(Order).where(Order.id == order_item.order_id)
+                        )
+                        order = order_result.scalar_one_or_none()
+                        if order:
+                            all_items = order.items
+                            all_done = all(
+                                i.status in (OrderItemStatus.COMPLETED.value, OrderItemStatus.FAILED.value)
+                                for i in all_items
+                            )
+                            if all_done and order.status == OrderStatus.PROCESSING.value:
+                                order.status = OrderStatus.COMPLETED.value
+                                order.completed_at = order.completed_at or datetime.now(timezone.utc)
+                                await db.flush()
+                                logger.info("Order %s auto-completed (all items done)", order.id)
                 except ValueError:
                     pass
             elif body.status == "failed":
