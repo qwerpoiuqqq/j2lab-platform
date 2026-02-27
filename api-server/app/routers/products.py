@@ -112,6 +112,71 @@ async def get_price_matrix(
     return {"rows": rows, "sellers": pricing_roles}
 
 
+@router.get("/prices/user-matrix")
+async def get_user_price_matrix(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Per-user price matrix: for each distributor/sub_account user, their effective prices."""
+    from sqlalchemy import select as sa_select
+
+    from app.models.user import User as UserModel
+
+    products, _ = await product_service.get_products(db, skip=0, limit=500, is_active=True)
+
+    # Get all active distributor/sub_account users
+    result = await db.execute(
+        sa_select(UserModel).where(
+            UserModel.is_active == True,
+            UserModel.role.in_(["distributor", "sub_account"]),
+        )
+    )
+    users = list(result.scalars().all())
+
+    user_list = []
+    user_prices: dict[str, dict[int, int]] = {}
+
+    for user in users:
+        uid = str(user.id)
+        user_list.append({
+            "id": uid,
+            "name": user.name,
+            "role": user.role,
+            "email": user.email,
+        })
+        user_prices[uid] = {}
+        for product in products:
+            try:
+                price = await price_service.get_effective_price(
+                    db, product=product, user_id=user.id, user_role=user.role,
+                )
+            except ValueError:
+                price = 0
+            # Only record if differs from base_price (i.e. has a policy)
+            base = int(product.base_price) if product.base_price else 0
+            if price != base:
+                user_prices[uid][product.id] = price
+
+    product_list = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "code": p.code,
+            "category": p.category,
+            "base_price": int(p.base_price) if p.base_price else 0,
+        }
+        for p in products
+    ]
+
+    return {
+        "users": user_list,
+        "products": product_list,
+        "prices": user_prices,
+    }
+
+
 # === Single Product ===
 
 

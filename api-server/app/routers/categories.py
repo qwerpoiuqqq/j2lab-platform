@@ -26,6 +26,7 @@ system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
 async def list_categories(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=100, ge=1, le=200),
+    is_active: bool | None = None,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_active_user),
 ):
@@ -33,6 +34,7 @@ async def list_categories(
     pagination = PaginationParams(page=page, size=size)
     categories, total = await category_service.get_categories(
         db, skip=pagination.offset, limit=pagination.size,
+        active_only=is_active if is_active is True else False,
     )
     return PaginatedResponse.create(
         items=[CategoryResponse.model_validate(c) for c in categories],

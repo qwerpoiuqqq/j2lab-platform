@@ -1,6 +1,12 @@
 import apiClient from './client';
 import type { PriceMatrixRow, ProductSchema } from '@/types';
 
+export interface UserMatrixResponse {
+  users: { id: string; name: string; role: string; email: string }[];
+  products: { id: number; name: string; code: string; category?: string; base_price: number }[];
+  prices: Record<string, Record<number, number>>; // userId → { productId → price }
+}
+
 export const pricesApi = {
   getProductSchema: async (productId: number): Promise<ProductSchema> => {
     const response = await apiClient.get(`/products/${productId}/schema`);
@@ -9,6 +15,11 @@ export const pricesApi = {
 
   getMatrix: async (): Promise<{ rows: PriceMatrixRow[]; sellers: { id: string; name: string }[] }> => {
     const response = await apiClient.get('/products/prices/matrix');
+    return response.data;
+  },
+
+  getUserMatrix: async (): Promise<UserMatrixResponse> => {
+    const response = await apiClient.get('/products/prices/user-matrix');
     return response.data;
   },
 
@@ -28,14 +39,8 @@ export const pricesApi = {
   },
 
   getUserPrices: async (userId: string): Promise<Record<number, number>> => {
-    const response = await apiClient.get('/products/prices/matrix');
-    const data = response.data;
-    const prices: Record<number, number> = {};
-    for (const row of data.rows) {
-      if (row.prices[userId]) {
-        prices[row.product_id] = row.prices[userId];
-      }
-    }
-    return prices;
+    const response = await apiClient.get('/products/prices/user-matrix');
+    const data = response.data as UserMatrixResponse;
+    return data.prices[userId] || {};
   },
 };

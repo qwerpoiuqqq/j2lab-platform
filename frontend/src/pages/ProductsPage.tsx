@@ -12,6 +12,7 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatDateTime } from '@/utils/format';
+import { normalizeSchema } from '@/utils/schema';
 import type { Product, FormField } from '@/types';
 import { productsApi } from '@/api/products';
 import { categoriesApi } from '@/api/categories';
@@ -182,7 +183,7 @@ export default function ProductsPage() {
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
     });
-    setSchemaFields((product.form_schema as SchemaField[]) || []);
+    setSchemaFields(normalizeSchema(product.form_schema) as SchemaField[]);
     setSelectedFieldIndex(null);
     setShowModal(true);
   };
@@ -331,7 +332,7 @@ export default function ProductsPage() {
       key: 'form_schema',
       header: '스키마',
       render: (p) => (
-        <span className="text-xs text-gray-500">{p.form_schema?.length || 0}개 필드</span>
+        <span className="text-xs text-gray-500">{normalizeSchema(p.form_schema).length}개 필드</span>
       ),
     },
     {

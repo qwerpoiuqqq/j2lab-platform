@@ -52,6 +52,7 @@ async def create_category(
     category = Category(
         name=data.name,
         description=data.description,
+        icon=data.icon,
         sort_order=data.sort_order,
         is_active=data.is_active,
     )

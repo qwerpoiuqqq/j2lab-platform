@@ -5,6 +5,7 @@ import { ChevronRightIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { productsApi } from '@/api/products';
 import { pricesApi } from '@/api/prices';
 import { ordersApi } from '@/api/orders';
+import { normalizeSchema } from '@/utils/schema';
 import type { Product, ProductSchema, CreateOrderRequest, ExcelUploadPreviewResponse } from '@/types';
 import CategorySelector from '@/components/features/orders/CategorySelector';
 import ProductSelector from '@/components/features/orders/ProductSelector';
@@ -41,8 +42,13 @@ export default function OrderGridPage() {
     queryKey: ['product-schema', selectedProduct?.id],
     queryFn: async () => {
       const data = await pricesApi.getProductSchema(selectedProduct!.id);
-      setSchema(data);
-      return data;
+      // Normalize form_schema to handle both old and new formats
+      const normalized = {
+        ...data,
+        form_schema: normalizeSchema(data.form_schema),
+      };
+      setSchema(normalized);
+      return normalized;
     },
     enabled: !!selectedProduct,
   });

@@ -3,11 +3,28 @@ import Button from '@/components/common/Button';
 import Badge from '@/components/common/Badge';
 import Modal from '@/components/common/Modal';
 import { formatCurrency } from '@/utils/format';
-import { pricesApi } from '@/api/prices';
-import { usersApi } from '@/api/users';
-import { productsApi } from '@/api/products';
+import { pricesApi, type UserMatrixResponse } from '@/api/prices';
 import { categoriesApi } from '@/api/categories';
-import type { User, Product, Category } from '@/types';
+import type { Category } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Types for this page
+// ---------------------------------------------------------------------------
+
+interface MatrixUser {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+}
+
+interface MatrixProduct {
+  id: number;
+  name: string;
+  code: string;
+  category?: string;
+  base_price: number;
+}
 
 // ---------------------------------------------------------------------------
 // Inline: UserCard
@@ -18,7 +35,7 @@ function UserCard({
   priceCount,
   onConfigure,
 }: {
-  user: User;
+  user: MatrixUser;
   priceCount: number;
   onConfigure: () => void;
 }) {
@@ -46,8 +63,9 @@ function UserCard({
           </Badge>
         </div>
       </div>
+      <p className="text-sm text-gray-500 mb-1">{user.email}</p>
       <p className="text-sm text-gray-500 mb-3">
-        {priceCount > 0 ? `${priceCount}개 설정됨` : '미설정'}
+        {priceCount > 0 ? `${priceCount}개 개별 단가 설정됨` : '기본 단가 적용 중'}
       </p>
       <Button size="sm" variant="secondary" onClick={onConfigure} className="w-full">
         설정하기
@@ -62,22 +80,20 @@ function UserCard({
 
 export default function PriceMatrixPage() {
   // ---- data states ----
-  const [users, setUsers] = useState<User[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [matrixUsers, setMatrixUsers] = useState<MatrixUser[]>([]);
+  const [matrixProducts, setMatrixProducts] = useState<MatrixProduct[]>([]);
+  const [matrixPrices, setMatrixPrices] = useState<Record<string, Record<number, number>>>({});
   const [categories, setCategories] = useState<Category[]>([]);
-  const [priceCounts, setPriceCounts] = useState<Record<string, number>>({});
 
   // ---- UI states ----
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ---- Modal states ----
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<MatrixUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [userPrices, setUserPrices] = useState<Record<number, number>>({});
   const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
-  const [modalLoading, setModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // ---- Initial data fetch ----
@@ -87,31 +103,18 @@ export default function PriceMatrixPage() {
     setError(null);
 
     Promise.all([
-      usersApi.list({ size: 200 }),
-      productsApi.list({ size: 200, is_active: true }),
-      categoriesApi.list({ size: 200, is_active: true }),
-      pricesApi.getMatrix(),
+      pricesApi.getUserMatrix(),
+      categoriesApi.list({ size: 200 }),
     ])
-      .then(([usersRes, productsRes, categoriesRes, matrixRes]) => {
+      .then(([matrixRes, categoriesRes]) => {
         if (cancelled) return;
-
-        const filteredUsers = usersRes.items.filter(
-          (u) => u.is_active && (u.role === 'distributor' || u.role === 'sub_account'),
-        );
-        setUsers(filteredUsers);
-        setProducts(productsRes.items);
+        setMatrixUsers(matrixRes.users);
+        setMatrixProducts(matrixRes.products);
+        setMatrixPrices(matrixRes.prices);
         setCategories(categoriesRes.items);
-
-        // Compute per-user price counts from matrix
-        const counts: Record<string, number> = {};
-        for (const row of matrixRes.rows) {
-          for (const [userId, price] of Object.entries(row.prices)) {
-            if (price && price > 0) {
-              counts[userId] = (counts[userId] || 0) + 1;
-            }
-          }
+        if (categoriesRes.items.length > 0) {
+          setSelectedCategory(categoriesRes.items[0].name);
         }
-        setPriceCounts(counts);
         setLoading(false);
       })
       .catch((err) => {
@@ -125,33 +128,35 @@ export default function PriceMatrixPage() {
     };
   }, []);
 
+  // ---- Per-user price counts ----
+  const priceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const [userId, prices] of Object.entries(matrixPrices)) {
+      counts[userId] = Object.keys(prices).length;
+    }
+    return counts;
+  }, [matrixPrices]);
+
   // ---- Open modal for a user ----
-  const handleConfigure = async (user: User) => {
+  const handleConfigure = (user: MatrixUser) => {
     setSelectedUser(user);
     setModalOpen(true);
-    setModalLoading(true);
     setEditedPrices({});
-
-    // Default to first category
     if (categories.length > 0 && !selectedCategory) {
       setSelectedCategory(categories[0].name);
     }
-
-    try {
-      const prices = await pricesApi.getUserPrices(user.id);
-      setUserPrices(prices);
-    } catch {
-      setUserPrices({});
-    } finally {
-      setModalLoading(false);
-    }
   };
+
+  // ---- Current user's prices (from matrix data, no extra API call) ----
+  const currentUserPrices = useMemo(() => {
+    if (!selectedUser) return {};
+    return matrixPrices[selectedUser.id] || {};
+  }, [selectedUser, matrixPrices]);
 
   // ---- Close modal ----
   const handleCloseModal = () => {
     setModalOpen(false);
     setSelectedUser(null);
-    setUserPrices({});
     setEditedPrices({});
   };
 
@@ -169,11 +174,20 @@ export default function PriceMatrixPage() {
         });
       }
 
-      // Update local price counts
-      const newUserPrices = { ...userPrices, ...editedPrices };
-      const count = Object.values(newUserPrices).filter((p) => p > 0).length;
-      setPriceCounts((prev) => ({ ...prev, [selectedUser.id]: count }));
-      setUserPrices(newUserPrices);
+      // Update local state
+      setMatrixPrices((prev) => {
+        const userPrices = { ...(prev[selectedUser.id] || {}), ...editedPrices };
+        // Remove entries where price equals base_price (no override needed)
+        const cleaned: Record<number, number> = {};
+        for (const [pid, price] of Object.entries(userPrices)) {
+          const product = matrixProducts.find((p) => p.id === parseInt(pid));
+          if (product && price !== product.base_price) {
+            cleaned[parseInt(pid)] = price;
+          }
+        }
+        return { ...prev, [selectedUser.id]: cleaned };
+      });
+
       setEditedPrices({});
       handleCloseModal();
     } catch (err: any) {
@@ -185,9 +199,9 @@ export default function PriceMatrixPage() {
 
   // ---- Filtered products for modal ----
   const filteredProducts = useMemo(() => {
-    if (!selectedCategory) return products;
-    return products.filter((p) => p.category === selectedCategory);
-  }, [products, selectedCategory]);
+    if (!selectedCategory) return matrixProducts;
+    return matrixProducts.filter((p) => p.category === selectedCategory);
+  }, [matrixProducts, selectedCategory]);
 
   // ---- Has changes? ----
   const hasChanges = Object.keys(editedPrices).length > 0;
@@ -230,13 +244,13 @@ export default function PriceMatrixPage() {
       )}
 
       {/* User Cards Grid */}
-      {users.length === 0 ? (
+      {matrixUsers.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
           등록된 총판/셀러가 없습니다.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {users.map((user) => (
+          {matrixUsers.map((user) => (
             <UserCard
               key={user.id}
               user={user}
@@ -264,82 +278,76 @@ export default function PriceMatrixPage() {
           </>
         }
       >
-        {modalLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse h-12 bg-gray-200 rounded-lg" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Category Tabs */}
-            {categories.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === cat.name
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+        <div className="space-y-4">
+          {/* Category Tabs */}
+          {categories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === cat.name
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Product price rows */}
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">
+              해당 카테고리에 상품이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredProducts.map((product) => {
+                const overridePrice = currentUserPrices[product.id];
+                const currentPrice =
+                  editedPrices[product.id] ?? overridePrice ?? product.base_price;
+                const discountRate =
+                  product.base_price > 0
+                    ? Math.round((1 - currentPrice / product.base_price) * 100)
+                    : 0;
+                const hasOverride = overridePrice !== undefined || editedPrices[product.id] !== undefined;
+
+                return (
+                  <div
+                    key={product.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${hasOverride ? 'bg-blue-50' : 'bg-gray-50'}`}
                   >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Product price rows */}
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                해당 카테고리에 상품이 없습니다.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredProducts.map((product) => {
-                  const currentPrice =
-                    editedPrices[product.id] ?? userPrices[product.id] ?? product.base_price;
-                  const discountRate =
-                    product.base_price > 0
-                      ? Math.round((1 - currentPrice / product.base_price) * 100)
-                      : 0;
-
-                  return (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-                    >
-                      <span className="flex-1 text-sm font-medium text-gray-900">
-                        {product.name}
+                    <span className="flex-1 text-sm font-medium text-gray-900">
+                      {product.name}
+                    </span>
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                      기본 {formatCurrency(product.base_price)}
+                    </span>
+                    <input
+                      type="number"
+                      value={currentPrice}
+                      onChange={(e) =>
+                        setEditedPrices((prev) => ({
+                          ...prev,
+                          [product.id]: parseInt(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-32 px-3 py-2 text-right text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    {discountRate > 0 && (
+                      <span className="text-xs text-red-500 font-medium min-w-[60px]">
+                        {discountRate}% 할인
                       </span>
-                      <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
-                        기본 {formatCurrency(product.base_price)}
-                      </span>
-                      <input
-                        type="number"
-                        value={currentPrice}
-                        onChange={(e) =>
-                          setEditedPrices((prev) => ({
-                            ...prev,
-                            [product.id]: parseInt(e.target.value) || 0,
-                          }))
-                        }
-                        className="w-32 px-3 py-2 text-right text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                      {discountRate > 0 && (
-                        <span className="text-xs text-red-500 font-medium min-w-[60px]">
-                          {discountRate}% 할인
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
