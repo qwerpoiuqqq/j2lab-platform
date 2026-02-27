@@ -21,12 +21,14 @@ def api(method, path, data=None, token=None, raw_response=False, base_override=N
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         resp = urllib.request.urlopen(req, timeout=30)
-        raw = resp.read().decode()
+        raw_bytes = resp.read()
         if raw_response:
-            return resp.status, raw
+            return resp.status, f"<binary {len(raw_bytes)} bytes>"
+        raw = raw_bytes.decode("utf-8", errors="replace")
         return resp.status, json.loads(raw) if raw else None
     except urllib.error.HTTPError as e:
-        raw = e.read().decode() if e.fp else ""
+        raw_bytes = e.read() if e.fp else b""
+        raw = raw_bytes.decode("utf-8", errors="replace")
         try:
             return e.code, json.loads(raw)
         except Exception:
@@ -121,7 +123,7 @@ COMPANY_LIST = d.get("items", []) if isinstance(d, dict) else []
 
 # Create company
 code, d = api("POST", "/companies/", {
-    "name": "__API_TEST_CO__", "business_number": "999-99-99999", "ceo_name": "테스트"
+    "name": "__API_TEST_CO__", "code": "__test_co__"
 }, token=TOKEN)
 test("Create company", code, [201, 409], f"id={d.get('id')}" if code == 201 else detail_of(d))
 test_co_id = d.get("id") if code == 201 else None
