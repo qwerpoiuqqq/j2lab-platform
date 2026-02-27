@@ -63,7 +63,7 @@ export default function OrderDetail({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {order.status === 'draft' && userRole === 'distributor' && (
+            {order.status === 'draft' && ['distributor', 'sub_account'].includes(userRole || '') && (
               <Button
                 variant="primary"
                 onClick={onSubmit}
@@ -72,7 +72,7 @@ export default function OrderDetail({
                 접수 제출
               </Button>
             )}
-            {order.status === 'submitted' && userRole === 'company_admin' && (
+            {order.status === 'submitted' && ['system_admin', 'company_admin'].includes(userRole || '') && (
               <>
                 <Button
                   variant="success"

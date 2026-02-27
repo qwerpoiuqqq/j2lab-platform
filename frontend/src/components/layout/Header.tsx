@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bars3Icon,
   ArrowRightOnRectangleIcon,
@@ -34,6 +35,7 @@ const NOTIFICATION_TYPE_COLORS: Record<string, string> = {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -176,6 +178,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
                           onClick={() => {
                             if (!notification.is_read) {
                               handleMarkRead(notification.id);
+                            }
+                            if (notification.type === 'order' && notification.related_id) {
+                              navigate(`/orders/${notification.related_id}`);
+                              setShowNotifications(false);
+                            } else if (notification.type === 'campaign' && notification.related_id) {
+                              navigate(`/campaigns/${notification.related_id}`);
+                              setShowNotifications(false);
+                            } else if (notification.type === 'settlement') {
+                              navigate('/settlements');
+                              setShowNotifications(false);
                             }
                           }}
                           className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 ${

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { KeywordWarning } from '@/types';
 
 interface Props {
@@ -26,7 +27,7 @@ export default function KeywordWarnings({ warnings }: Props) {
             className="flex items-center justify-between p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50"
           >
             <div>
-              <p className="text-xs font-medium text-gray-900">{w.place_name}</p>
+              <Link to={`/campaigns/${w.campaign_id}`} className="text-xs font-medium text-gray-900 hover:text-primary-600 hover:underline">{w.place_name}</Link>
               {w.campaign_code && (
                 <p className="text-[10px] text-gray-400 font-mono">{w.campaign_code}</p>
               )}

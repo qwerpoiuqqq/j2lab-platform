@@ -15,9 +15,12 @@ const STATUS_OPTIONS = [
   { value: 'deactivated', label: '중단' },
   { value: 'paused', label: '일시정지' },
   { value: 'pending', label: '대기중' },
+  { value: 'queued', label: '대기열' },
+  { value: 'registering', label: '등록중' },
   { value: 'pending_extend', label: '연장 대기' },
   { value: 'completed', label: '종료' },
   { value: 'failed', label: '실패' },
+  { value: 'expired', label: '만료' },
 ];
 
 export default function FilterBar({ agencies, onFilter }: FilterBarProps) {

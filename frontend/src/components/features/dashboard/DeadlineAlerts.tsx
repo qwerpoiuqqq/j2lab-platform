@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { DeadlineAlert } from '@/types';
 
 const urgencyStyles: Record<string, string> = {
@@ -43,7 +44,7 @@ export default function DeadlineAlerts({ deadlines }: Props) {
               >
                 {urgencyLabels[d.urgency]}
               </span>
-              <span className="font-mono text-xs text-gray-700">{d.order_number}</span>
+              <Link to={`/orders/${d.order_id}`} className="font-mono text-xs text-gray-700 hover:text-primary-600 hover:underline">{d.order_number}</Link>
             </div>
             <div className="text-right">
               <span className="text-xs text-gray-500">D-{d.days_remaining}</span>

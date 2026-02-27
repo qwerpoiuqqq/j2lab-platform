@@ -17,6 +17,14 @@ export default function CompaniesPage() {
   const [creating, setCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Edit state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [editing, setEditing] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -57,6 +65,43 @@ export default function CompaniesPage() {
     }
   };
 
+  const handleEdit = (company: Company) => {
+    setEditingCompany(company);
+    setEditName(company.name);
+    setEditCode(company.code);
+    setEditActive(company.is_active);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingCompany) return;
+    setEditing(true);
+    try {
+      await companiesApi.update(editingCompany.id, {
+        name: editName,
+        code: editCode,
+        is_active: editActive,
+      });
+      setShowEditModal(false);
+      setEditingCompany(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '회사 수정에 실패했습니다.');
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const handleDelete = async (company: Company) => {
+    if (!confirm(`"${company.name}" 회사를 삭제하시겠습니까?`)) return;
+    try {
+      await companiesApi.delete(company.id);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '회사 삭제에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -83,7 +128,12 @@ export default function CompaniesPage() {
       )}
 
       {/* Table */}
-      <CompanyList companies={companies} loading={loading} />
+      <CompanyList
+        companies={companies}
+        loading={loading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
 
       {/* Create Modal */}
       <Modal
@@ -121,6 +171,54 @@ export default function CompaniesPage() {
             helperText="영문 소문자, 고유한 식별 코드"
             required
           />
+        </div>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="회사 수정"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowEditModal(false)}
+            >
+              취소
+            </Button>
+            <Button onClick={handleEditSubmit} disabled={!editName || !editCode} loading={editing}>
+              수정
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="회사명"
+            placeholder="예: 일류기획"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            required
+          />
+          <Input
+            label="회사 코드"
+            placeholder="예: ilryu"
+            value={editCode}
+            onChange={(e) => setEditCode(e.target.value)}
+            helperText="영문 소문자, 고유한 식별 코드"
+            required
+          />
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={editActive}
+              onChange={(e) => setEditActive(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <span className="text-sm text-gray-700">활성 상태</span>
+          </label>
         </div>
       </Modal>
     </div>

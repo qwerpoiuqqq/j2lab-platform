@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { campaignsApi } from '@/api/campaigns';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
@@ -10,7 +10,8 @@ import type { SuperapAccount } from '@/types';
 
 export default function CampaignsPage() {
   const [activeAccount, setActiveAccount] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [agencyFilter, setAgencyFilter] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -43,7 +44,7 @@ export default function CampaignsPage() {
     isLoading: campaignsLoading,
     refetch,
   } = useQuery({
-    queryKey: ['campaigns', page, accountId, statusFilter, agencyFilter],
+    queryKey: ['campaigns', page, accountId, statusFilter, agencyFilter, debouncedSearch],
     queryFn: () =>
       campaignsApi.list({
         page,
@@ -51,23 +52,13 @@ export default function CampaignsPage() {
         account_id: accountId,
         status: statusFilter || undefined,
         agency: agencyFilter || undefined,
+        search: debouncedSearch || undefined,
       }),
   });
 
   const campaigns = campaignsData?.items ?? [];
   const totalPages = campaignsData?.pages ?? 1;
   const totalItems = campaignsData?.total ?? 0;
-
-  // Client-side search filter
-  const filteredCampaigns = useMemo(() => {
-    if (!searchTerm) return campaigns;
-    const term = searchTerm.toLowerCase();
-    return campaigns.filter(
-      (c) =>
-        c.place_name?.toLowerCase().includes(term) ||
-        c.campaign_code?.toLowerCase().includes(term),
-    );
-  }, [campaigns, searchTerm]);
 
   // Account tabs
   const tabs = [
@@ -86,10 +77,14 @@ export default function CampaignsPage() {
 
   const handleFilter = useCallback(
     (f: { agency_name?: string; status?: string; search?: string }) => {
-      setSearchTerm(f.search || '');
+      const newSearch = f.search || '';
       setAgencyFilter(f.agency_name || '');
       setStatusFilter(f.status || '');
       setPage(1);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        setDebouncedSearch(newSearch);
+      }, 300);
     },
     [],
   );
@@ -153,7 +148,7 @@ export default function CampaignsPage() {
 
       {/* Campaign Table */}
       <CampaignTable
-        campaigns={filteredCampaigns}
+        campaigns={campaigns}
         loading={campaignsLoading}
         page={page}
         totalPages={totalPages}

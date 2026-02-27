@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { campaignsApi } from '@/api/campaigns';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
@@ -33,6 +34,7 @@ const INITIAL: FormData = {
 };
 
 export default function CampaignAddPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormData>(INITIAL);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [verifyOk, setVerifyOk] = useState(false);
@@ -83,6 +85,7 @@ export default function CampaignAddPage() {
         account_id: Number(form.account_id),
         place_url: form.place_url,
         place_name: form.place_name || undefined,
+        agency_name: form.agency_name || undefined,
         template_id: Number(form.template_id),
         start_date: form.start_date,
         end_date: form.end_date,
@@ -93,6 +96,7 @@ export default function CampaignAddPage() {
       setForm(INITIAL);
       setVerifyMsg(null);
       setVerifyOk(false);
+      navigate('/campaigns');
     } catch (err: any) {
       const msg = err?.response?.data?.detail || '등록에 실패했습니다.';
       setResult({ success: false, message: typeof msg === 'string' ? msg : '등록에 실패했습니다.' });

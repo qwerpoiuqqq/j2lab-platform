@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import Button from '@/components/common/Button';
 import Badge from '@/components/common/Badge';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -221,7 +222,11 @@ export default function CalendarPage() {
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {selectedEntries.map((entry) => (
-                  <div key={`${entry.type}-${entry.id}`} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                  <Link
+                    key={`${entry.type}-${entry.id}`}
+                    to={entry.type === 'order' ? `/orders/${entry.id}` : `/campaigns/${entry.id}`}
+                    className="block p-3 border border-gray-100 rounded-lg hover:bg-gray-50"
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-mono text-xs text-gray-600">{entry.label}</span>
                       <Badge
@@ -234,7 +239,7 @@ export default function CalendarPage() {
                     {entry.type === 'order' && entry.amount !== undefined && (
                       <p className="text-xs text-gray-500 mt-1">{formatCurrency(entry.amount)}</p>
                     )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

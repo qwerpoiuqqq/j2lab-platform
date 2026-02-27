@@ -165,7 +165,6 @@ export default function PriceMatrixPage() {
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onKeyDown={handleKeyDown}
-                              onBlur={() => { if (!saving) setEditingCell(null); }}
                               autoFocus
                               className="w-24 px-2 py-1 text-right text-sm border border-primary-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
                             />

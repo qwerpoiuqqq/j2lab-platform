@@ -19,7 +19,7 @@ export const companiesApi = {
     return response.data;
   },
 
-  update: async (id: number, data: Partial<CreateCompanyRequest>): Promise<Company> => {
+  update: async (id: number, data: Partial<CreateCompanyRequest> & { is_active?: boolean }): Promise<Company> => {
     const response = await apiClient.patch<Company>(`/companies/${id}`, data);
     return response.data;
   },

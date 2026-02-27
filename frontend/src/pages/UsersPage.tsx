@@ -253,7 +253,7 @@ export default function UsersPage() {
           )}
         </div>
       ) : (
-        <UserList users={filteredUsers} loading={loading} />
+        <UserList users={filteredUsers} loading={loading} onEdit={(user) => { openEdit(user); }} />
       )}
 
       <Pagination

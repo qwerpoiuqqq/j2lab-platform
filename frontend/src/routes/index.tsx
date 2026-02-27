@@ -22,6 +22,7 @@ import SettlementPage from '@/pages/SettlementPage';
 import SettlementSecretPage from '@/pages/SettlementSecretPage';
 import CalendarPage from '@/pages/CalendarPage';
 import NoticesPage from '@/pages/NoticesPage';
+import NotFoundPage from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
   {
@@ -49,6 +50,10 @@ export const router = createBrowserRouter([
           {
             path: '/orders/grid',
             element: <OrderGridPage />,
+          },
+          {
+            path: '/notices',
+            element: <NoticesPage />,
           },
           // Campaign routes - system_admin, company_admin, order_handler
           {
@@ -112,10 +117,6 @@ export const router = createBrowserRouter([
                 path: '/settlements',
                 element: <SettlementPage />,
               },
-              {
-                path: '/notices',
-                element: <NoticesPage />,
-              },
             ],
           },
           // Calendar - all except sub_account
@@ -151,6 +152,10 @@ export const router = createBrowserRouter([
                 element: <SettlementSecretPage />,
               },
             ],
+          },
+          {
+            path: '*',
+            element: <NotFoundPage />,
           },
         ],
       },

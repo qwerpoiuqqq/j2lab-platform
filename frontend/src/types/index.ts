@@ -601,6 +601,7 @@ export interface CampaignManualCreate {
   account_id: number;
   place_url: string;
   place_name?: string;
+  agency_name?: string;
   template_id: number;
   start_date: string;
   end_date: string;

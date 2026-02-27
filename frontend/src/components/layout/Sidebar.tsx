@@ -22,6 +22,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ChartBarIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/auth';
 import type { UserRole } from '@/types';
@@ -135,6 +136,20 @@ const navItems: NavItem[] = [
     path: '/settlements',
     icon: BanknotesIcon,
     allowedRoles: ['system_admin', 'company_admin'],
+    children: [
+      {
+        name: '정산 현황',
+        path: '/settlements',
+        icon: BanknotesIcon,
+        allowedRoles: ['system_admin', 'company_admin'],
+      },
+      {
+        name: '수익 분석',
+        path: '/settlements/secret',
+        icon: LockClosedIcon,
+        allowedRoles: ['system_admin'],
+      },
+    ],
   },
   {
     name: '마감 캘린더',
@@ -143,10 +158,10 @@ const navItems: NavItem[] = [
     allowedRoles: ['system_admin', 'company_admin', 'order_handler', 'distributor'],
   },
   {
-    name: '공지 관리',
+    name: '공지사항',
     path: '/notices',
     icon: DocumentTextIcon,
-    allowedRoles: ['system_admin', 'company_admin'],
+    allowedRoles: ALL_ROLES,
   },
   {
     name: '시스템 설정',

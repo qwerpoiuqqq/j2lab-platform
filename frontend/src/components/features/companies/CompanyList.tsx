@@ -1,14 +1,17 @@
 import type { Company } from '@/types';
 import Table, { type Column } from '@/components/common/Table';
 import Badge from '@/components/common/Badge';
+import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { formatDateTime } from '@/utils/format';
 
 interface CompanyListProps {
   companies: Company[];
   loading?: boolean;
+  onEdit?: (company: Company) => void;
+  onDelete?: (company: Company) => void;
 }
 
-export default function CompanyList({ companies, loading }: CompanyListProps) {
+export default function CompanyList({ companies, loading, onEdit, onDelete }: CompanyListProps) {
   const columns: Column<Company>[] = [
     {
       key: 'name',
@@ -42,6 +45,36 @@ export default function CompanyList({ companies, loading }: CompanyListProps) {
         </span>
       ),
     },
+    ...((onEdit || onDelete)
+      ? [
+          {
+            key: 'actions' as keyof Company,
+            header: '작업',
+            render: (c: Company) => (
+              <div className="flex items-center gap-1">
+                {onEdit && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(c); }}
+                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                    title="수정"
+                  >
+                    <PencilSquareIcon className="h-4 w-4" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(c); }}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="삭제"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
