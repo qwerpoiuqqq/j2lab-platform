@@ -72,6 +72,8 @@ async def create_product(
         description=data.description,
         form_schema=data.form_schema,
         base_price=data.base_price,
+        cost_price=data.cost_price,
+        reduction_rate=data.reduction_rate,
         min_work_days=data.min_work_days,
         max_work_days=data.max_work_days,
         daily_deadline=data.daily_deadline,
@@ -96,3 +98,9 @@ async def update_product(
     await db.flush()
     await db.refresh(product)
     return product
+
+
+async def delete_product(db: AsyncSession, product: Product) -> None:
+    """Soft-delete a product by setting is_active=False."""
+    product.is_active = False
+    await db.flush()

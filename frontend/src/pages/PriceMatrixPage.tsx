@@ -53,7 +53,7 @@ export default function PriceMatrixPage() {
     try {
       const price = parseInt(editValue) || 0;
       await pricesApi.updatePrice(editingCell.productId, {
-        user_id: editingCell.sellerId,
+        role: editingCell.sellerId,
         price,
       });
 
@@ -123,6 +123,12 @@ export default function PriceMatrixPage() {
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 기본가
               </th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                원가
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                할인율
+              </th>
               {sellers.map((seller) => (
                 <th key={seller.id} className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                   {seller.name}
@@ -133,7 +139,7 @@ export default function PriceMatrixPage() {
           <tbody className="divide-y divide-gray-200">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={sellers.length + 2} className="px-4 py-8 text-center text-gray-500 text-sm">
+                <td colSpan={sellers.length + 4} className="px-4 py-8 text-center text-gray-500 text-sm">
                   데이터가 없습니다.
                 </td>
               </tr>
@@ -145,6 +151,12 @@ export default function PriceMatrixPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-600 font-mono">
                     {formatCurrency(row.base_price)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-500 font-mono">
+                    {(row as any).cost_price ? formatCurrency((row as any).cost_price) : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-gray-500">
+                    {(row as any).reduction_rate ? `${(row as any).reduction_rate}%` : '-'}
                   </td>
                   {sellers.map((seller) => {
                     const price = row.prices[seller.id] || 0;

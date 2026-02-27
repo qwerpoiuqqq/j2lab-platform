@@ -26,4 +26,8 @@ export const productsApi = {
     const response = await apiClient.patch<Product>(`/products/${id}`, data);
     return response.data;
   },
+
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/products/${id}`);
+  },
 };

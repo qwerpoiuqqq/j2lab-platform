@@ -4,10 +4,11 @@ import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
 import Input from '@/components/common/Input';
-import { PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { Product, FormField } from '@/types';
 import { productsApi } from '@/api/products';
+import { categoriesApi } from '@/api/categories';
 import { useAuthStore } from '@/store/auth';
 
 export default function ProductsPage() {
@@ -28,11 +29,14 @@ export default function ProductsPage() {
     category: '',
     description: '',
     base_price: '',
+    cost_price: '',
+    reduction_rate: '',
     min_work_days: '',
     max_work_days: '',
   });
   const [schemaFields, setSchemaFields] = useState<FormField[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,9 +61,15 @@ export default function ProductsPage() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
+  useEffect(() => {
+    categoriesApi.list({ size: 100 }).then((data) => {
+      setCategories(data.items.map((c: any) => c.name));
+    }).catch(() => {});
+  }, []);
+
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', code: '', category: '', description: '', base_price: '', min_work_days: '', max_work_days: '' });
+    setFormData({ name: '', code: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
     setSchemaFields([]);
     setShowModal(true);
   };
@@ -72,6 +82,8 @@ export default function ProductsPage() {
       category: product.category || '',
       description: product.description || '',
       base_price: String(product.base_price || ''),
+      cost_price: String(product.cost_price || ''),
+      reduction_rate: String(product.reduction_rate || ''),
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
     });
@@ -83,7 +95,17 @@ export default function ProductsPage() {
     setSchemaFields([...schemaFields, { name: '', type: 'text', label: '', required: false }]);
   };
 
-  const updateSchemaField = (index: number, key: keyof FormField, value: any) => {
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`'${product.name}' 상품을 비활성화하시겠습니까?`)) return;
+    try {
+      await productsApi.delete(product.id);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '비활성화에 실패했습니다.');
+    }
+  };
+
+  const updateSchemaField = (index: number, key: string, value: any) => {
     const updated = [...schemaFields];
     updated[index] = { ...updated[index], [key]: value };
     setSchemaFields(updated);
@@ -107,6 +129,8 @@ export default function ProductsPage() {
         category: formData.category || undefined,
         description: formData.description || undefined,
         base_price: parseInt(formData.base_price) || 0,
+        cost_price: parseInt(formData.cost_price) || undefined,
+        reduction_rate: parseInt(formData.reduction_rate) || undefined,
         min_work_days: parseInt(formData.min_work_days) || undefined,
         max_work_days: parseInt(formData.max_work_days) || undefined,
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
@@ -153,6 +177,16 @@ export default function ProductsPage() {
       render: (p) => <span className="font-medium text-gray-900">{formatCurrency(p.base_price)}</span>,
     },
     {
+      key: 'cost_price',
+      header: '원가',
+      render: (p) => <span className="text-gray-600">{p.cost_price ? formatCurrency(p.cost_price) : '-'}</span>,
+    },
+    {
+      key: 'reduction_rate',
+      header: '할인율',
+      render: (p) => <span className="text-gray-600">{p.reduction_rate ? `${p.reduction_rate}%` : '-'}</span>,
+    },
+    {
       key: 'form_schema',
       header: '스키마',
       render: (p) => (
@@ -179,12 +213,21 @@ export default function ProductsPage() {
             key: 'actions' as keyof Product,
             header: '작업',
             render: (p: Product) => (
-              <button
-                onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
-              >
-                <PencilSquareIcon className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+                  className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="비활성화"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
             ),
           },
         ]
@@ -244,11 +287,19 @@ export default function ProductsPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="카테고리"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">선택하세요</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
             <Input
               label="기본가격"
               type="number"
@@ -257,11 +308,25 @@ export default function ProductsPage() {
             />
           </div>
           <Input
+            label="원가"
+            type="number"
+            value={formData.cost_price}
+            onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+            placeholder="관리자 원가"
+          />
+          <Input
             label="설명"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Input
+              label="할인율 (%)"
+              type="number"
+              value={formData.reduction_rate}
+              onChange={(e) => setFormData({ ...formData, reduction_rate: e.target.value })}
+              placeholder="0-100"
+            />
             <Input
               label="최소 작업일"
               type="number"
@@ -321,6 +386,43 @@ export default function ProductsPage() {
                       />
                       필수
                     </label>
+                    {/* Type-specific settings */}
+                    {field.type === 'select' && (
+                      <input
+                        value={(field as any).options?.join(',') || ''}
+                        onChange={(e) => updateSchemaField(idx, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                        placeholder="옵션1,옵션2,옵션3"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        title="선택 옵션 (쉼표 구분)"
+                      />
+                    )}
+                    {field.type === 'calc' && (
+                      <input
+                        value={(field as any).formula || ''}
+                        onChange={(e) => updateSchemaField(idx, 'formula', e.target.value)}
+                        placeholder="quantity * unit_price"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        title="계산 수식"
+                      />
+                    )}
+                    {field.type === 'date_calc' && (
+                      <>
+                        <input
+                          value={(field as any).base_field || ''}
+                          onChange={(e) => updateSchemaField(idx, 'base_field', e.target.value)}
+                          placeholder="기준일 필드명"
+                          className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          title="기준 날짜 필드"
+                        />
+                        <input
+                          value={(field as any).days_field || ''}
+                          onChange={(e) => updateSchemaField(idx, 'days_field', e.target.value)}
+                          placeholder="일수 필드명"
+                          className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          title="일수 필드"
+                        />
+                      </>
+                    )}
                     <button
                       onClick={() => removeSchemaField(idx)}
                       className="p-1 text-red-400 hover:text-red-600"

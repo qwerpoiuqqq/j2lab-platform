@@ -75,32 +75,41 @@ async def get_price_matrix(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
     ),
 ):
-    """Cross-product x user price matrix.
-
-    Returns a matrix of products and their prices per role.
-    """
+    """Product x role price matrix for management UI."""
     from app.models.user import UserRole as UR
 
     products, _ = await product_service.get_products(db, skip=0, limit=500, is_active=True)
-    roles = [r.value for r in UR]
 
-    matrix = []
+    # Roles that need pricing (exclude system_admin)
+    pricing_roles = [
+        {"id": UR.COMPANY_ADMIN.value, "name": "경리"},
+        {"id": UR.ORDER_HANDLER.value, "name": "담당자"},
+        {"id": UR.DISTRIBUTOR.value, "name": "총판"},
+        {"id": UR.SUB_ACCOUNT.value, "name": "셀러"},
+    ]
+
+    rows = []
     for product in products:
-        row = {
+        prices: dict[str, int] = {}
+        for role_info in pricing_roles:
+            try:
+                price = await price_service.get_effective_price(
+                    db, product=product, user_id=_current_user.id, user_role=role_info["id"],
+                )
+            except ValueError:
+                price = 0
+            prices[role_info["id"]] = price
+
+        rows.append({
             "product_id": product.id,
             "product_name": product.name,
-            "product_code": product.code,
-            "base_price": int(product.base_price) if product.base_price else None,
-            "prices_by_role": {},
-        }
-        for role in roles:
-            price = await price_service.get_effective_price(
-                db, product=product, user_id=_current_user.id, user_role=role,
-            )
-            row["prices_by_role"][role] = price
-        matrix.append(row)
+            "base_price": int(product.base_price) if product.base_price else 0,
+            "cost_price": int(product.cost_price) if product.cost_price else None,
+            "reduction_rate": product.reduction_rate,
+            "prices": prices,
+        })
 
-    return {"matrix": matrix}
+    return {"rows": rows, "sellers": pricing_roles}
 
 
 # === Single Product ===
@@ -148,6 +157,22 @@ async def update_product(
 
     updated = await product_service.update_product(db, product, body)
     return updated
+
+
+@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(system_admin_checker),
+):
+    """Soft-delete a product (set is_active=False). system_admin only."""
+    product = await product_service.get_product_by_id(db, product_id)
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+    await product_service.delete_product(db, product)
 
 
 # === Price Policies ===
@@ -254,9 +279,12 @@ async def get_product_schema(
         )
 
     # Get price policies relevant to this user
-    user_price = await price_service.get_effective_price(
-        db, product=product, user_id=current_user.id, user_role=current_user.role,
-    )
+    try:
+        user_price = await price_service.get_effective_price(
+            db, product=product, user_id=current_user.id, user_role=current_user.role,
+        )
+    except ValueError:
+        user_price = int(product.base_price) if product.base_price else 0
 
     return {
         "product_id": product.id,

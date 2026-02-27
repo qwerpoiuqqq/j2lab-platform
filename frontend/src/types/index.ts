@@ -96,6 +96,8 @@ export interface Product {
   description?: string;
   form_schema?: FormField[];
   base_price: number;
+  cost_price?: number;
+  reduction_rate?: number;
   min_work_days?: number;
   max_work_days?: number;
   daily_deadline: string;

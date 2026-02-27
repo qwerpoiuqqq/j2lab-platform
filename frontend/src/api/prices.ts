@@ -16,11 +16,14 @@ export const pricesApi = {
     user_id?: string;
     role?: string;
     price: number;
-    min_quantity?: number;
   }): Promise<void> => {
+    const today = new Date().toISOString().split('T')[0];
     await apiClient.post(`/products/${productId}/prices`, {
       product_id: productId,
-      ...data,
+      role: data.role || undefined,
+      user_id: data.user_id || undefined,
+      unit_price: data.price,
+      effective_from: today,
     });
   },
 };
