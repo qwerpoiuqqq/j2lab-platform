@@ -257,18 +257,26 @@ export interface Keyword {
 // ============================================================
 
 export type PipelineStage =
+  | 'draft'
   | 'order_received'
+  | 'submitted'
   | 'payment_confirmed'
   | 'extraction_queued'
+  | 'extraction_running'
   | 'extracting'
   | 'extraction_done'
+  | 'account_assigned'
   | 'auto_assign'
   | 'assignment_confirmed'
+  | 'campaign_registering'
   | 'registration_queued'
   | 'registering'
+  | 'campaign_active'
   | 'active'
+  | 'management'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'cancelled';
 
 export interface PipelineState {
   id: number;
