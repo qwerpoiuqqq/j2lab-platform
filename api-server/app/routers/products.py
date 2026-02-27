@@ -153,11 +153,8 @@ async def get_user_price_matrix(
                     db, product=product, user_id=user.id, user_role=user.role,
                 )
             except ValueError:
-                price = 0
-            # Only record if differs from base_price (i.e. has a policy)
-            base = int(product.base_price) if product.base_price else 0
-            if price != base:
-                user_prices[uid][product.id] = price
+                price = int(product.base_price) if product.base_price else 0
+            user_prices[uid][product.id] = price
 
     product_list = [
         {

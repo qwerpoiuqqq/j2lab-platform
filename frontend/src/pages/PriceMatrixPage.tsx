@@ -92,7 +92,7 @@ export default function PriceMatrixPage() {
   // ---- Modal states ----
   const [selectedUser, setSelectedUser] = useState<MatrixUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('__all__');
   const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
 
@@ -112,9 +112,6 @@ export default function PriceMatrixPage() {
         setMatrixProducts(matrixRes.products);
         setMatrixPrices(matrixRes.prices);
         setCategories(categoriesRes.items);
-        if (categoriesRes.items.length > 0) {
-          setSelectedCategory(categoriesRes.items[0].name);
-        }
         setLoading(false);
       })
       .catch((err) => {
@@ -128,23 +125,27 @@ export default function PriceMatrixPage() {
     };
   }, []);
 
-  // ---- Per-user price counts ----
+  // ---- Per-user custom price counts (differs from base_price) ----
   const priceCounts = useMemo(() => {
+    const baseMap = new Map(matrixProducts.map((p) => [p.id, p.base_price]));
     const counts: Record<string, number> = {};
     for (const [userId, prices] of Object.entries(matrixPrices)) {
-      counts[userId] = Object.keys(prices).length;
+      let custom = 0;
+      for (const [pidStr, price] of Object.entries(prices)) {
+        const base = baseMap.get(parseInt(pidStr)) || 0;
+        if (price !== base) custom++;
+      }
+      counts[userId] = custom;
     }
     return counts;
-  }, [matrixPrices]);
+  }, [matrixPrices, matrixProducts]);
 
   // ---- Open modal for a user ----
   const handleConfigure = (user: MatrixUser) => {
     setSelectedUser(user);
     setModalOpen(true);
     setEditedPrices({});
-    if (categories.length > 0 && !selectedCategory) {
-      setSelectedCategory(categories[0].name);
-    }
+    setSelectedCategory('__all__');
   };
 
   // ---- Current user's prices (from matrix data, no extra API call) ----
@@ -174,19 +175,11 @@ export default function PriceMatrixPage() {
         });
       }
 
-      // Update local state
-      setMatrixPrices((prev) => {
-        const userPrices = { ...(prev[selectedUser.id] || {}), ...editedPrices };
-        // Remove entries where price equals base_price (no override needed)
-        const cleaned: Record<number, number> = {};
-        for (const [pid, price] of Object.entries(userPrices)) {
-          const product = matrixProducts.find((p) => p.id === parseInt(pid));
-          if (product && price !== product.base_price) {
-            cleaned[parseInt(pid)] = price;
-          }
-        }
-        return { ...prev, [selectedUser.id]: cleaned };
-      });
+      // Update local state — merge edited prices into existing
+      setMatrixPrices((prev) => ({
+        ...prev,
+        [selectedUser.id]: { ...(prev[selectedUser.id] || {}), ...editedPrices },
+      }));
 
       setEditedPrices({});
       handleCloseModal();
@@ -199,7 +192,7 @@ export default function PriceMatrixPage() {
 
   // ---- Filtered products for modal ----
   const filteredProducts = useMemo(() => {
-    if (!selectedCategory) return matrixProducts;
+    if (!selectedCategory || selectedCategory === '__all__') return matrixProducts;
     return matrixProducts.filter((p) => p.category === selectedCategory);
   }, [matrixProducts, selectedCategory]);
 
@@ -280,23 +273,31 @@ export default function PriceMatrixPage() {
       >
         <div className="space-y-4">
           {/* Category Tabs */}
-          {categories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedCategory === cat.name
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory('__all__')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                selectedCategory === '__all__'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              전체
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === cat.name
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
 
           {/* Product price rows */}
           {filteredProducts.length === 0 ? (
@@ -306,19 +307,18 @@ export default function PriceMatrixPage() {
           ) : (
             <div className="space-y-2">
               {filteredProducts.map((product) => {
-                const overridePrice = currentUserPrices[product.id];
-                const currentPrice =
-                  editedPrices[product.id] ?? overridePrice ?? product.base_price;
+                const effectivePrice = currentUserPrices[product.id] ?? product.base_price;
+                const currentPrice = editedPrices[product.id] ?? effectivePrice;
                 const discountRate =
                   product.base_price > 0
                     ? Math.round((1 - currentPrice / product.base_price) * 100)
                     : 0;
-                const hasOverride = overridePrice !== undefined || editedPrices[product.id] !== undefined;
+                const isCustom = currentPrice !== product.base_price;
 
                 return (
                   <div
                     key={product.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg ${hasOverride ? 'bg-blue-50' : 'bg-gray-50'}`}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${isCustom ? 'bg-blue-50' : 'bg-gray-50'}`}
                   >
                     <span className="flex-1 text-sm font-medium text-gray-900">
                       {product.name}
