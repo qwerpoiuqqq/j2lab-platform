@@ -87,13 +87,13 @@ async def seed():
             print('[SKIP] Categories already exist')
         else:
             categories_data = [
-                {'name': '트래픽', 'sort_order': 1},
-                {'name': '저장', 'sort_order': 2},
-                {'name': '자동완성', 'sort_order': 3},
-                {'name': '영수증', 'sort_order': 4},
+                {'name': '트래픽', 'sort_order': 1, 'icon': 'chart-bar'},
+                {'name': '저장', 'sort_order': 2, 'icon': 'bookmark'},
+                {'name': '자동완성', 'sort_order': 3, 'icon': 'sparkles'},
+                {'name': '영수증', 'sort_order': 4, 'icon': 'receipt'},
             ]
             for cat_data in categories_data:
-                cat = Category(name=cat_data['name'], sort_order=cat_data['sort_order'], is_active=True)
+                cat = Category(name=cat_data['name'], sort_order=cat_data['sort_order'], icon=cat_data['icon'], is_active=True)
                 session.add(cat)
             await session.flush()
             print('[OK] Categories created: 트래픽, 저장, 자동완성, 영수증')
@@ -103,16 +103,14 @@ async def seed():
         if result.scalar_one_or_none():
             print('[SKIP] Products already exist')
         else:
-            form_schema = {
-                'fields': [
-                    {'key': 'place_url', 'type': 'url', 'label': '플레이스 URL', 'required': True},
-                    {'key': 'campaign_type', 'type': 'select', 'label': '캠페인 유형', 'required': True, 'options': ['traffic', 'save']},
-                    {'key': 'duration_days', 'type': 'number', 'label': '기간(일)', 'required': True},
-                    {'key': 'daily_limit', 'type': 'number', 'label': '일일 한도', 'required': True},
-                    {'key': 'total_limit', 'type': 'number', 'label': '총 한도', 'required': True},
-                    {'key': 'place_name', 'type': 'text', 'label': '업체명', 'required': False},
-                ]
-            }
+            form_schema = [
+                {'name': 'place_url', 'label': '플레이스 URL', 'type': 'url', 'required': True, 'color': '#4472C4'},
+                {'name': 'campaign_type', 'label': '캠페인 유형', 'type': 'select', 'required': True, 'options': ['traffic', 'save'], 'color': '#00B050'},
+                {'name': 'duration_days', 'label': '기간(일)', 'type': 'number', 'required': True, 'color': '#FFC000', 'is_quantity': False},
+                {'name': 'daily_limit', 'label': '일일 한도', 'type': 'number', 'required': True, 'color': '#FF6B35'},
+                {'name': 'total_limit', 'label': '총 한도', 'type': 'number', 'required': True, 'color': '#4472C4', 'is_quantity': True},
+                {'name': 'place_name', 'label': '업체명', 'type': 'text', 'required': False, 'color': '#333D4B'},
+            ]
 
             products_data = [
                 {'name': '트래픽 30일', 'code': 'traffic_30', 'category': '트래픽', 'base_price': 300000},

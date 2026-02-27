@@ -26,4 +26,16 @@ export const pricesApi = {
       effective_from: today,
     });
   },
+
+  getUserPrices: async (userId: string): Promise<Record<number, number>> => {
+    const response = await apiClient.get('/products/prices/matrix');
+    const data = response.data;
+    const prices: Record<number, number> = {};
+    for (const row of data.rows) {
+      if (row.prices[userId]) {
+        prices[row.product_id] = row.prices[userId];
+      }
+    }
+    return prices;
+  },
 };

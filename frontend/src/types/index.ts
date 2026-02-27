@@ -406,6 +406,7 @@ export interface Category {
   id: number;
   name: string;
   description?: string;
+  icon?: string;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -415,12 +416,14 @@ export interface Category {
 export interface CreateCategoryRequest {
   name: string;
   description?: string;
+  icon?: string;
   sort_order?: number;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   description?: string;
+  icon?: string;
   sort_order?: number;
   is_active?: boolean;
 }
@@ -542,6 +545,10 @@ export interface FormFieldExtended extends FormField {
   formula?: string;
   base_field?: string;
   days_field?: string;
+  color?: string;
+  sample?: string;
+  is_quantity?: boolean;
+  description?: string;
 }
 
 export interface ProductSchema {

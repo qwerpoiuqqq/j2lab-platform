@@ -6,6 +6,13 @@ interface CategorySelectorProps {
   onSelect: (category: string) => void;
 }
 
+const categoryIcons: Record<string, string> = {
+  '트래픽': '\u{1F4CA}',
+  '저장': '\u{1F516}',
+  '자동완성': '\u{2728}',
+  '영수증': '\u{1F9FE}',
+};
+
 export default function CategorySelector({ products, onSelect }: CategorySelectorProps) {
   const categories = useMemo(() => {
     const map = new Map<string, { count: number; minPrice: number }>();
@@ -42,9 +49,12 @@ export default function CategorySelector({ products, onSelect }: CategorySelecto
           onClick={() => onSelect(cat.name)}
           className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-left hover:border-primary-400 hover:shadow-md transition-all group"
         >
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600">
-            {cat.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{categoryIcons[cat.name] || '\u{1F4E6}'}</span>
+            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600">
+              {cat.name}
+            </h3>
+          </div>
           <p className="mt-2 text-sm text-gray-500">
             {cat.count}개 상품
           </p>

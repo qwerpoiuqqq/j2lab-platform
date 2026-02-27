@@ -9,6 +9,7 @@ import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   DocumentArrowDownIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 
 export type OrderGridRow = Record<string, string | number>;
@@ -86,6 +87,8 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
   const [notes, setNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const quantityField = schema.find((f) => f.is_quantity);
+
   const updateRow = useCallback((rowIdx: number, fieldName: string, value: string | number) => {
     setRows((prev) => {
       const updated = [...prev];
@@ -105,8 +108,21 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
     });
   }, []);
 
-  // Calc totals: find subtotal-like calc fields, or sum quantity*unit_price
+  const copyRow = useCallback((idx: number) => {
+    setRows((prev) => {
+      const newRow = computeRow({ ...prev[idx] }, schema);
+      const newRows = [...prev];
+      newRows.splice(idx + 1, 0, newRow);
+      return newRows;
+    });
+  }, [schema]);
+
+  // Calc totals: use is_quantity field, or find subtotal-like calc fields, or sum quantity*unit_price
   const subtotal = rows.reduce((sum, row) => {
+    if (quantityField) {
+      const qty = Number(row[quantityField.name]) || 0;
+      return sum + qty * product.base_price;
+    }
     const calcField = schema.find((f) => f.type === 'calc' && f.formula);
     if (calcField) {
       return sum + (Number(row[calcField.name]) || 0);
@@ -146,7 +162,6 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
   };
 
   const handleExcelExport = () => {
-    // Build CSV from current grid
     const headers = schema.map((f) => f.label);
     const csvRows = rows.map((row) =>
       schema.map((f) => {
@@ -161,7 +176,6 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
   };
 
   const handleSubmit = () => {
-    // Validate required fields
     for (let i = 0; i < rows.length; i++) {
       for (const field of schema) {
         if (field.required && !rows[i][field.name] && rows[i][field.name] !== 0) {
@@ -175,12 +189,10 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
 
   const handleKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
     if (e.key === 'Tab') {
-      // Let default tab behavior work
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Move to next row, same column
       const nextRow = rowIdx + 1;
       if (nextRow < rows.length) {
         const nextInput = document.querySelector(
@@ -242,7 +254,8 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
               {schema.map((field) => (
                 <th
                   key={field.name}
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap"
+                  className="px-3 py-3 text-left text-xs font-medium uppercase whitespace-nowrap"
+                  style={field.color ? { backgroundColor: field.color, color: '#fff' } : undefined}
                 >
                   {field.label}
                   {field.required && <span className="text-red-500 ml-0.5">*</span>}
@@ -267,7 +280,14 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
                     />
                   </td>
                 ))}
-                <td className="px-2 py-1">
+                <td className="px-2 py-1 flex items-center gap-0.5">
+                  <button
+                    onClick={() => copyRow(rowIdx)}
+                    className="p-1 text-gray-400 hover:text-primary-500 transition-colors"
+                    title="행 복사"
+                  >
+                    <DocumentDuplicateIcon className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => deleteRow(rowIdx)}
                     className="p-1 text-gray-400 hover:text-red-500 transition-colors"
@@ -296,6 +316,18 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
           />
         </div>
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">총 건수</span>
+            <span className="font-medium text-gray-900">{formatNumber(rows.length)}건</span>
+          </div>
+          {quantityField && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">총 수량 ({quantityField.label})</span>
+              <span className="font-medium text-gray-900">
+                {formatNumber(rows.reduce((s, r) => s + (Number(r[quantityField.name]) || 0), 0))}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">공급가액</span>
             <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
@@ -438,13 +470,12 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx }: GridCel
 
     case 'readonly':
       return (
-        <input
-          type="text"
-          value={String(value ?? '')}
-          readOnly
-          tabIndex={-1}
-          className={readonlyClass}
-        />
+        <div
+          className="w-full px-2 py-1.5 text-sm bg-gray-100 border border-gray-200 rounded text-gray-600 cursor-default"
+          title={field.description}
+        >
+          {String(value || field.description || field.sample || '')}
+        </div>
       );
 
     default:

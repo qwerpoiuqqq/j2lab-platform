@@ -4,13 +4,100 @@ import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
 import Input from '@/components/common/Input';
-import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@heroicons/react/24/outline';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import type { Product, FormField } from '@/types';
 import { productsApi } from '@/api/products';
 import { categoriesApi } from '@/api/categories';
 import { useAuthStore } from '@/store/auth';
 
+// ---------------------------------------------------------------------------
+// Extended schema field type used internally
+// ---------------------------------------------------------------------------
+interface SchemaField extends FormField {
+  color?: string;
+  sample?: string;
+  options?: string[];
+  formula?: string;
+  base_field?: string;
+  days_field?: string;
+  is_quantity?: boolean;
+  description?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const fieldTypes = ['text', 'url', 'number', 'date', 'select', 'calc', 'date_calc', 'readonly'] as const;
+
+const fieldTypeLabels: Record<string, string> = {
+  text: '텍스트',
+  url: 'URL',
+  number: '숫자',
+  date: '날짜',
+  select: '선택',
+  calc: '계산',
+  date_calc: '날짜계산',
+  readonly: '읽기전용',
+};
+
+const colorPresets = ['#4472C4', '#00B050', '#FFC000', '#FF6B35', '#C00000', '#7030A0', '#333D4B'];
+
+const DEFAULT_COLOR = '#333D4B';
+
+const calcOperators = ['+', '-', '*', '/'] as const;
+const calcOperatorLabels: Record<string, string> = { '+': '+', '-': '-', '*': '\u00d7', '/': '\u00f7' };
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Parse a simple "fieldA * fieldB" formula into parts */
+function parseFormula(formula: string | undefined): { left: string; op: string; right: string } {
+  if (!formula) return { left: '', op: '*', right: '' };
+  for (const op of calcOperators) {
+    const idx = formula.indexOf(` ${op} `);
+    if (idx !== -1) {
+      return {
+        left: formula.substring(0, idx).trim(),
+        op,
+        right: formula.substring(idx + 3).trim(),
+      };
+    }
+  }
+  return { left: formula, op: '*', right: '' };
+}
+
+function buildFormula(left: string, op: string, right: string): string {
+  if (!left && !right) return '';
+  return `${left} ${op} ${right}`;
+}
+
+/** Generate sample cell text for a given field type */
+function sampleText(field: SchemaField): string {
+  if (field.sample) return field.sample;
+  switch (field.type) {
+    case 'text': return '텍스트 입력';
+    case 'url': return 'https://...';
+    case 'number': return '100';
+    case 'date': return '2026-01-01';
+    case 'select': return field.options?.[0] || '옵션 선택';
+    case 'calc': return '= 자동계산';
+    case 'date_calc': return '= 자동계산';
+    case 'readonly': return field.description || '자동입력';
+    default: return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export default function ProductsPage() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'system_admin';
@@ -34,10 +121,14 @@ export default function ProductsPage() {
     min_work_days: '',
     max_work_days: '',
   });
-  const [schemaFields, setSchemaFields] = useState<FormField[]>([]);
+  const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
+  const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
 
+  // -----------------------------------------------------------------------
+  // Data fetching
+  // -----------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -67,10 +158,14 @@ export default function ProductsPage() {
     }).catch(() => {});
   }, []);
 
+  // -----------------------------------------------------------------------
+  // Modal open/close
+  // -----------------------------------------------------------------------
   const openCreate = () => {
     setEditing(null);
     setFormData({ name: '', code: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
     setSchemaFields([]);
+    setSelectedFieldIndex(null);
     setShowModal(true);
   };
 
@@ -87,14 +182,64 @@ export default function ProductsPage() {
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
     });
-    setSchemaFields(product.form_schema || []);
+    setSchemaFields((product.form_schema as SchemaField[]) || []);
+    setSelectedFieldIndex(null);
     setShowModal(true);
   };
 
+  // -----------------------------------------------------------------------
+  // Schema field CRUD
+  // -----------------------------------------------------------------------
   const addSchemaField = () => {
-    setSchemaFields([...schemaFields, { name: '', type: 'text', label: '', required: false }]);
+    const newField: SchemaField = {
+      name: `field_${schemaFields.length + 1}`,
+      label: `필드 ${schemaFields.length + 1}`,
+      type: 'text',
+      required: false,
+      color: DEFAULT_COLOR,
+      sample: '',
+    };
+    const newFields = [...schemaFields, newField];
+    setSchemaFields(newFields);
+    setSelectedFieldIndex(newFields.length - 1);
   };
 
+  const updateSchemaField = (index: number, key: string, value: any) => {
+    const updated = [...schemaFields];
+    updated[index] = { ...updated[index], [key]: value };
+    setSchemaFields(updated);
+  };
+
+  const removeSchemaField = (index: number) => {
+    const updated = schemaFields.filter((_, i) => i !== index);
+    setSchemaFields(updated);
+    if (selectedFieldIndex === index) {
+      setSelectedFieldIndex(null);
+    } else if (selectedFieldIndex !== null && selectedFieldIndex > index) {
+      setSelectedFieldIndex(selectedFieldIndex - 1);
+    }
+  };
+
+  const moveField = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= schemaFields.length) return;
+    const updated = [...schemaFields];
+    [updated[index], updated[target]] = [updated[target], updated[index]];
+    setSchemaFields(updated);
+    setSelectedFieldIndex(target);
+  };
+
+  const setQuantityField = (index: number) => {
+    const updated = schemaFields.map((f, i) => ({
+      ...f,
+      is_quantity: i === index,
+    }));
+    setSchemaFields(updated);
+  };
+
+  // -----------------------------------------------------------------------
+  // Delete product
+  // -----------------------------------------------------------------------
   const handleDelete = async (product: Product) => {
     if (!confirm(`'${product.name}' 상품을 비활성화하시겠습니까?`)) return;
     try {
@@ -105,16 +250,9 @@ export default function ProductsPage() {
     }
   };
 
-  const updateSchemaField = (index: number, key: string, value: any) => {
-    const updated = [...schemaFields];
-    updated[index] = { ...updated[index], [key]: value };
-    setSchemaFields(updated);
-  };
-
-  const removeSchemaField = (index: number) => {
-    setSchemaFields(schemaFields.filter((_, i) => i !== index));
-  };
-
+  // -----------------------------------------------------------------------
+  // Submit
+  // -----------------------------------------------------------------------
   const handleSubmit = async () => {
     if (!formData.name || !formData.code) {
       alert('상품명과 코드를 입력하세요.');
@@ -150,6 +288,9 @@ export default function ProductsPage() {
     }
   };
 
+  // -----------------------------------------------------------------------
+  // Table columns
+  // -----------------------------------------------------------------------
   const columns: Column<Product>[] = [
     {
       key: 'name',
@@ -234,8 +375,28 @@ export default function ProductsPage() {
       : []),
   ];
 
-  const fieldTypes = ['text', 'url', 'number', 'date', 'select', 'calc', 'date_calc', 'readonly'];
+  // -----------------------------------------------------------------------
+  // Derived values for the selected field
+  // -----------------------------------------------------------------------
+  const selectedField: SchemaField | null =
+    selectedFieldIndex !== null && selectedFieldIndex < schemaFields.length
+      ? schemaFields[selectedFieldIndex]
+      : null;
 
+  /** Other field names for formula dropdowns, excluding the current field */
+  const otherFieldNames = schemaFields
+    .filter((_, i) => i !== selectedFieldIndex)
+    .map((f) => f.name);
+
+  const numberOrCalcFields = schemaFields.filter(
+    (f) => f.type === 'number' || f.type === 'calc',
+  );
+
+  const quantityFieldIndex = schemaFields.findIndex((f) => f.is_quantity);
+
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -341,96 +502,380 @@ export default function ProductsPage() {
             />
           </div>
 
-          {/* Schema Builder */}
+          {/* ============================================================ */}
+          {/* Schema Builder (new spreadsheet-style) */}
+          {/* ============================================================ */}
           <div className="border-t border-gray-200 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">주문 폼 스키마</h3>
-              <Button size="sm" variant="secondary" onClick={addSchemaField} icon={<PlusIcon className="h-3 w-3" />}>
-                필드 추가
-              </Button>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">주문 폼 스키마</h3>
+
+            {/* --- 1. Spreadsheet Preview Table --- */}
+            <div className="border border-gray-200 rounded-lg overflow-x-auto mb-4">
+              <table className="w-full text-sm">
+                {/* Column headers */}
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 bg-gray-50 border-r border-gray-200 w-10">
+                      #
+                    </th>
+                    {schemaFields.map((field, idx) => (
+                      <th
+                        key={idx}
+                        onClick={() => setSelectedFieldIndex(idx)}
+                        className={`
+                          px-3 py-2 text-left min-w-[120px] cursor-pointer border-r border-gray-200 select-none
+                          ${selectedFieldIndex === idx ? 'ring-2 ring-primary-500 ring-inset' : ''}
+                        `}
+                        style={{ backgroundColor: field.color || DEFAULT_COLOR }}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-white text-xs font-semibold truncate">
+                            {field.label || field.name}
+                          </span>
+                          {field.required && (
+                            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                          )}
+                        </div>
+                        <span
+                          className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          style={{
+                            backgroundColor: 'rgba(255,255,255,0.25)',
+                            color: '#fff',
+                          }}
+                        >
+                          {fieldTypeLabels[field.type] || field.type}
+                        </span>
+                      </th>
+                    ))}
+                    {/* Add column button */}
+                    <th className="px-2 py-2 bg-gray-50 w-10">
+                      <button
+                        type="button"
+                        onClick={addSchemaField}
+                        className="flex items-center justify-center w-7 h-7 rounded-md border-2 border-dashed border-gray-300 text-gray-400 hover:border-primary-400 hover:text-primary-500 transition-colors"
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                {/* Sample rows */}
+                <tbody>
+                  {schemaFields.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">
+                        스키마 필드가 없습니다. + 버튼으로 추가하세요.
+                      </td>
+                    </tr>
+                  ) : (
+                    [1, 2].map((rowNum) => (
+                      <tr key={rowNum} className="border-t border-gray-100">
+                        <td className="px-2 py-1.5 text-xs text-gray-400 bg-gray-50 border-r border-gray-200 text-center">
+                          {rowNum}
+                        </td>
+                        {schemaFields.map((field, idx) => {
+                          const isAutoCalc = field.type === 'calc' || field.type === 'date_calc';
+                          const isReadonly = field.type === 'readonly';
+                          return (
+                            <td
+                              key={idx}
+                              onClick={() => setSelectedFieldIndex(idx)}
+                              className={`
+                                px-3 py-1.5 text-xs border-r border-gray-200 cursor-pointer
+                                ${selectedFieldIndex === idx ? 'ring-2 ring-primary-500 ring-inset' : ''}
+                              `}
+                              style={{
+                                backgroundColor: isAutoCalc
+                                  ? '#E8F0FE'
+                                  : isReadonly
+                                    ? '#F3F4F6'
+                                    : undefined,
+                              }}
+                            >
+                              <span className={isAutoCalc ? 'text-blue-600' : isReadonly ? 'text-gray-500' : 'text-gray-600'}>
+                                {sampleText(field)}
+                              </span>
+                            </td>
+                          );
+                        })}
+                        <td className="bg-gray-50" />
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            {schemaFields.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">스키마 필드가 없습니다.</p>
-            ) : (
-              <div className="space-y-2">
-                {schemaFields.map((field, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <input
-                      value={field.name}
-                      onChange={(e) => updateSchemaField(idx, 'name', e.target.value)}
-                      placeholder="필드명"
-                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <input
-                      value={field.label}
-                      onChange={(e) => updateSchemaField(idx, 'label', e.target.value)}
-                      placeholder="라벨"
-                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <select
-                      value={field.type}
-                      onChange={(e) => updateSchemaField(idx, 'type', e.target.value)}
-                      className="px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    >
-                      {fieldTypes.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-1 text-xs text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={field.required || false}
-                        onChange={(e) => updateSchemaField(idx, 'required', e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                      필수
-                    </label>
-                    {/* Type-specific settings */}
-                    {field.type === 'select' && (
-                      <input
-                        value={(field as any).options?.join(',') || ''}
-                        onChange={(e) => updateSchemaField(idx, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                        placeholder="옵션1,옵션2,옵션3"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        title="선택 옵션 (쉼표 구분)"
-                      />
-                    )}
-                    {field.type === 'calc' && (
-                      <input
-                        value={(field as any).formula || ''}
-                        onChange={(e) => updateSchemaField(idx, 'formula', e.target.value)}
-                        placeholder="quantity * unit_price"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        title="계산 수식"
-                      />
-                    )}
-                    {field.type === 'date_calc' && (
-                      <>
-                        <input
-                          value={(field as any).base_field || ''}
-                          onChange={(e) => updateSchemaField(idx, 'base_field', e.target.value)}
-                          placeholder="기준일 필드명"
-                          className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          title="기준 날짜 필드"
-                        />
-                        <input
-                          value={(field as any).days_field || ''}
-                          onChange={(e) => updateSchemaField(idx, 'days_field', e.target.value)}
-                          placeholder="일수 필드명"
-                          className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          title="일수 필드"
-                        />
-                      </>
-                    )}
+            {/* --- 2. Field Edit Panel --- */}
+            {selectedField && selectedFieldIndex !== null && (
+              <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-white">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-800">
+                    필드 편집: {selectedField.label || selectedField.name}
+                  </h4>
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => removeSchemaField(idx)}
-                      className="p-1 text-red-400 hover:text-red-600"
+                      type="button"
+                      onClick={() => moveField(selectedFieldIndex, -1)}
+                      disabled={selectedFieldIndex === 0}
+                      className="p-1.5 rounded text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="왼쪽으로 이동"
                     >
-                      &times;
+                      <ChevronLeftIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveField(selectedFieldIndex, 1)}
+                      disabled={selectedFieldIndex === schemaFields.length - 1}
+                      className="p-1.5 rounded text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="오른쪽으로 이동"
+                    >
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeSchemaField(selectedFieldIndex)}
+                      className="ml-2 p-1.5 rounded text-red-500 hover:bg-red-50"
+                      title="필드 삭제"
+                    >
+                      <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
-                ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">필드명 (name)</label>
+                    <input
+                      value={selectedField.name}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'name', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                  {/* Label */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">라벨 (label)</label>
+                    <input
+                      value={selectedField.label}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'label', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                  {/* Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">타입</label>
+                    <select
+                      value={selectedField.type}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'type', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                      {fieldTypes.map((t) => (
+                        <option key={t} value={t}>{fieldTypeLabels[t]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Sample */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">샘플 텍스트</label>
+                    <input
+                      value={selectedField.sample || ''}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'sample', e.target.value)}
+                      placeholder="미리보기에 표시될 텍스트"
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Required checkbox - hidden for readonly/calc/date_calc */}
+                {selectedField.type !== 'readonly' &&
+                  selectedField.type !== 'calc' &&
+                  selectedField.type !== 'date_calc' && (
+                  <label className="flex items-center gap-2 mt-3 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedField.required || false}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'required', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    필수 여부
+                  </label>
+                )}
+
+                {/* Header color presets */}
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">헤더 색상</label>
+                  <div className="flex items-center gap-2">
+                    {colorPresets.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => updateSchemaField(selectedFieldIndex, 'color', color)}
+                        className={`
+                          w-7 h-7 rounded-full border-2 transition-all
+                          ${(selectedField.color || DEFAULT_COLOR) === color
+                            ? 'border-gray-900 scale-110 ring-2 ring-offset-1 ring-gray-400'
+                            : 'border-transparent hover:border-gray-300'}
+                        `}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* --- Type-specific options --- */}
+
+                {/* select -> comma-separated options */}
+                {selectedField.type === 'select' && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">선택 옵션 (쉼표 구분)</label>
+                    <input
+                      value={selectedField.options?.join(', ') || ''}
+                      onChange={(e) =>
+                        updateSchemaField(
+                          selectedFieldIndex,
+                          'options',
+                          e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                        )
+                      }
+                      placeholder="옵션1, 옵션2, 옵션3"
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                )}
+
+                {/* readonly -> description */}
+                {selectedField.type === 'readonly' && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">설명</label>
+                    <textarea
+                      value={selectedField.description || ''}
+                      onChange={(e) => updateSchemaField(selectedFieldIndex, 'description', e.target.value)}
+                      placeholder="읽기전용 필드 설명"
+                      rows={2}
+                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                    />
+                  </div>
+                )}
+
+                {/* calc -> formula builder */}
+                {selectedField.type === 'calc' && (() => {
+                  const parsed = parseFormula(selectedField.formula);
+                  return (
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">계산 수식</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={parsed.left}
+                          onChange={(e) =>
+                            updateSchemaField(
+                              selectedFieldIndex,
+                              'formula',
+                              buildFormula(e.target.value, parsed.op, parsed.right),
+                            )
+                          }
+                          className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="">필드 선택</option>
+                          {otherFieldNames.map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={parsed.op}
+                          onChange={(e) =>
+                            updateSchemaField(
+                              selectedFieldIndex,
+                              'formula',
+                              buildFormula(parsed.left, e.target.value, parsed.right),
+                            )
+                          }
+                          className="w-16 px-2 py-1.5 text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          {calcOperators.map((op) => (
+                            <option key={op} value={op}>{calcOperatorLabels[op]}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={parsed.right}
+                          onChange={(e) =>
+                            updateSchemaField(
+                              selectedFieldIndex,
+                              'formula',
+                              buildFormula(parsed.left, parsed.op, e.target.value),
+                            )
+                          }
+                          className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="">필드 선택</option>
+                          {otherFieldNames.map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* date_calc -> base_field + days_field */}
+                {selectedField.type === 'date_calc' && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">날짜 계산</label>
+                    <div className="flex items-center gap-2 text-sm">
+                      <select
+                        value={selectedField.base_field || ''}
+                        onChange={(e) => updateSchemaField(selectedFieldIndex, 'base_field', e.target.value)}
+                        className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="">시작일 필드</option>
+                        {otherFieldNames.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500 font-medium">+</span>
+                      <select
+                        value={selectedField.days_field || ''}
+                        onChange={(e) => updateSchemaField(selectedFieldIndex, 'days_field', e.target.value)}
+                        className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="">일수 필드</option>
+                        {otherFieldNames.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500 text-xs whitespace-nowrap">- 1</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- 3. Quantity / Price Field Selector --- */}
+            {numberOrCalcFields.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">가격 설정</h4>
+                <div className="space-y-1.5">
+                  {numberOrCalcFields.map((field) => {
+                    const realIdx = schemaFields.indexOf(field);
+                    return (
+                      <label key={realIdx} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="radio"
+                          name="quantity_field"
+                          checked={field.is_quantity === true}
+                          onChange={() => setQuantityField(realIdx)}
+                          className="text-primary-600 focus:ring-primary-500"
+                        />
+                        {field.label || field.name}
+                      </label>
+                    );
+                  })}
+                </div>
+                {quantityFieldIndex !== -1 && (
+                  <p className="mt-2 text-xs text-gray-500 bg-gray-50 rounded px-2 py-1.5">
+                    수량({schemaFields[quantityFieldIndex].label || schemaFields[quantityFieldIndex].name})
+                    {' '}&times; 단가 = 공급가 + VAT
+                  </p>
+                )}
               </div>
             )}
           </div>

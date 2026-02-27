@@ -11,7 +11,19 @@ import {
   ArrowDownIcon,
 } from '@heroicons/react/24/outline';
 import { categoriesApi } from '@/api/categories';
+import { productsApi } from '@/api/products';
 import type { Category } from '@/types';
+
+const iconMap: Record<string, string> = {
+  'chart-bar': '\u{1F4CA}',
+  'bookmark': '\u{1F516}',
+  'sparkles': '\u{2728}',
+  'receipt': '\u{1F9FE}',
+  'grid': '\u{1F4CB}',
+  'shopping-cart': '\u{1F6D2}',
+  'tag': '\u{1F3F7}\uFE0F',
+  'star': '\u{2B50}',
+};
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -23,8 +35,11 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formIcon, setFormIcon] = useState('grid');
   const [submitting, setSubmitting] = useState(false);
   const [reordering, setReordering] = useState(false);
+
+  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -50,10 +65,22 @@ export default function CategoriesPage() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
+  useEffect(() => {
+    productsApi.list({ size: 200 }).then((data) => {
+      const counts: Record<string, number> = {};
+      for (const p of data.items) {
+        const cat = p.category || '기타';
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+      setProductCounts(counts);
+    }).catch(() => {});
+  }, [refreshKey]);
+
   const openCreate = () => {
     setEditing(null);
     setFormName('');
     setFormDescription('');
+    setFormIcon('grid');
     setShowModal(true);
   };
 
@@ -61,6 +88,7 @@ export default function CategoriesPage() {
     setEditing(cat);
     setFormName(cat.name);
     setFormDescription(cat.description || '');
+    setFormIcon(cat.icon || 'grid');
     setShowModal(true);
   };
 
@@ -76,11 +104,13 @@ export default function CategoriesPage() {
         await categoriesApi.update(editing.id, {
           name: formName,
           description: formDescription || undefined,
+          icon: formIcon,
         });
       } else {
         await categoriesApi.create({
           name: formName,
           description: formDescription || undefined,
+          icon: formIcon,
         });
       }
       setShowModal(false);
@@ -169,9 +199,11 @@ export default function CategoriesPage() {
                     <ArrowDownIcon className="h-3 w-3" />
                   </button>
                 </div>
+                <span className="text-xl mr-2">{iconMap[cat.icon || 'grid'] || '\u{1F4CB}'}</span>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900">{cat.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{productCounts[cat.name] || 0}개 상품</span>
                     <Badge variant={cat.is_active ? 'success' : 'default'}>
                       {cat.is_active ? '활성' : '비활성'}
                     </Badge>
@@ -221,6 +253,23 @@ export default function CategoriesPage() {
             onChange={(e) => setFormDescription(e.target.value)}
             placeholder="선택사항"
           />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">아이콘</label>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(iconMap).map(([key, emoji]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFormIcon(key)}
+                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-xl transition-colors ${
+                    formIcon === key ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowModal(false)}>취소</Button>
             <Button onClick={handleSubmit} loading={submitting}>
