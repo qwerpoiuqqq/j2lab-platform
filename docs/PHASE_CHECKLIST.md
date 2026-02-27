@@ -47,7 +47,7 @@
 ### 1A.5 검증
 - [x] Agent B 검증 완료
 - [x] Agent C 재검증 완료 (2026-02-23)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -65,8 +65,8 @@
 - [x] Products CRUD + 마감시간 체크
 - [x] Price Policies CRUD + 가격 결정 로직 (유저별→역할별→기본)
 - [x] Orders CRUD + 상태 전이 (submit, confirm-payment, reject, cancel)
-- [ ] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드 *(Phase 4 프론트엔드와 함께 구현 예정)*
-- [ ] 마감시간 체크 로직 (deadline-status API) *(Phase 4 프론트엔드와 함께 구현 예정)*
+- [x] 엑셀 업로드 (미리보기→확인) + 템플릿 다운로드 (백엔드 3 엔드포인트 + 프론트 OrderGridPage Excel 모드)
+- [x] 마감시간: orders/deadlines API + CalendarPage 구현 완료
 - [x] BalanceTransactions + 잔액 차감 (입금확인 시점, SELECT FOR UPDATE)
 - [x] SystemSettings CRUD (system_admin 전용, JSONB 값 upsert)
 - [x] 테스트 (229개 통과: 121 Phase 1A + 108 Phase 1B)
@@ -74,7 +74,7 @@
 ### 1B.3 검증
 - [x] Agent B 검증 완료 (2026-02-23, 59개 엣지케이스 추가)
 - [x] Agent C 재검증 완료 (2026-02-23, 229개 테스트 100% 통과, 보안 리뷰 완료)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -109,7 +109,7 @@
 ### 1C.3 검증
 - [x] Agent B 검증 완료 (2026-02-23, 48개 엣지케이스 추가, pipeline_state 중복 전이 수정)
 - [x] Agent C 재검증 완료 (2026-02-23, 332개 테스트 100% 통과, 20개 테이블 마이그레이션 확인, 보안 리뷰 완료)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -133,9 +133,9 @@
 - [x] api-server 콜백 (완료/실패 알림)
 
 ### 2.3 api-server 연동
-- [ ] keyword_worker_client.py (httpx 비동기 호출) *(Phase 3와 함께 통합 구현 예정)*
-- [ ] 추출 시작/상태/결과 API *(api-server 측 라우터 추가 필요)*
-- [ ] PipelineState 자동 전이 (extraction_queued → running → done) *(콜백 수신 라우터 Phase 1C에서 구현 완료)*
+- [x] worker_clients.py에 keyword 함수 6개 구현 (dispatch, status, results, cancel, capacity, health)
+- [x] 추출 시작/상태/결과 API (extraction router 구현 완료)
+- [x] PipelineState 자동 전이 (콜백 수신 라우터 Phase 1C에서 구현 완료)
 
 ### 2.4 테스트
 - [x] 워커 헬스체크 (127개 테스트 통과: 47 기본 + 80 엣지케이스)
@@ -149,7 +149,7 @@
 ### 2.5 검증
 - [x] Agent B 검증 완료 (2026-02-23, 80개 엣지케이스 추가, 6건 버그 수정)
 - [x] Agent C 재검증 완료 (2026-02-23, 127+332 테스트 100% 통과, Internal API 6개 엔드포인트 준수, 콜백 형식 확인, 모델 일관성 확인, 보안 리뷰 완료)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -168,7 +168,7 @@
 - [x] 캠페인 상태 동기화 (한글→영문 정규화 + 전환수 업데이트)
 
 ### 3.3 api-server 연동
-- [ ] campaign_worker_client.py *(Phase 5 배포 시 api-server 측 구현)*
+- [x] worker_clients.py에 campaign 함수 7개 구현 (register, extend, rotate, bulk-sync, scheduler status/trigger, health)
 - [x] 캠페인 등록/연장/로테이션 Internal API (BackgroundTasks 비동기 실행)
 - [x] api-server 콜백 발송 (campaign_registrar → /internal/callback/campaign/{id})
 
@@ -181,7 +181,7 @@
 
 ### 3.5 검증
 - [x] Agent B+C 통합 검증 완료 (2026-02-23, 91개 엣지케이스 추가, reference 대비 코드 확인, INTEGRATION_PLAN 7개 엔드포인트 준수, 보안 리뷰 완료)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -197,22 +197,22 @@
 - [x] 로그인/로그아웃
 - [x] 대시보드 (역할별)
 - [x] 주문 접수 (단건 폼)
-- [ ] 주문 접수 (엑셀 벌크) *(Phase 5 또는 후속 개선 시 구현 예정)*
+- [x] 주문 접수 (엑셀 벌크) — OrderGridPage Excel 모드 + 백엔드 3 엔드포인트
 - [x] 주문 목록/상세
-- [ ] 플레이스/키워드 관리 *(캠페인 상세에서 키워드 풀 표시, 별도 페이지는 후속 구현 예정)*
+- [x] 플레이스/키워드: 캠페인 상세에서 키워드 풀 표시, Places API 구현 완료
 - [x] 캠페인 관리
 - [x] 파이프라인 현황 (대시보드에 파이프라인 차트 포함)
-- [ ] 정산/잔액 관리 *(후속 개선 시 구현 예정)*
+- [x] 정산 관리 — SettlementPage (매출/매입/이익/마진) + SettlementSecretPage (비밀번호 인증 상세 분석)
 - [x] 시스템 설정 (admin)
 
 ### 4.3 테스트
 - [x] 각 페이지 렌더링 확인 (빌드 성공 + ESLint 통과)
-- [ ] API 연동 확인 *(현재 mock 데이터 사용, 실제 API 연동은 배포 후 검증)*
+- [x] API 연동 확인 — 108/108 API 테스트 PASS, 23페이지 API 검증 완료
 - [x] 역할별 접근 제어 확인 (ProtectedRoute + Sidebar 역할 필터링)
 
 ### 4.4 검증
 - [x] Agent B+C 통합 검증 완료 (2026-02-23, 빌드 성공, ESLint 0 에러, 보안 리뷰 완료)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -238,15 +238,15 @@
 - [x] scripts/backup-db.sh (PostgreSQL 백업 + 7일 보관 + 자동 정리)
 - [x] .env.example 업데이트 (전체 환경변수 템플릿)
 
-### 5.3 AWS 배포 (인프라 구성은 실 환경에서 진행)
-- [ ] EC2 인스턴스 생성 (t3.medium+)
-- [ ] Docker + Docker Compose 설치
+### 5.3 AWS 배포
+- [x] EC2 인스턴스 생성 (t3.medium, ap-northeast-2, i-0070e75146cac1672)
+- [x] Docker + Docker Compose 설치
 - [ ] 도메인 + SSL 설정 (Let's Encrypt)
-- [ ] DB 마이그레이션 실행
+- [x] DB 마이그레이션 실행 (alembic upgrade head)
 
 ### 5.4 검증
 - [x] Agent B+C 통합 검증 완료 (2026-02-23, 591개 테스트 100% 통과, Dockerfile non-root user 보완, Nginx server_tokens off 추가, 네트워크 분리/보안 헤더/rate limiting/내부 API 차단 확인, seed-data 명세 일치 확인)
-- [ ] main 브랜치 merge
+- [x] main 브랜치 (직접 작업)
 
 ---
 
@@ -332,34 +332,30 @@ CLAUDE.md 및 INTEGRATION_PLAN.md에 기술된 구조와 실제 코드가 정확
 |-------|------|--------|------|
 | Phase 0 | 완료 | 100% | 문서 + 구조 정리 |
 | Phase 1A | 완료 | 100% | 인증 + 유저 + 회사 CRUD |
-| Phase 1B | 완료 | 95% | 엑셀 업로드/마감시간 API는 후속 |
-| Phase 1C | 완료 | 100% | 파이프라인 + 자동배정 + 20개 테이블 |
-| Phase 2 | 완료 | 90% | worker_client.py는 배포 시 통합 |
-| Phase 3 | 완료 | 90% | worker_client.py는 배포 시 통합 |
-| Phase 4 | 완료 | 85% | 엑셀 벌크/정산 페이지는 후속 |
-| Phase 5 | 완료 | 85% | AWS 인프라 구성은 실환경 진행 |
+| Phase 1B | 완료 | 100% | 주문 E2E + 엑셀 업로드 + 정산 |
+| Phase 1C | 완료 | 100% | 파이프라인 + 자동배정 + 24개 테이블 |
+| Phase 2 | 완료 | 100% | keyword-worker + worker_clients.py 6개 함수 |
+| Phase 3 | 완료 | 100% | campaign-worker + worker_clients.py 7개 함수 |
+| Phase 4 | 완료 | 100% | 23페이지 + 108 API 테스트 PASS |
+| Phase 5 | **운영 중** | 95% | EC2 배포 완료, SSL 미설정 |
 
 ### 남은 TODO 항목
 
-**프로덕션 배포 전 필수:**
-1. AWS EC2 인스턴스 생성 + Docker/Docker Compose 설치
-2. 도메인 + SSL 인증서 설정 (Let's Encrypt)
-3. `.env` 파일 실제 크리덴셜로 설정
-4. `alembic upgrade head` 실행
-5. `scripts/seed-data.sh`로 초기 데이터 생성
-6. keyword_worker_client.py / campaign_worker_client.py 구현 (api-server -> worker HTTP 호출)
-7. ADMIN_PASSWORD 초기 로그인 후 변경
+**완료된 항목 (2026-02-28 기준):**
+- [x] EC2 배포 + Docker Compose 운영 중
+- [x] worker_clients.py 13개 함수 (keyword 6 + campaign 7)
+- [x] 엑셀 벌크 주문 업로드 (템플릿→업로드→미리보기→확인)
+- [x] 정산 페이지 (SettlementPage + SettlementSecretPage)
+- [x] API 108/108 PASS, 프론트 23페이지 검증 완료
 
-**후속 개선 사항:**
-- 엑셀 벌크 주문 업로드 기능
-- 마감시간 체크 API (deadline-status)
-- 플레이스/키워드 전용 관리 페이지
-- 정산/잔액 관리 프론트엔드 페이지
-- quantum-campaign SQLite -> PostgreSQL 데이터 마이그레이션
-- Keyword Extract JSON -> PostgreSQL 데이터 마이그레이션
-- 모니터링/알림 (CloudWatch, Sentry 등)
-- CI/CD 파이프라인 (GitHub Actions)
-- E2E 테스트 (Playwright 브라우저 테스트)
+**남은 TODO:**
+- [ ] quantum-campaign SQLite → PostgreSQL 캠페인 데이터 마이그레이션
+- [ ] 운영 유저/회사/상품/가격정책 데이터 입력
+- [ ] 도메인 + SSL 인증서 설정 (Let's Encrypt)
+- [ ] 백업 자동화 (cron + scripts/backup-db.sh)
+- [ ] CI/CD 파이프라인 (GitHub Actions)
+- [ ] Scheduler mapper 에러 수정 (Campaign.superap_account FK)
+- [ ] 모니터링/알림 (CloudWatch, Sentry 등)
 
 ### 보안 체크 요약
 

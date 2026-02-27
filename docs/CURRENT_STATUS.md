@@ -1,132 +1,140 @@
-# J2LAB 통합 플랫폼 - 현재 상태 (2026-02-27)
+# J2LAB 통합 플랫폼 - 현재 상태
 
-## API 엔드포인트 테스트 결과
+> 최종 업데이트: 2026-02-28
 
-| 영역 | 엔드포인트 | 상태 | 비고 |
-|------|-----------|------|------|
-| **Auth** | POST /auth/login | PASS | JWT 발급 정상 |
-| | POST /auth/login (invalid) | PASS | 401 반환 |
-| **Companies** | GET /companies/ | PASS | 2개 회사 |
-| **Users** | GET /users/ | PASS | 8명 유저 |
-| | GET /users/?role=distributor | PASS | 3명 |
-| | GET /users/?role=sub_account | PASS | 0명 (없음) |
-| **Categories** | GET /categories/ | PASS | 4개 |
-| | POST /categories/ | PASS | icon 포함 생성 |
-| | PUT /categories/{id} | PASS | icon 업데이트 |
-| | POST /categories/reorder | PASS | |
-| | DELETE /categories/{id} | PASS | |
-| **Products** | GET /products/ | PASS | |
-| | POST /products/ | PASS | 배열 form_schema |
-| | PATCH /products/{id} | PASS | |
-| | GET /products/{id}/schema | PASS | form_schema list 반환 |
-| | DELETE /products/{id} | PASS | soft delete |
-| **Price Policies** | POST /products/{id}/prices (role) | PASS | |
-| | POST /products/{id}/prices (user) | PASS | UUID user_id |
-| | GET /products/{id}/prices | PASS | |
-| | DELETE /products/prices/{id} | PASS | |
-| **Price Matrix** | GET /products/prices/matrix | PASS | per-role |
-| | GET /products/prices/user-matrix | PASS | per-user |
-| **Orders** | GET /orders/ | PASS | |
-| **Dashboard** | GET /dashboard/summary | PASS | |
-| | GET /dashboard/enhanced | PASS | |
-| **Notifications** | GET /notifications/ | PASS | |
-| **Notices** | GET/POST/PUT/DELETE /notices/ | PASS | 전체 CRUD |
-| **Settlements** | GET /settlements/ | PASS | |
-| **Campaigns** | GET /campaigns/ | PASS | 562건 |
-| **Assignment** | GET /assignment/queue | PASS | |
+## 운영 환경
 
-**결과: 36/38 PASS** (2건은 경로 문제: /auth/me 미존재, /balance/transactions 파라미터 필요)
+| 항목 | 값 |
+|------|---|
+| EC2 인스턴스 | i-0070e75146cac1672 (t3.medium, ap-northeast-2) |
+| IP | 52.78.114.92 |
+| URL | http://52.78.114.92/ |
+| API Docs | http://52.78.114.92/docs |
+| 키페어 | j2lab-platform-key |
+| 로그인 | admin@jtwolab.kr / jjlab1234!j (system_admin) |
 
----
+## 컨테이너 상태 (5개, 모두 healthy)
 
-## 프론트엔드 페이지 목록 (23개)
+| 컨테이너 | 이미지 | 포트 | 상태 |
+|----------|--------|------|------|
+| j2lab-api-server | j2lab-platform-api-server | 8000 | healthy |
+| j2lab-keyword-worker | j2lab-platform-keyword-worker | 8001 (내부) | healthy |
+| j2lab-campaign-worker | j2lab-platform-campaign-worker | 8002 (내부) | healthy |
+| j2lab-nginx | nginx:1.27-alpine | 80, 443 | running |
+| j2lab-postgres | postgres:15-alpine | 5432 (내부) | healthy |
 
-| 경로 | 페이지 | 권한 | 상태 |
-|------|--------|------|------|
-| `/login` | LoginPage | 공개 | OK |
-| `/` | DashboardPage | 모든 로그인 유저 | OK |
-| `/orders` | OrdersPage | 모든 로그인 유저 | OK |
-| `/orders/grid` | OrderGridPage | 모든 로그인 유저 | OK - normalizeSchema 적용 |
-| `/orders/:id` | OrderDetailPage | 모든 로그인 유저 | OK |
-| `/notices` | NoticesPage | 모든 로그인 유저 | OK |
-| `/campaigns` | CampaignsPage | admin/handler | OK |
-| `/campaigns/add` | CampaignAddPage | admin/handler | OK |
-| `/campaigns/upload` | CampaignUploadPage | admin/handler | OK |
-| `/campaigns/accounts` | SuperapAccountsPage | admin/handler | OK |
-| `/campaigns/templates` | CampaignTemplatesPage | admin/handler | OK |
-| `/campaigns/:id` | CampaignDetailPage | admin/handler | OK |
-| `/assignments` | AssignmentQueuePage | admin/handler | OK |
-| `/users` | UsersPage | system_admin/company_admin | OK |
-| `/products` | ProductsPage | system_admin/company_admin | OK - 스키마 빌더 OMS 스타일 |
-| `/products/prices/matrix` | PriceMatrixPage | system_admin/company_admin | OK - per-user 카드+모달 |
-| `/products/categories` | CategoriesPage | system_admin/company_admin | OK - 아이콘+상품수 |
-| `/settlements` | SettlementPage | system_admin/company_admin | OK |
-| `/calendar` | CalendarPage | admin/handler/distributor | OK |
-| `/companies` | CompaniesPage | system_admin | OK |
-| `/settings` | SettingsPage | system_admin | OK |
-| `/settlements/secret` | SettlementSecretPage | system_admin | OK |
-| `*` | NotFoundPage | - | OK |
+## API 테스트 결과 (108/108 PASS)
 
----
+21개 섹션, 매 섹션 세션 초기화:
 
-## 이번 세션 수정 내역 (2026-02-27)
+| # | 섹션 | 테스트 수 | 결과 |
+|---|------|:---------:|:----:|
+| 1 | Auth (로그인/토큰갱신/인증체크) | 7 | PASS |
+| 2 | Companies CRUD | 5 | PASS |
+| 3 | Users (역할별 필터 + ID/하위계정) | 8 | PASS |
+| 4 | Categories CRUD + 삭제확인 | 6 | PASS |
+| 5 | Products CRUD + 스키마 + 가격정책 | 12 | PASS |
+| 6 | Orders E2E (생성→제출→반려→승인→결제→취소 + Excel) | 20 | PASS |
+| 7 | Settlements (리스트/필터/Secret/비번/Excel) | 11 | PASS |
+| 8 | Balance (잔액/충전/출금/유효성) | 5 | PASS |
+| 9 | Dashboard (summary/enhanced/campaign-stats) | 3 | PASS |
+| 10 | Campaigns (리스트/필터/페이징/등록/템플릿/키워드) | 7 | PASS |
+| 11 | Notifications & Notices CRUD | 6 | PASS |
+| 12 | Places & Extraction | 2 | PASS |
+| 13 | Pipeline | 1 | PASS |
+| 14 | Assignment | 1 | PASS |
+| 15 | Settings | 1 | PASS |
+| 16 | Superap Accounts | 2 | PASS |
+| 17 | Templates (라우트 순서 수정 완료) | 3 | PASS |
+| 18 | Network Presets CRUD | 4 | PASS |
+| 19 | Scheduler | 1 | PASS |
+| 20 | Worker Health | 1 | PASS |
+| 21 | Internal Callbacks (보안 검증) | 2 | PASS |
 
-### OMS UI 업그레이드 (신규 기능)
-1. **ProductsPage.tsx** - 스키마 빌더 전면 리라이트 (스프레드시트 미리보기 + 필드 편집 패널 + 수식 빌더 + 색상 + is_quantity)
-2. **OrderGrid.tsx** - 컬럼 헤더 색상, is_quantity 가격계산, 행 복사, 향상된 요약바
-3. **PriceMatrixPage.tsx** - per-user 카드 리스트 + 설정 모달 (카테고리 탭, 단가/할인율)
-4. **CategoriesPage.tsx** - 아이콘 선택 UI + 상품 수 표시
-5. **CategorySelector.tsx** - 카테고리 아이콘(이모지) 표시
-6. **schema.ts (신규)** - normalizeSchema() 구/신 포맷 호환 유틸
-7. **category.py model** - icon 컬럼 추가
-8. **008_add_category_icon.py (신규)** - Alembic 마이그레이션
-9. **seed-data.sh** - OMS 배열 스키마 포맷 + 카테고리 아이콘
+## 프론트엔드 페이지 검증 (23/23 OK)
 
-### 디버깅 수정 (버그 픽스)
-1. **category_service.py** - create_category에서 icon 필드 누락
-2. **categories.py router** - is_active 쿼리 파라미터 지원
-3. **products.py router** - per-user 가격 매트릭스 엔드포인트 (GET /prices/user-matrix)
-4. **prices.ts** - getUserMatrix() API 추가, getUserPrices() user-matrix 기반
-5. **PriceMatrixPage.tsx** - per-user 데이터로 전면 리빌드, "전체" 카테고리 탭
-6. **ProductsPage.tsx** - normalizeSchema로 구/신 포맷 호환
-7. **OrderGridPage.tsx** - normalizeSchema로 form_schema 정규화
-8. **types/index.ts** - FormFieldExtended 확장, Category.icon, Request 타입 icon
-9. **category.py schema** - icon 필드 추가 (Create/Update/Response)
+| # | 라우트 | 페이지 | Nginx | API |
+|---|--------|--------|:-----:|:---:|
+| 1 | `/` | DashboardPage | 200 | OK |
+| 2 | `/login` | LoginPage | 200 | OK |
+| 3 | `/orders` | OrdersPage | 200 | OK |
+| 4 | `/orders/grid` | OrderGridPage | 200 | OK |
+| 5 | `/orders/:id` | OrderDetailPage | 200 | OK |
+| 6 | `/campaigns` | CampaignsPage | 200 | OK |
+| 7 | `/campaigns/add` | CampaignAddPage | 200 | OK |
+| 8 | `/campaigns/upload` | CampaignUploadPage | 200 | OK |
+| 9 | `/campaigns/accounts` | SuperapAccountsPage | 200 | OK |
+| 10 | `/campaigns/templates` | CampaignTemplatesPage | 200 | OK |
+| 11 | `/campaigns/:id` | CampaignDetailPage | 200 | OK |
+| 12 | `/users` | UsersPage | 200 | OK |
+| 13 | `/companies` | CompaniesPage | 200 | OK |
+| 14 | `/products` | ProductsPage | 200 | OK |
+| 15 | `/products/prices/matrix` | PriceMatrixPage | 200 | OK |
+| 16 | `/products/categories` | CategoriesPage | 200 | OK |
+| 17 | `/settings` | SettingsPage | 200 | OK |
+| 18 | `/settlements` | SettlementPage | 200 | OK |
+| 19 | `/settlements/secret` | SettlementSecretPage | 200 | OK |
+| 20 | `/calendar` | CalendarPage | 200 | OK |
+| 21 | `/assignments` | AssignmentQueuePage | 200 | OK |
+| 22 | `/notices` | NoticesPage | 200 | OK |
+| 23 | `/*` | NotFoundPage | 200 | - |
 
-### 데이터 보정
-- 카테고리 아이콘: grid → chart-bar/bookmark/sparkles/receipt
-- Traffic 30일 상품: category null → 트래픽, form_schema null → 6개 필드
-- Alembic 008 마이그레이션 실행
+### Static Assets
 
----
+| 파일 | 크기 | Cache |
+|------|------|-------|
+| index.js | 478 KB | 1년 immutable |
+| vendor.js | 95 KB | 1년 immutable |
+| query.js | 35 KB | 1년 immutable |
+| charts.js | 338 KB | 1년 immutable |
+| index.css | 39 KB | 1년 immutable |
 
-## 3개 참조 프로젝트 연동 상태
+## DB 현재 상태 (2026-02-28 초기화 후)
 
-| 참조 프로젝트 | 위치 | 통합 상태 |
-|-------------|------|----------|
-| **Keyword Extract** | `reference/keyword-extract/` | keyword-worker로 구성 완료, 내부 API 6개, 127개 테스트 |
-| **Quantum Campaign** | `reference/quantum-campaign/` | campaign-worker로 구성 완료, 내부 API 7개, 132개 테스트 |
-| **jtwolablife OMS** | `reference/oms-django/` | api-server + frontend로 구성, OMS UI 패턴 포팅 진행 중 |
+| 테이블 | 건수 | 비고 |
+|--------|:----:|------|
+| users | 1 | admin@jtwolab.kr (system_admin) |
+| companies | 1 | 제이투랩 |
+| categories | 4 | 유지 |
+| campaign_templates | 3 | 유지 |
+| 그 외 모든 테이블 | 0 | 2026-02-28 초기화 |
 
----
+## Nginx 보안/성능
 
-## 다음 할 일 (우선순위)
+- SPA fallback: `try_files $uri $uri/ /index.html`
+- Rate limiting: API 30r/s, Auth 5r/s
+- Security headers: X-Frame-Options, X-Content-Type-Options, XSS-Protection
+- `/internal/` 외부 차단 (403)
+- Gzip 압축: JS/CSS/JSON
+- Static assets: 1년 immutable cache
+- index.html: no-cache
 
-### 긴급 (데이터/기능)
-- [ ] sub_account 유저 추가 (현재 0명 → PriceMatrix에서 셀러가 안 보임)
-- [ ] 시드 상품 추가 (현재 1개만 활성 → 카테고리별 상품 필요)
-- [ ] quantum-campaign SQLite → PostgreSQL 데이터 마이그레이션 (562건 캠페인 있음)
+## 수정 이력
 
-### 프론트엔드 개선
-- [ ] OrderGrid에서 normalizeSchema 후 색상/is_quantity 동작 확인
-- [ ] 주문 접수 → 저장 → 목록 E2E 플로우 테스트
-- [ ] 캠페인 상세 페이지 OMS 스타일 개선
+### 2026-02-28
+- DB 데이터 초기화 (admin + 제이투랩 + 카테고리/템플릿만 유지)
+- API 테스트 108/108 PASS 달성
+- 프론트엔드 23페이지 전체 검증 완료
+- `/templates/modules` 라우트 순서 버그 수정
 
-### 백엔드 연동
-- [ ] keyword_worker_client.py 구현 (api-server → keyword-worker HTTP)
-- [ ] campaign_worker_client.py 구현 (api-server → campaign-worker HTTP)
-- [ ] 엑셀 업로드 기능 완성
+### 2026-02-27
+- 4대 기능 구현: 주문 E2E 수정, Worker 클라이언트 확장, 정산 프론트 정합
+- OrderGridPage: is_quantity 기반 수량 매핑
+- validate_item_data: 구 포맷 스키마 호환
+- worker_clients.py: 3개 엔드포인트 추가 (총 13개)
+- Settlement: 프론트 타입/API/페이지를 백엔드에 정합
+- OMS UI 업그레이드: 스키마 빌더, 가격 매트릭스, OrderGrid, 카테고리
+
+## 남은 TODO
+
+### 데이터
+- [ ] quantum-campaign SQLite → PostgreSQL 캠페인 마이그레이션
+- [ ] 운영 유저/회사/상품/가격정책 데이터 입력
 
 ### 인프라
-- [ ] 도메인 + SSL 설정
+- [ ] 도메인 + SSL 설정 (Let's Encrypt)
 - [ ] 백업 자동화 (cron + scripts/backup-db.sh)
+- [ ] CI/CD (GitHub Actions)
+
+### 알려진 이슈
+- Scheduler: Campaign.superap_account FK mapper 에러 (키워드 로테이션 비동작, 백엔드 ORM 설정 수정 필요)

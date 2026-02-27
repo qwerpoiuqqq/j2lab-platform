@@ -13,41 +13,70 @@
 - **Quantum Campaign**: 슈퍼앱(superap.io) 캠페인 자동 등록 + 키워드 로테이션
 - **jtwolablife OMS**: 주문 접수 / 유저 관리 / 정산 (Django → FastAPI 전환)
 
-## 현재 진행 상태
+## 현재 상태 (2026-02-28 기준)
+
+**모든 Phase 완료, EC2 운영 중**
 
 | Phase | 내용 | 상태 |
-|-------|------|------|
+|-------|------|:----:|
 | 0 | 문서/구조/reference 코드 정리 | 완료 |
-| 1A | 기반 인프라 + 인증 (companies, users, JWT) | **← 현재** |
-| 1B | 주문/상품/정산 (orders, products, balance) | 미시작 |
-| 1C | 파이프라인/통합 모델 (places, campaigns, 자동배정) | 미시작 |
-| 2 | keyword-worker 연동 | 미시작 |
-| 3 | campaign-worker 연동 | 미시작 |
-| 4 | React 프론트엔드 | 미시작 |
-| 5 | Docker/AWS 배포 | 미시작 |
+| 1A | 기반 인프라 + 인증 (companies, users, JWT) | 완료 |
+| 1B | 주문/상품/정산 (orders, products, balance) | 완료 |
+| 1C | 파이프라인/통합 모델 (places, campaigns, 자동배정) | 완료 |
+| 2 | keyword-worker 연동 | 완료 |
+| 3 | campaign-worker 연동 | 완료 |
+| 4 | React 프론트엔드 (23페이지) | 완료 |
+| 5 | Docker/AWS 배포 | **운영 중** |
 
-상세 체크리스트: `docs/PHASE_CHECKLIST.md`
+### 운영 환경
+
+- **EC2**: `52.78.114.92` (t3.medium, Ubuntu 22.04, ap-northeast-2)
+- **URL**: http://52.78.114.92/
+- **API 문서**: http://52.78.114.92/docs (Swagger)
+- **컨테이너**: 5개 (api-server, keyword-worker, campaign-worker, nginx, postgres) 모두 healthy
+- **로그인**: admin@jtwolab.kr / jjlab1234!j (system_admin)
+
+### 시스템 규모
+
+| 항목 | 수치 |
+|------|------|
+| API 엔드포인트 | 124개 |
+| DB 테이블 | 24개 (20 + alembic + 3 추가) |
+| 프론트엔드 페이지 | 23개 |
+| API 테스트 (scripts/api-test-full.py) | 108/108 PASS |
+| 페이지 검증 (scripts/page-verify.py) | 65/66 OK |
+
+### DB 현재 상태 (2026-02-28 초기화 후)
+
+- users: 1명 (admin@jtwolab.kr)
+- companies: 1개 (제이투랩)
+- categories: 4개, campaign_templates: 3개 — 유지
+- 나머지 테이블: 비어있음 (캠페인 데이터는 추후 퀀텀에서 마이그레이션 예정)
 
 ## 아키텍처
 
 ```
-[React SPA] → [Nginx] → [api-server :8000] ← 메인 FastAPI (인증, 외부 CRUD, 오케스트레이션)
-                              │
-                    ┌─────────┼─────────┐
-                    ▼                   ▼
-          [keyword-worker :8001]  [campaign-worker :8002]
-          Playwright 키워드 추출   Playwright 캠페인 등록
-          curl_cffi 랭킹 체크     APScheduler 키워드 로테이션
-                    │                   │
-                    └─────────┬─────────┘
-                              ▼
-                    [PostgreSQL 15 통합 DB]
-                       20개 테이블
-                    멀티테넌트 (일류기획, 제이투랩)
+[React SPA] → [Nginx :80] → [api-server :8000] ← 메인 FastAPI
+                  │                │
+                  │      ┌─────────┼─────────┐
+                  │      ▼                   ▼
+                  │  [keyword-worker :8001]  [campaign-worker :8002]
+                  │  Playwright 키워드 추출   Playwright 캠페인 등록
+                  │  curl_cffi 랭킹 체크     APScheduler 키워드 로테이션
+                  │      │                   │
+                  │      └─────────┬─────────┘
+                  │                ▼
+                  │      [PostgreSQL 15 통합 DB]
+                  │         24개 테이블
+                  │
+                  └── try_files → SPA fallback (/index.html)
 
-※ api-server = 외부 CRUD + 오케스트레이션 담당
-※ workers = 내부 작업 수행 + DB 직접 저장 후 콜백으로 api-server에 알림
-※ 3개 서비스 모두 같은 PostgreSQL에 직접 연결 (Docker 내부 네트워크)
+Nginx 설정:
+  /api/*     → proxy_pass api-server (rate limit: 30r/s)
+  /api/v1/auth/* → proxy_pass api-server (rate limit: 5r/s)
+  /internal/ → deny all (403)
+  /health    → proxy_pass api-server
+  /*         → try_files → /index.html (SPA)
 ```
 
 ## Repo 구조
@@ -56,72 +85,119 @@
 ├── CLAUDE.md                            # ← 이 파일 (세션 자동 로드)
 ├── README.md                            # 프로젝트 개요
 ├── .env.example                         # 환경변수 템플릿
+├── docker-compose.yml                   # 프로덕션 (5 서비스)
+├── nginx/nginx.conf                     # Nginx 리버스 프록시 설정
 │
 ├── docs/
-│   ├── INTEGRATION_PLAN.md              # 전체 계획서 (DB 20테이블, API 60+, 아키텍처)
-│   ├── DEVELOPMENT_WORKFLOW.md          # 에이전트 오케스트레이션 상세 가이드
-│   └── PHASE_CHECKLIST.md              # Phase별 진행 추적 체크리스트
+│   ├── INTEGRATION_PLAN.md              # 전체 계획서 (초기 설계 문서)
+│   ├── DEVELOPMENT_WORKFLOW.md          # 에이전트 오케스트레이션 가이드
+│   ├── PHASE_CHECKLIST.md              # Phase별 완료 체크리스트
+│   └── CURRENT_STATUS.md              # 현재 상태 상세 (업데이트 필요 시 여기)
 │
-├── reference/                           # 기존 시스템 원본 코드 + 데이터
-│   ├── keyword-extract/                 # 키워드 추출 소스 (src/, web/)
-│   └── quantum-campaign/               # 캠페인 자동화 소스 + 운영 DB
-│       └── data/quantum.db             # SQLite 운영 데이터 (마이그레이션용)
+├── scripts/
+│   ├── api-test-full.py                # 108건 API 통합 테스트 (21개 섹션)
+│   ├── page-verify.py                  # 프론트엔드 23페이지 + API 검증
+│   ├── cleanup-test-data.py            # 테스트 데이터 정리
+│   ├── verify-clean.py                 # 초기화 상태 확인
+│   ├── migrate-quantum-data.py         # quantum SQLite → PostgreSQL (미사용)
+│   ├── deploy.sh                       # 배포 스크립트
+│   ├── init-db.sh                      # DB 초기화
+│   ├── seed-data.sh                    # 초기 데이터
+│   └── backup-db.sh                    # PostgreSQL 백업
 │
-├── api-server/                          # [Phase 1] FastAPI 메인 서버
-├── keyword-worker/                      # [Phase 2] 키워드 추출 워커
-├── campaign-worker/                     # [Phase 3] 캠페인 자동화 워커
-└── frontend/                            # [Phase 4] React SPA
+├── reference/                           # 기존 시스템 원본 코드 (수정 금지)
+│   ├── keyword-extract/
+│   ├── quantum-campaign/
+│   └── oms-django/
+│
+├── api-server/                          # FastAPI 메인 서버
+│   └── app/
+│       ├── core/        (config, database, security, deps)
+│       ├── models/      (24개 테이블)
+│       ├── schemas/     (Pydantic v2)
+│       ├── routers/     (16개 라우터)
+│       ├── services/    (25개 서비스 + worker_clients.py)
+│       └── tests/       (332개 단위 테스트)
+│
+├── keyword-worker/                      # 키워드 추출 워커
+├── campaign-worker/                     # 캠페인 자동화 워커
+└── frontend/                            # React SPA
+    └── src/
+        ├── api/         (20개 API 모듈)
+        ├── pages/       (23개 페이지)
+        ├── components/  (공통 + feature 컴포넌트)
+        ├── routes/      (React Router + ProtectedRoute)
+        ├── utils/       (format.ts, schema.ts)
+        └── types/       (TypeScript 타입 정의)
 ```
+
+## 프론트엔드 라우트 (실제 경로)
+
+| 경로 | 페이지 | 권한 |
+|------|--------|------|
+| `/login` | LoginPage | 공개 |
+| `/` | DashboardPage | 모든 로그인 유저 |
+| `/orders` | OrdersPage | 모든 로그인 유저 |
+| `/orders/grid` | OrderGridPage | 모든 로그인 유저 |
+| `/orders/:id` | OrderDetailPage | 모든 로그인 유저 |
+| `/notices` | NoticesPage | 모든 로그인 유저 |
+| `/campaigns` | CampaignsPage | admin/handler |
+| `/campaigns/add` | CampaignAddPage | admin/handler |
+| `/campaigns/upload` | CampaignUploadPage | admin/handler |
+| `/campaigns/accounts` | SuperapAccountsPage | admin/handler |
+| `/campaigns/templates` | CampaignTemplatesPage | admin/handler |
+| `/campaigns/:id` | CampaignDetailPage | admin/handler |
+| `/assignments` | AssignmentQueuePage | admin/handler |
+| `/users` | UsersPage | system_admin/company_admin |
+| `/products` | ProductsPage | system_admin/company_admin |
+| `/products/prices/matrix` | PriceMatrixPage | system_admin/company_admin |
+| `/products/categories` | CategoriesPage | system_admin/company_admin |
+| `/settlements` | SettlementPage | system_admin/company_admin |
+| `/calendar` | CalendarPage | admin/handler/distributor |
+| `/companies` | CompaniesPage | system_admin |
+| `/settings` | SettingsPage | system_admin |
+| `/settlements/secret` | SettlementSecretPage | system_admin |
+| `*` | NotFoundPage | - |
+
+## Worker 클라이언트 (api-server → worker HTTP 호출)
+
+`api-server/app/services/worker_clients.py`에 13개 함수 구현:
+
+**Keyword Worker** (6개):
+- `dispatch_extraction_job` → POST /internal/jobs
+- `get_extraction_job_status` → GET /internal/jobs/{id}/status
+- `get_extraction_job_results` → GET /internal/jobs/{id}/results
+- `cancel_extraction_job` → POST /internal/jobs/{id}/cancel
+- `get_keyword_worker_capacity` → GET /internal/capacity
+- `check_worker_health("keyword")` → GET /internal/health
+
+**Campaign Worker** (7개):
+- `dispatch_campaign_registration` → POST /internal/campaigns/register
+- `dispatch_campaign_extension` → POST /internal/campaigns/{id}/extend
+- `dispatch_keyword_rotation` → POST /internal/campaigns/{id}/rotate-keywords
+- `dispatch_campaign_bulk_sync` → POST /internal/campaigns/bulk-sync
+- `get_campaign_worker_scheduler_status` → GET /internal/scheduler/status
+- `trigger_campaign_worker_scheduler` → POST /internal/scheduler/trigger
+- `check_worker_health("campaign")` → GET /internal/health
 
 ## 핵심 문서 가이드
 
-| 문서 | 언제 읽는지 |
-|------|-----------|
-| `docs/PHASE_CHECKLIST.md` | **가장 먼저** - 현재 뭘 해야 하는지 확인 |
-| `docs/INTEGRATION_PLAN.md` | 구현할 때 - DB 스키마, API 명세, 파이프라인 흐름 |
-| `docs/DEVELOPMENT_WORKFLOW.md` | 개발 시작 전 - 에이전트 역할, 프롬프트, 규칙 |
-
-## 기존 코드 참조
-
-모든 원본 코드는 `reference/` 폴더에 있습니다 (외부 경로 의존 없음):
-
-| 기존 시스템 | 참조 경로 | 핵심 파일 |
-|------------|----------|----------|
-| Keyword Extract | `reference/keyword-extract/` | `src/smart_worker.py`, `src/models.py`, `web/app.py` |
-| Quantum Campaign | `reference/quantum-campaign/` | `backend/app/models/`, `backend/app/services/superap.py` |
-| Quantum 운영 DB | `reference/quantum-campaign/data/quantum.db` | 마이그레이션 대상 SQLite |
+| 문서 | 용도 |
+|------|------|
+| `CLAUDE.md` (이 파일) | 세션 시작 시 전체 맥락 파악 |
+| `docs/CURRENT_STATUS.md` | 현재 상태 + 수정 이력 상세 |
+| `docs/PHASE_CHECKLIST.md` | Phase별 완료 추적 + 남은 TODO |
+| `docs/INTEGRATION_PLAN.md` | 초기 설계서 (DB 스키마, API 명세) |
+| `docs/DEVELOPMENT_WORKFLOW.md` | 에이전트 개발 프로세스 |
 
 ## 중요 경고
 
 1. `.env`, `settings.json` = **실제 크리덴셜** → git 커밋 절대 금지
 2. 이 repo = **반드시 Private 유지** (내부 코드 + 운영 데이터 포함)
-3. `quantum.db` = 운영 데이터 스냅샷 → 마이그레이션 참조용, 원본은 건드리지 않음
+3. `reference/` 폴더 = 기존 코드 원본 → **수정 금지**
 4. **superap.io 실제 캠페인 생성 절대 금지**
-   - 테스트 시 슈퍼앱 로그인, 폼 입력, 등록 버튼 클릭 직전까지는 OK
-   - **캠페인 최종 제출(submit)은 절대 실행하지 않음** → 실제 광고비 발생
-   - campaign-worker 테스트는 반드시 **mock/stub**으로 superap.py의 최종 제출 단계를 대체
-   - E2E 테스트에서도 campaign registration은 mock 응답 사용
-   - `DRY_RUN=true` 환경변수로 제어: true이면 최종 제출 스킵 + 가짜 campaign_code 반환
-
-## 개발 패턴 요약
-
-```
-[사용자] "Phase N 개발 시작해줘"
-     ↓
-[Agent A] 기능 개발 → git commit + push
-     ↓
-[사용자] 새 세션에서 "Phase N 검증해줘"
-     ↓
-[Agent B] 코드 리뷰 + 디버깅 → git commit + push
-     ↓
-[사용자] 새 세션에서 "Phase N 재검증해줘"
-     ↓
-[Agent C] 최종 검증 → git commit + push
-     ↓
-PHASE_CHECKLIST.md 업데이트 → 다음 Phase
-```
-
-각 Agent에게 줄 구체적 프롬프트: `docs/DEVELOPMENT_WORKFLOW.md` 참조
+   - `DRY_RUN=true` 환경변수로 제어: true이면 최종 제출 스킵
+5. quantum-campaign Docker 데이터 = 운영 데이터, 절대 건드리지 않기
 
 ## 기술 스택
 
@@ -130,7 +206,14 @@ PHASE_CHECKLIST.md 업데이트 → 다음 Phase
 | API 서버 | FastAPI + SQLAlchemy 2.0 (async) + Alembic |
 | DB | PostgreSQL 15 |
 | Workers | Playwright + curl_cffi + APScheduler |
-| 인증 | JWT (access + refresh) |
-| 프론트엔드 | React + TypeScript + Vite + TailwindCSS |
-| 배포 | Docker Compose + Nginx + AWS EC2 |
+| 인증 | JWT (access + refresh) + bcrypt + AES |
+| 프론트엔드 | React 18 + TypeScript + Vite + TailwindCSS |
+| 배포 | Docker Compose + Nginx + AWS EC2 (t3.medium) |
 | Python | 3.11+ |
+
+## 남은 TODO
+
+- [ ] quantum-campaign SQLite → PostgreSQL 캠페인 데이터 마이그레이션
+- [ ] 도메인 + SSL 설정 (Let's Encrypt)
+- [ ] 백업 자동화 (cron + scripts/backup-db.sh)
+- [ ] CI/CD 파이프라인 (GitHub Actions)
