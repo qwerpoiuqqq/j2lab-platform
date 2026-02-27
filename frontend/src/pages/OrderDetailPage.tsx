@@ -25,6 +25,10 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Reject modal
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
   // Deadline modal
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState('');
@@ -67,13 +71,9 @@ export default function OrderDetailPage() {
           updated = await ordersApi.approve(Number(id));
           break;
         case 'reject': {
-          const reason = prompt('반려 사유를 입력하세요:');
-          if (!reason) {
-            setActionLoading(false);
-            return;
-          }
-          updated = await ordersApi.reject(Number(id), reason);
-          break;
+          setShowRejectModal(true);
+          setActionLoading(false);
+          return;
         }
         case 'cancel':
           updated = await ordersApi.cancel(Number(id));
@@ -86,6 +86,22 @@ export default function OrderDetailPage() {
       setItems(updated.items || []);
     } catch (err: any) {
       alert(err?.response?.data?.detail || '작업에 실패했습니다.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!id || !rejectReason.trim()) return;
+    setActionLoading(true);
+    try {
+      const updated = await ordersApi.reject(Number(id), rejectReason);
+      setOrder(updated);
+      setItems(updated.items || []);
+      setShowRejectModal(false);
+      setRejectReason('');
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '반려에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
@@ -205,6 +221,38 @@ export default function OrderDetailPage() {
         onCancel={() => handleAction('cancel')}
         actionLoading={actionLoading}
       />
+
+      {/* Reject Modal */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => { setShowRejectModal(false); setRejectReason(''); }}
+        title="주문 반려"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-600">반려 사유를 입력하세요.</p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="반려 사유를 입력하세요..."
+            rows={4}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setShowRejectModal(false); setRejectReason(''); }}>
+              취소
+            </Button>
+            <Button
+              variant="warning"
+              onClick={handleRejectConfirm}
+              loading={actionLoading}
+              disabled={!rejectReason.trim()}
+            >
+              반려 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Deadline Modal */}
       <Modal

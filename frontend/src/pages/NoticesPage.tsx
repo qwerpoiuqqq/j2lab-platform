@@ -30,6 +30,7 @@ export default function NoticesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [expandedNoticeId, setExpandedNoticeId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,9 +132,28 @@ export default function NoticesPage() {
     {
       key: 'content',
       header: '내용',
-      render: (n) => (
-        <span className="text-sm text-gray-600 line-clamp-1">{n.content}</span>
-      ),
+      render: (n) => {
+        if (!canManage) {
+          const isExpanded = expandedNoticeId === n.id;
+          return (
+            <div
+              className={`text-sm text-gray-600 cursor-pointer ${!isExpanded ? 'line-clamp-1' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedNoticeId(isExpanded ? null : n.id);
+              }}
+            >
+              {n.content}
+              {!isExpanded && n.content.length > 50 && (
+                <span className="text-primary-500 ml-1 text-xs">더보기</span>
+              )}
+            </div>
+          );
+        }
+        return (
+          <span className="text-sm text-gray-600 line-clamp-1">{n.content}</span>
+        );
+      },
     },
     {
       key: 'created_at',
@@ -173,8 +193,8 @@ export default function NoticesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">공지 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">공지사항을 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-900">{canManage ? '공지 관리' : '공지사항'}</h1>
+          <p className="mt-1 text-sm text-gray-500">{canManage ? '공지사항을 관리합니다.' : '공지사항을 확인합니다.'}</p>
         </div>
         {canManage && (
           <Button onClick={openCreate} icon={<PlusIcon className="h-4 w-4" />}>

@@ -230,12 +230,27 @@ async def _select_account(
     network_preset_id: int,
 ) -> SuperapAccount | None:
     """Step 3: Select account from the network preset by assignment_order."""
+    from app.core.config import settings
+    from sqlalchemy import func as sa_func
+
+    # Subquery: count active campaigns per account
+    active_count_subquery = (
+        select(sa_func.count(Campaign.id))
+        .where(
+            Campaign.superap_account_id == SuperapAccount.id,
+            Campaign.status.in_(["active", "paused", "registering"]),
+        )
+        .correlate(SuperapAccount)
+        .scalar_subquery()
+    )
+
     result = await db.execute(
         select(SuperapAccount)
         .where(
             and_(
                 SuperapAccount.network_preset_id == network_preset_id,
                 SuperapAccount.is_active == True,  # noqa: E712
+                active_count_subquery < settings.MAX_CAMPAIGNS_PER_ACCOUNT,
             )
         )
         .order_by(SuperapAccount.assignment_order.asc())

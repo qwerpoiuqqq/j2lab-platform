@@ -12,6 +12,7 @@ import CampaignAddPage from '@/pages/CampaignAddPage';
 import CampaignUploadPage from '@/pages/CampaignUploadPage';
 import SuperapAccountsPage from '@/pages/SuperapAccountsPage';
 import CampaignTemplatesPage from '@/pages/CampaignTemplatesPage';
+import AssignmentQueuePage from '@/pages/AssignmentQueuePage';
 import UsersPage from '@/pages/UsersPage';
 import CompaniesPage from '@/pages/CompaniesPage';
 import ProductsPage from '@/pages/ProductsPage';
@@ -44,12 +45,12 @@ export const router = createBrowserRouter([
             element: <OrdersPage />,
           },
           {
-            path: '/orders/:id',
-            element: <OrderDetailPage />,
-          },
-          {
             path: '/orders/grid',
             element: <OrderGridPage />,
+          },
+          {
+            path: '/orders/:id',
+            element: <OrderDetailPage />,
           },
           {
             path: '/notices',
@@ -68,10 +69,6 @@ export const router = createBrowserRouter([
                 element: <CampaignsPage />,
               },
               {
-                path: '/campaigns/:id',
-                element: <CampaignDetailPage />,
-              },
-              {
                 path: '/campaigns/add',
                 element: <CampaignAddPage />,
               },
@@ -86,6 +83,14 @@ export const router = createBrowserRouter([
               {
                 path: '/campaigns/templates',
                 element: <CampaignTemplatesPage />,
+              },
+              {
+                path: '/campaigns/:id',
+                element: <CampaignDetailPage />,
+              },
+              {
+                path: '/assignments',
+                element: <AssignmentQueuePage />,
               },
             ],
           },

@@ -71,13 +71,6 @@ export const ordersApi = {
     return response.data;
   },
 
-  getDeadlineStatus: async (): Promise<{ product_id: number; product_name: string; deadline: string; remaining: string }[]> => {
-    const response = await apiClient.get('/orders/deadline-status');
-    return response.data;
-  },
-
-  // New endpoints for enhanced features
-
   approve: async (id: number): Promise<Order> => {
     const response = await apiClient.post<Order>(`/orders/${id}/approve`);
     return response.data;

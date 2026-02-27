@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # === Order limits ===
     ORDER_MAX_ITEMS: int = 500
 
+    # === Campaign limits ===
+    MAX_CAMPAIGNS_PER_ACCOUNT: int = 50
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

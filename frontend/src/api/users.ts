@@ -31,9 +31,4 @@ export const usersApi = {
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${id}`);
   },
-
-  getDescendants: async (id: string): Promise<User[]> => {
-    const response = await apiClient.get<User[]>(`/users/${id}/descendants`);
-    return response.data;
-  },
 };

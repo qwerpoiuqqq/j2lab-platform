@@ -19,6 +19,7 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState<CalendarDeadlines | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
@@ -27,6 +28,7 @@ export default function CalendarPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
 
     ordersApi
       .getDeadlines(year, month + 1)
@@ -36,8 +38,11 @@ export default function CalendarPage() {
           setLoading(false);
         }
       })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.detail || '캘린더 데이터를 불러오지 못했습니다.');
+          setLoading(false);
+        }
       });
 
     return () => { cancelled = true; };
@@ -153,6 +158,10 @@ export default function CalendarPage() {
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> 3일+</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> 캠페인 종료</div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+      )}
 
       {loading && (
         <div className="text-center py-4 text-sm text-gray-400">데이터 로딩 중...</div>

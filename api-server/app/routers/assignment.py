@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assignment", tags=["assignment"])
 
-admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
 
 
 @router.get("/queue")
@@ -38,6 +38,10 @@ async def get_assignment_queue(
     current_user: User = Depends(admin_checker),
 ):
     """Get order items pending assignment or awaiting confirmation."""
+    from app.models.order import Order
+    from app.models.place import Place
+    from app.models.superap_account import SuperapAccount
+
     company_id = None
     if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
         company_id = current_user.company_id
@@ -49,7 +53,28 @@ async def get_assignment_queue(
         skip=skip,
         limit=limit,
     )
-    return {"items": [_format_queue_item(item) for item in items]}
+
+    # Enrich with related data
+    enriched = []
+    for item in items:
+        order = await db.get(Order, item.order_id)
+        place = await db.get(Place, item.place_id) if item.place_id else None
+        account = await db.get(SuperapAccount, item.assigned_account_id) if item.assigned_account_id else None
+
+        enriched.append({
+            "order_item_id": item.id,
+            "order_id": item.order_id,
+            "order_number": order.order_number if order else None,
+            "company_name": None,  # Would need company join
+            "place_name": place.name if place else (item.item_data or {}).get("place_name"),
+            "place_id": item.place_id,
+            "campaign_type": (item.item_data or {}).get("campaign_type", ""),
+            "assignment_status": item.assignment_status,
+            "assigned_account_id": item.assigned_account_id,
+            "assigned_account_name": account.user_id_superap if account else None,
+        })
+
+    return {"items": enriched}
 
 
 @router.post("/auto-assign", response_model=AssignmentResult)

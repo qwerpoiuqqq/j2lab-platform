@@ -16,8 +16,4 @@ export const settingsApi = {
     const response = await apiClient.put<SystemSetting>(`/settings/${key}`, data);
     return response.data;
   },
-
-  delete: async (key: string): Promise<void> => {
-    await apiClient.delete(`/settings/${key}`);
-  },
 };

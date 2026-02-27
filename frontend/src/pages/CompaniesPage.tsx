@@ -79,7 +79,6 @@ export default function CompaniesPage() {
     try {
       await companiesApi.update(editingCompany.id, {
         name: editName,
-        code: editCode,
         is_active: editActive,
       });
       setShowEditModal(false);
@@ -188,7 +187,7 @@ export default function CompaniesPage() {
             >
               취소
             </Button>
-            <Button onClick={handleEditSubmit} disabled={!editName || !editCode} loading={editing}>
+            <Button onClick={handleEditSubmit} disabled={!editName} loading={editing}>
               수정
             </Button>
           </>
@@ -207,8 +206,9 @@ export default function CompaniesPage() {
             placeholder="예: ilryu"
             value={editCode}
             onChange={(e) => setEditCode(e.target.value)}
-            helperText="영문 소문자, 고유한 식별 코드"
+            helperText="회사 코드는 변경할 수 없습니다."
             required
+            disabled
           />
           <label className="flex items-center gap-2">
             <input

@@ -1,6 +1,7 @@
 import type { Order, OrderItem } from '@/types';
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
+import PipelineStatusWidget from '@/components/features/orders/PipelineStatusWidget';
 import {
   formatCurrency,
   formatDateTime,
@@ -215,6 +216,21 @@ export default function OrderDetail({
           </table>
         </div>
       </div>
+
+      {/* Pipeline Status per Item */}
+      {items.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold text-gray-900 px-6">파이프라인 현황</h3>
+          {items.map((item) => (
+            <div key={`pipeline-${item.id}`} className="px-6">
+              <p className="text-sm text-gray-600 mb-2">
+                {item.product?.name || `상품 #${item.product_id}`} - {item.item_data?.place_name || ''}
+              </p>
+              <PipelineStatusWidget orderItemId={item.id} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -624,6 +625,15 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=5),
         id="retry_stuck",
         name="Retry stuck registrations",
+        replace_existing=True,
+    )
+    from app.services.campaign_expiry_checker import check_expired_campaigns
+
+    scheduler.add_job(
+        check_expired_campaigns,
+        trigger=CronTrigger(hour=0, minute=30, timezone=KST),
+        id="campaign_expiry_check",
+        name="Campaign expiry auto-complete",
         replace_existing=True,
     )
     scheduler.start()
