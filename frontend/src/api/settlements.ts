@@ -3,8 +3,6 @@ import type {
   Settlement,
   SettlementSummary,
   SettlementSecretItem,
-  SettlementSecretRequest,
-  PaginatedResponse,
 } from '@/types';
 
 interface SettlementListResponse {
