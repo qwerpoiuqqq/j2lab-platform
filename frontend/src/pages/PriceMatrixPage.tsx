@@ -3,7 +3,7 @@ import Button from '@/components/common/Button';
 import Badge from '@/components/common/Badge';
 import Modal from '@/components/common/Modal';
 import { formatCurrency } from '@/utils/format';
-import { pricesApi, type UserMatrixResponse } from '@/api/prices';
+import { pricesApi } from '@/api/prices';
 import { categoriesApi } from '@/api/categories';
 import type { Category } from '@/types';
 
