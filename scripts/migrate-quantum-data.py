@@ -87,7 +87,7 @@ async def migrate(sqlite_path: str):
 
             # Check if account already exists
             existing = await session.execute(
-                select(SuperapAccount).where(SuperapAccount.user_id == qa["user_id"])
+                select(SuperapAccount).where(SuperapAccount.user_id_superap == qa["user_id"])
             )
             if sa := existing.scalar_one_or_none():
                 account_map[qa["id"]] = sa.id
@@ -95,7 +95,7 @@ async def migrate(sqlite_path: str):
                 continue
 
             new_account = SuperapAccount(
-                user_id=qa["user_id"],
+                user_id_superap=qa["user_id"],
                 password_encrypted=qa.get("password_encrypted", ""),
                 agency_name=qa.get("agency_name") or company.name,
                 is_active=bool(qa.get("is_active", True)),
@@ -118,6 +118,7 @@ async def migrate(sqlite_path: str):
 
             import json
             new_template = CampaignTemplate(
+                code=qt["type_name"].replace(" ", "_").lower(),
                 type_name=qt["type_name"],
                 description_template=qt.get("description_template", ""),
                 hint_text=qt.get("hint_text", ""),

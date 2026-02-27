@@ -21,6 +21,7 @@ import {
   TagIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/auth';
 import type { UserRole } from '@/types';
@@ -65,6 +66,12 @@ const navItems: NavItem[] = [
     icon: MegaphoneIcon,
     allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
     children: [
+      {
+        name: '캠페인 대시보드',
+        path: '/campaigns',
+        icon: ChartBarIcon,
+        allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
+      },
       {
         name: '캠페인 추가',
         path: '/campaigns/add',
