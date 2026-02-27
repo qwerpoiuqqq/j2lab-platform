@@ -318,6 +318,12 @@ if tp_id:
         code, d = api("POST", f"/orders/{order_id}/reject", {"reason": "테스트 반려"}, token=TOKEN)
         test("Reject order (submitted→rejected)", code, 200, f"status={d.get('status')}" if isinstance(d, dict) else detail_of(d))
 
+        # Deposit balance to cover the order approval (needs funds for payment confirmation)
+        if ADMIN_ID:
+            api("POST", "/balance/deposit", {
+                "user_id": ADMIN_ID, "amount": 5000000, "description": "test fund for approval"
+            }, token=TOKEN)
+
         # Create another order for approve flow
         code, d = api("POST", "/orders/", {
             "items": [{"product_id": tp_id, "quantity": 1, "item_data": {"naver_url": "https://naver.me/approve", "qty": 1}}],
@@ -335,6 +341,14 @@ if tp_id:
             # Cancel the approved order — should fail (only draft/submitted)
             code, d = api("POST", f"/orders/{order_id2}/cancel", token=TOKEN)
             test("Cancel approved order (expect 400)", code, 400)
+
+        # Withdraw test balance back
+        if ADMIN_ID:
+            c, dd = api("GET", f"/balance/{ADMIN_ID}", token=TOKEN)
+            if isinstance(dd, dict) and dd.get("balance", 0) > 0:
+                api("POST", "/balance/withdraw", {
+                    "user_id": ADMIN_ID, "amount": dd["balance"], "description": "cleanup"
+                }, token=TOKEN)
 
         # Create third order for cancel flow
         code, d = api("POST", "/orders/", {
@@ -382,9 +396,9 @@ if tp_id:
         code, d = api("GET", f"/orders/{order_id}/items/export", token=TOKEN, raw_response=True)
         test("Export order items (Excel)", code, 200)
 
-    # Bulk status
-    code, d = api("POST", "/orders/bulk-status", {"order_ids": [], "status": "submitted"}, token=TOKEN)
-    test("Bulk status (empty list)", code, 200)
+    # Bulk status (requires min 1 order_id)
+    code, d = api("POST", "/orders/bulk-status", {"order_ids": [99999], "status": "submitted"}, token=TOKEN)
+    test("Bulk status (nonexistent)", code, 200)
 
     # Clean up test product
     api("DELETE", f"/products/{tp_id}", token=TOKEN)
