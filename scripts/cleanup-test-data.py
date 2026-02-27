@@ -27,15 +27,30 @@ if not token:
     print("No token, abort")
     exit(1)
 
-# Clean products
+# Clean orders that reference __tp__ product first
 code, d = call("GET", "/products/?size=200", token=token)
+tp_ids = []
 if isinstance(d, dict):
     for p in d.get("items", []):
         if p.get("code") == "__tp__":
-            pid = p["id"]
-            print("Deleting product __tp__ id=", pid)
-            dc, _ = call("DELETE", "/products/" + str(pid), token=token)
-            print("  Result:", dc)
+            tp_ids.append(p["id"])
+
+# Find and cancel/delete orders
+if tp_ids:
+    code, d = call("GET", "/orders/?size=500", token=token)
+    if isinstance(d, dict):
+        for o in d.get("items", []):
+            order_id = o.get("id")
+            # Cancel draft/submitted orders first
+            if o.get("status") in ("draft", "submitted"):
+                dc, _ = call("POST", "/orders/" + str(order_id) + "/cancel", token=token)
+                print("  Cancel order", order_id, ":", dc)
+
+# Delete test products
+for pid in tp_ids:
+    print("Deleting product __tp__ id=", pid)
+    dc, _ = call("DELETE", "/products/" + str(pid), token=token)
+    print("  Result:", dc)
 
 # Clean companies
 code, d = call("GET", "/companies/", token=token)

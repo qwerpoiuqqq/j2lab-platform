@@ -9,6 +9,7 @@ SKIP = 0
 RESULTS = []
 ADMIN_EMAIL = "admin@jtwolab.kr"
 ADMIN_PASS = "jjlab1234!j"
+RUN_ID = str(int(time.time()) % 100000)  # Unique suffix per run
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ COMPANY_LIST = d.get("items", []) if isinstance(d, dict) else []
 
 # Create company
 code, d = api("POST", "/companies/", {
-    "name": "__API_TEST_CO__", "code": "__test_co__"
+    "name": "__API_TEST_CO__", "code": f"__tco{RUN_ID}__"
 }, token=TOKEN)
 test("Create company", code, [201, 409], f"id={d.get('id')}" if code == 201 else detail_of(d))
 test_co_id = d.get("id") if code == 201 else None
@@ -211,7 +212,7 @@ section("5", "PRODUCTS CRUD + PRICE POLICIES")
 code, d = api("GET", "/products/?size=200", token=TOKEN)
 if isinstance(d, dict):
     for p in d.get("items", []):
-        if p.get("code") == "__tp__":
+        if p.get("code") == f"__tp{RUN_ID}__":
             api("DELETE", f"/products/{p['id']}", token=TOKEN)
 
 code, d = api("GET", "/products/", token=TOKEN)
@@ -219,7 +220,7 @@ test("List products", code, 200, f"{d.get('total', 0)} items" if isinstance(d, d
 PRODUCTS = d.get("items", []) if isinstance(d, dict) else []
 
 code, d = api("POST", "/products/", {
-    "name": "__TEST_PROD__", "code": "__tp__", "base_price": 100000, "category": "traffic",
+    "name": "__TEST_PROD__", "code": f"__tp{RUN_ID}__", "base_price": 100000, "category": "traffic",
     "form_schema": [
         {"name": "naver_url", "label": "네이버 URL", "type": "url", "required": True, "color": "#4472C4"},
         {"name": "qty", "label": "수량", "type": "number", "required": True, "is_quantity": True},
