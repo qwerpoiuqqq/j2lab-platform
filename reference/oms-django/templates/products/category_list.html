@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>카테고리 관리</h5>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <p style="font-size:14px;color:var(--toss-gray-500);margin:0">등록 카테고리 {{ categories|length }}개 · 드래그하여 순서 변경</p>
+    <a href="{% url 'products:category_create' %}" class="btn-toss btn-toss-primary btn-toss-sm">
+        <i class="bi bi-plus-lg"></i> 카테고리 등록
+    </a>
+</div>
+
+<div class="toss-card">
+    <div style="overflow-x:auto">
+        <table class="toss-table">
+            <thead>
+                <tr>
+                    <th style="width:40px"></th>
+                    <th>순서</th>
+                    <th>아이콘</th>
+                    <th>카테고리명</th>
+                    <th>상품 수</th>
+                    <th>상태</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="sortableBody">
+                {% for cat in categories %}
+                <tr data-id="{{ cat.pk }}" style="cursor:grab">
+                    <td style="color:var(--toss-gray-300);font-size:16px;text-align:center"><i class="bi bi-grip-vertical"></i></td>
+                    <td class="order-num" style="color:var(--toss-gray-400);font-weight:600">{{ forloop.counter }}</td>
+                    <td style="font-size:20px;color:var(--toss-blue)"><i class="bi {{ cat.icon }}"></i> <span style="font-size:12px;color:var(--toss-gray-400)">{{ cat.icon }}</span></td>
+                    <td style="font-weight:600">{{ cat.name }}</td>
+                    <td><span class="toss-badge blue">{{ cat.product_count }}개</span></td>
+                    <td>
+                        {% if cat.is_active %}
+                        <span class="toss-badge green">활성</span>
+                        {% else %}
+                        <span class="toss-badge gray">비활성</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'products:category_edit' cat.pk %}" class="btn-toss btn-toss-light btn-toss-sm">수정</a>
+                        <form method="post" action="{% url 'products:category_delete' cat.pk %}" style="display:inline" onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-toss btn-toss-danger btn-toss-sm">삭제</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" style="text-align:center;padding:48px;color:var(--toss-gray-400)">등록된 카테고리가 없습니다</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const tbody = document.getElementById('sortableBody');
+    if (!tbody || !tbody.rows.length) return;
+
+    let dragRow = null;
+
+    tbody.querySelectorAll('tr').forEach(row => {
+        row.draggable = true;
+
+        row.addEventListener('dragstart', function(e) {
+            dragRow = this;
+            this.style.opacity = '0.4';
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        row.addEventListener('dragend', function() {
+            this.style.opacity = '';
+            tbody.querySelectorAll('tr').forEach(r => r.style.borderTop = '');
+        });
+
+        row.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            tbody.querySelectorAll('tr').forEach(r => r.style.borderTop = '');
+            if (this !== dragRow) {
+                this.style.borderTop = '2px solid var(--toss-blue)';
+            }
+        });
+
+        row.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (this !== dragRow) {
+                tbody.insertBefore(dragRow, this);
+                updateOrder();
+            }
+        });
+    });
+
+    function updateOrder() {
+        const ids = [...tbody.querySelectorAll('tr[data-id]')].map(r => r.dataset.id);
+        // 순서 번호 갱신
+        tbody.querySelectorAll('.order-num').forEach((td, i) => td.textContent = i + 1);
+
+        fetch("{% url 'products:category_reorder' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ order: ids })
+        });
+    }
+})();
+</script>
+{% endblock %}

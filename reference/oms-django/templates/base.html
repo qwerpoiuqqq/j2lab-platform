@@ -1,0 +1,438 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}제이투랩 OMS{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-w: 240px;
+            --toss-blue: #3182f6;
+            --toss-blue-light: #e8f3ff;
+            --toss-red: #f04452;
+            --toss-green: #00b386;
+            --toss-orange: #f59e0b;
+            --toss-gray-50: #f9fafb;
+            --toss-gray-100: #f2f4f6;
+            --toss-gray-200: #e5e8eb;
+            --toss-gray-300: #d1d6db;
+            --toss-gray-400: #b0b8c1;
+            --toss-gray-500: #8b95a1;
+            --toss-gray-600: #6b7684;
+            --toss-gray-700: #4e5968;
+            --toss-gray-800: #333d4b;
+            --toss-gray-900: #191f28;
+        }
+        * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background: var(--toss-gray-50); color: var(--toss-gray-900); }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed; top: 0; left: 0;
+            width: var(--sidebar-w); height: 100vh;
+            background: #fff;
+            border-right: 1px solid var(--toss-gray-200);
+            z-index: 1000; overflow-y: auto;
+            padding: 0;
+        }
+        .sidebar::-webkit-scrollbar { width: 0; }
+        .sidebar .brand {
+            padding: 24px 20px 20px;
+            font-size: 18px; font-weight: 800;
+            color: var(--toss-gray-900);
+            letter-spacing: -0.02em;
+        }
+        .sidebar .brand span { color: var(--toss-blue); }
+        .sidebar .nav-section {
+            padding: 20px 20px 6px;
+            font-size: 11px; font-weight: 600;
+            color: var(--toss-gray-400);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .sidebar .nav-link {
+            color: var(--toss-gray-600);
+            padding: 10px 20px;
+            font-size: 14px; font-weight: 500;
+            border-radius: 0;
+            transition: all 0.15s;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .sidebar .nav-link i { font-size: 18px; width: 22px; text-align: center; }
+        .sidebar .nav-link:hover { color: var(--toss-gray-900); background: var(--toss-gray-50); }
+        .sidebar .nav-link.active {
+            color: var(--toss-blue); background: var(--toss-blue-light);
+            font-weight: 600;
+        }
+
+        /* Main */
+        .main-content { margin-left: var(--sidebar-w); min-height: 100vh; }
+        .top-bar {
+            background: #fff; padding: 16px 32px;
+            border-bottom: 1px solid var(--toss-gray-100);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .top-bar h5 { font-size: 18px; font-weight: 700; margin: 0; color: var(--toss-gray-900); }
+        .content-area { padding: 24px 32px; max-width: 1280px; }
+
+        /* Cards - Toss style */
+        .toss-card {
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border: 1px solid var(--toss-gray-100);
+            overflow: hidden;
+        }
+        .toss-card .card-header {
+            background: none; border-bottom: 1px solid var(--toss-gray-100);
+            padding: 16px 20px; font-weight: 600; font-size: 15px;
+        }
+        .toss-card .card-body { padding: 20px; }
+
+        /* Stat cards */
+        .stat-card {
+            background: #fff; border-radius: 16px;
+            padding: 20px 24px;
+            border: 1px solid var(--toss-gray-100);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s;
+        }
+        .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .stat-card .stat-label {
+            font-size: 13px; font-weight: 500;
+            color: var(--toss-gray-500); margin-bottom: 8px;
+        }
+        .stat-card .stat-value {
+            font-size: 28px; font-weight: 800;
+            color: var(--toss-gray-900); letter-spacing: -0.02em;
+        }
+        .stat-card .stat-sub {
+            font-size: 13px; color: var(--toss-gray-500); margin-top: 4px;
+        }
+
+        /* Tables */
+        .toss-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+        .toss-table thead th {
+            background: var(--toss-gray-50); padding: 12px 16px;
+            font-size: 12px; font-weight: 600;
+            color: var(--toss-gray-500); text-transform: uppercase;
+            letter-spacing: 0.04em; border-bottom: 1px solid var(--toss-gray-200);
+        }
+        .toss-table tbody td {
+            padding: 14px 16px; font-size: 14px;
+            border-bottom: 1px solid var(--toss-gray-100);
+            color: var(--toss-gray-800); vertical-align: middle;
+        }
+        .toss-table tbody tr { transition: background 0.1s; }
+        .toss-table tbody tr:hover { background: var(--toss-gray-50); }
+        .toss-table tbody tr:last-child td { border-bottom: none; }
+
+        /* Badges */
+        .toss-badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 12px; font-weight: 600;
+        }
+        .toss-badge.blue { background: var(--toss-blue-light); color: var(--toss-blue); }
+        .toss-badge.green { background: #e6f9f1; color: var(--toss-green); }
+        .toss-badge.orange { background: #fff8e1; color: #d97706; }
+        .toss-badge.red { background: #ffeef0; color: var(--toss-red); }
+        .toss-badge.gray { background: var(--toss-gray-100); color: var(--toss-gray-600); }
+
+        /* Buttons */
+        .btn-toss {
+            border-radius: 10px; font-weight: 600; font-size: 14px;
+            padding: 10px 20px; border: none;
+            transition: all 0.15s;
+        }
+        .btn-toss-primary { background: var(--toss-blue); color: #fff; }
+        .btn-toss-primary:hover { background: #1b6ee3; color: #fff; }
+        .btn-toss-light { background: var(--toss-gray-100); color: var(--toss-gray-700); }
+        .btn-toss-light:hover { background: var(--toss-gray-200); color: var(--toss-gray-900); }
+        .btn-toss-danger { background: #ffeef0; color: var(--toss-red); }
+        .btn-toss-danger:hover { background: var(--toss-red); color: #fff; }
+        .btn-toss-success { background: #e6f9f1; color: var(--toss-green); }
+        .btn-toss-success:hover { background: var(--toss-green); color: #fff; }
+        .btn-toss-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+
+        /* Forms */
+        .toss-input {
+            border: 1px solid var(--toss-gray-200); border-radius: 10px;
+            padding: 10px 14px; font-size: 14px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .toss-input:focus {
+            border-color: var(--toss-blue);
+            box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+            outline: none;
+        }
+        .toss-select {
+            border: 1px solid var(--toss-gray-200); border-radius: 10px;
+            padding: 10px 14px; font-size: 14px;
+        }
+        .toss-select:focus {
+            border-color: var(--toss-blue);
+            box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+            outline: none;
+        }
+        .toss-label {
+            font-size: 13px; font-weight: 600;
+            color: var(--toss-gray-600); margin-bottom: 6px;
+        }
+
+        /* Alerts */
+        .toss-alert {
+            border-radius: 12px; padding: 14px 18px;
+            font-size: 14px; font-weight: 500;
+            border: none; display: flex; align-items: center; gap: 8px;
+        }
+        .toss-alert-success { background: #e6f9f1; color: #0a6847; }
+        .toss-alert-error { background: #ffeef0; color: #b91c1c; }
+        .toss-alert-info { background: var(--toss-blue-light); color: #1d4ed8; }
+
+        /* Mini stat (dashboard compact) */
+        .mini-stat-label { font-size: 12px; font-weight: 500; color: var(--toss-gray-500); margin-bottom: 4px; }
+        .mini-stat-value { font-size: 22px; font-weight: 800; color: var(--toss-gray-900); letter-spacing: -0.02em; }
+        .mini-stat-value small { font-size: 12px; font-weight: 500; color: var(--toss-gray-400); margin-left: 2px; }
+        .mini-stat-sub { font-size: 11px; color: var(--toss-gray-400); margin-top: 2px; }
+
+        /* User pill */
+        .user-pill {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 14px; font-weight: 500;
+        }
+        .user-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--toss-blue-light); color: var(--toss-blue);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700;
+        }
+
+        /* Notification bell */
+        .notif-wrapper { position: relative; }
+        .notif-bell {
+            position: relative; cursor: pointer;
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--toss-gray-50); border: 1px solid var(--toss-gray-200);
+            transition: background 0.15s;
+        }
+        .notif-bell:hover { background: var(--toss-gray-100); }
+        .notif-bell i { font-size: 18px; color: var(--toss-gray-700); }
+        .notif-badge {
+            position: absolute; top: -2px; right: -2px;
+            min-width: 18px; height: 18px; border-radius: 9px;
+            background: var(--toss-red); color: #fff;
+            font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 4px;
+        }
+        .notif-dropdown {
+            display: none; position: absolute; top: 44px; right: 0;
+            width: 340px; background: #fff; border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            border: 1px solid var(--toss-gray-100);
+            z-index: 2000; overflow: hidden;
+        }
+        .notif-dropdown.show { display: block; }
+        .notif-dropdown-header {
+            padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--toss-gray-100);
+        }
+        .notif-dropdown-header span { font-size: 14px; font-weight: 700; color: var(--toss-gray-900); }
+        .notif-dropdown-header button {
+            background: none; border: none; font-size: 12px; font-weight: 600;
+            color: var(--toss-blue); cursor: pointer; padding: 4px 8px; border-radius: 6px;
+        }
+        .notif-dropdown-header button:hover { background: var(--toss-blue-light); }
+        .notif-list { max-height: 360px; overflow-y: auto; }
+        .notif-item {
+            display: block; padding: 12px 16px;
+            text-decoration: none; color: var(--toss-gray-800);
+            border-bottom: 1px solid var(--toss-gray-50);
+            transition: background 0.1s; font-size: 13px; line-height: 1.5;
+        }
+        .notif-item:hover { background: var(--toss-gray-50); color: var(--toss-gray-800); }
+        .notif-item .notif-time { font-size: 11px; color: var(--toss-gray-400); margin-top: 2px; }
+        .notif-empty {
+            padding: 32px 16px; text-align: center;
+            font-size: 13px; color: var(--toss-gray-400);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <nav class="sidebar">
+        <div class="brand"><span>J2</span>LAB OMS</div>
+        <ul class="nav flex-column">
+            {% if not user.is_seller %}
+            <li class="nav-section">메인</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'dashboard:index' %}">
+                    <i class="bi bi-house-door"></i> 대시보드
+                </a>
+            </li>
+            {% endif %}
+
+            <li class="nav-section">주문</li>
+            {% if not user.is_manager %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'order_grid' %}active{% endif %}" href="{% url 'orders:order_grid' %}">
+                    <i class="bi bi-plus-square"></i> 주문 접수
+                </a>
+            </li>
+            {% endif %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'order_list' %}active{% endif %}" href="{% url 'orders:order_list' %}">
+                    <i class="bi bi-receipt"></i> 주문 내역
+                </a>
+            </li>
+            {% if not user.is_seller %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'deadline_calendar' %}active{% endif %}" href="{% url 'dashboard:deadline_calendar' %}">
+                    <i class="bi bi-calendar3"></i> 마감일
+                </a>
+            </li>
+            {% endif %}
+
+            {% if user.is_admin or user.is_accountant or user.is_manager or user.is_agency %}
+            <li class="nav-section">관리</li>
+            {% if user.is_admin or user.is_accountant %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}" href="{% url 'products:product_list' %}">
+                    <i class="bi bi-grid"></i> 상품 관리
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'category_list' or request.resolver_match.url_name == 'category_create' or request.resolver_match.url_name == 'category_edit' %}active{% endif %}" href="{% url 'products:category_list' %}">
+                    <i class="bi bi-tags"></i> 카테고리 관리
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'price_matrix' %}active{% endif %}" href="{% url 'products:price_matrix' %}">
+                    <i class="bi bi-cash-stack"></i> 단가 설정
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'notice_list' or request.resolver_match.url_name == 'notice_create' or request.resolver_match.url_name == 'notice_edit' %}active{% endif %}" href="{% url 'dashboard:notice_list' %}">
+                    <i class="bi bi-megaphone"></i> 공지 관리
+                </a>
+            </li>
+            {% endif %}
+            {% if user.is_admin or user.is_accountant or user.is_manager or user.is_agency %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_edit' %}active{% endif %}" href="{% url 'accounts:user_list' %}">
+                    <i class="bi bi-people"></i> 업체 관리
+                </a>
+            </li>
+            {% endif %}
+            {% endif %}
+
+            {% if user.is_admin or user.is_accountant %}
+            <li class="nav-section">정산</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'settlement_list' %}active{% endif %}" href="{% url 'orders:settlement_list' %}">
+                    <i class="bi bi-wallet2"></i> 정산 내역
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'settlement_secret' %}active{% endif %}" href="{% url 'orders:settlement_secret' %}">
+                    <i class="bi bi-journal-text"></i> 로그
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div>{% block page_title %}<h5>대시보드</h5>{% endblock %}</div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="notif-wrapper">
+                    <div class="notif-bell" onclick="toggleNotifDropdown(event)">
+                        <i class="bi bi-bell"></i>
+                        {% if unread_count %}<span class="notif-badge">{{ unread_count }}</span>{% endif %}
+                    </div>
+                    <div class="notif-dropdown" id="notifDropdown">
+                        <div class="notif-dropdown-header">
+                            <span>알림</span>
+                            {% if unread_count %}
+                            <button onclick="markAllRead(event)">모두 읽음</button>
+                            {% endif %}
+                        </div>
+                        <div class="notif-list">
+                            {% for notif in unread_notifications %}
+                            <a href="{{ notif.link }}" class="notif-item" data-notif-id="{{ notif.pk }}" onclick="markRead(event, {{ notif.pk }})">
+                                {{ notif.message }}
+                                <div class="notif-time">{{ notif.created_at|timesince }} 전</div>
+                            </a>
+                            {% empty %}
+                            <div class="notif-empty">새로운 알림이 없습니다</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="user-pill">
+                    <div class="user-avatar">{{ user.username|make_list|first|upper }}</div>
+                    <div>
+                        <div style="font-size:13px;font-weight:600;line-height:1.2">{{ user.company_name|default:user.username }}</div>
+                        <div style="font-size:11px;color:var(--toss-gray-400)">{{ user.get_role_display }}</div>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-toss btn-toss-light btn-toss-sm">로그아웃</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="content-area">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="toss-alert {% if 'success' in message.tags %}toss-alert-success{% elif 'error' in message.tags %}toss-alert-error{% else %}toss-alert-info{% endif %} mb-3" role="alert">
+                <i class="bi {% if 'success' in message.tags %}bi-check-circle-fill{% elif 'error' in message.tags %}bi-x-circle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    {% else %}
+    {% block content_noauth %}{% endblock %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% if user.is_authenticated %}
+    <script>
+    function toggleNotifDropdown(e) {
+        e.stopPropagation();
+        document.getElementById('notifDropdown').classList.toggle('show');
+    }
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('notifDropdown');
+        if (dd && !dd.contains(e.target)) dd.classList.remove('show');
+    });
+    function markRead(e, pk) {
+        fetch('{% url "dashboard:notification_read" pk=0 %}'.replace('/0/', '/' + pk + '/'), {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+        });
+    }
+    function markAllRead(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        fetch('{% url "dashboard:notification_read_all" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+        }).then(function() { location.reload(); });
+    }
+    </script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!-- 기간 필터 -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <a href="?period=today" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.15s;border:1px solid {% if current_period == 'today' %}var(--toss-blue);background:var(--toss-blue);color:#fff{% else %}var(--toss-gray-200);background:#fff;color:var(--toss-gray-600){% endif %}">오늘</a>
+    <a href="?period=week" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.15s;border:1px solid {% if current_period == 'week' %}var(--toss-blue);background:var(--toss-blue);color:#fff{% else %}var(--toss-gray-200);background:#fff;color:var(--toss-gray-600){% endif %}">이번 주</a>
+    <a href="?period=month" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.15s;border:1px solid {% if current_period == 'month' %}var(--toss-blue);background:var(--toss-blue);color:#fff{% else %}var(--toss-gray-200);background:#fff;color:var(--toss-gray-600){% endif %}">이번 달</a>
+    <span style="color:var(--toss-gray-200);margin:0 4px">|</span>
+    <form class="d-flex align-items-center gap-2" method="get" style="margin:0">
+        <input type="date" name="date_from" value="{{ date_from }}" class="toss-input" style="padding:6px 12px;font-size:13px;width:140px;border-radius:10px">
+        <span style="font-size:13px;color:var(--toss-gray-400)">~</span>
+        <input type="date" name="date_to" value="{{ date_to }}" class="toss-input" style="padding:6px 12px;font-size:13px;width:140px;border-radius:10px">
+        <button type="submit" style="display:inline-flex;align-items:center;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid {% if current_period == 'custom' %}var(--toss-blue);background:var(--toss-blue);color:#fff{% else %}var(--toss-gray-200);background:#fff;color:var(--toss-gray-600){% endif %};cursor:pointer;transition:all 0.15s">조회</button>
+    </form>
+</div>

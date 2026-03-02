@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>공지사항 관리</h5>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div></div>
+    <a href="{% url 'dashboard:notice_create' %}" class="btn-toss btn-toss-primary">공지 등록</a>
+</div>
+
+<div class="toss-card">
+    <div style="overflow-x:auto">
+        <table class="toss-table">
+            <thead>
+                <tr>
+                    <th>제목</th>
+                    <th>고정</th>
+                    <th>상태</th>
+                    <th>작성자</th>
+                    <th>작성일</th>
+                    <th>관리</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for notice in notices %}
+                <tr>
+                    <td style="font-weight:600;color:var(--toss-gray-800)">{{ notice.title }}</td>
+                    <td>
+                        {% if notice.is_pinned %}
+                        <span class="toss-badge orange">고정</span>
+                        {% else %}
+                        <span style="color:var(--toss-gray-400)">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if notice.is_active %}
+                        <span class="toss-badge green">활성</span>
+                        {% else %}
+                        <span class="toss-badge gray">비활성</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ notice.created_by.company_name|default:notice.created_by.username|default:"-" }}</td>
+                    <td style="color:var(--toss-gray-500)">{{ notice.created_at|date:"Y.m.d H:i" }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'dashboard:notice_edit' notice.pk %}" class="btn-toss btn-toss-light btn-toss-sm">수정</a>
+                            <form method="post" action="{% url 'dashboard:notice_delete' notice.pk %}" onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-toss btn-toss-danger btn-toss-sm">삭제</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--toss-gray-400)">등록된 공지사항이 없습니다</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

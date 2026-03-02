@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block page_title %}<h5>주문 내역</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-chip {
+        display: inline-flex; align-items: center;
+        padding: 6px 16px; border-radius: 20px;
+        font-size: 13px; font-weight: 600;
+        text-decoration: none; transition: all 0.15s;
+        border: 1px solid var(--toss-gray-200);
+        color: var(--toss-gray-600); background: #fff;
+    }
+    .filter-chip:hover { border-color: var(--toss-blue); color: var(--toss-blue); }
+    .filter-chip.active {
+        background: var(--toss-blue); color: #fff;
+        border-color: var(--toss-blue);
+    }
+
+    /* 주문 카드 */
+    .order-card {
+        background: #fff;
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .order-card:hover {
+        border-color: var(--toss-blue);
+        box-shadow: 0 4px 16px rgba(49, 130, 246, 0.08);
+        transform: translateY(-1px);
+    }
+    .order-card::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 4px;
+    }
+    .order-card.status-submitted::before { background: var(--toss-blue); }
+    .order-card.status-processing::before { background: #f59e0b; }
+    .order-card.status-completed::before { background: var(--toss-green); }
+    .order-card.status-cancelled::before { background: var(--toss-gray-300); }
+
+    .order-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+    .order-number {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--toss-gray-900);
+        letter-spacing: -0.3px;
+    }
+    .order-card-badges {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .order-card-body {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    .order-info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .order-info-item .label {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--toss-gray-400);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .order-info-item .value {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--toss-gray-800);
+    }
+    .order-info-item .value.amount {
+        color: var(--toss-blue);
+        font-size: 15px;
+    }
+
+    .order-card-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--toss-gray-100);
+    }
+    .order-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--toss-gray-400);
+    }
+    .order-meta i { font-size: 13px; }
+    .order-meta .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .order-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .order-actions .action-link {
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.12s;
+        border: none;
+        cursor: pointer;
+        background: var(--toss-gray-50);
+        color: var(--toss-gray-600);
+    }
+    .order-actions .action-link:hover {
+        background: var(--toss-gray-100);
+    }
+    .order-actions .action-link.blue { color: var(--toss-blue); }
+    .order-actions .action-link.red { color: var(--toss-red); }
+
+    /* 체크박스 */
+    .order-check-wrap {
+        position: absolute;
+        top: 20px; left: 24px;
+        z-index: 5;
+    }
+    .order-check {
+        width: 18px; height: 18px; cursor: pointer;
+        accent-color: var(--toss-blue);
+    }
+    .order-card.has-check {
+        padding-left: 52px;
+    }
+    .order-card.has-check .order-check-wrap {
+        left: 20px;
+    }
+
+    /* 전체 선택 영역 */
+    .select-all-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--toss-gray-500);
+        font-weight: 500;
+    }
+
+    /* 승인 뱃지 */
+    .approval-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .approval-dot.approved { color: var(--toss-green); }
+    .approval-dot.pending { color: var(--toss-gray-400); }
+
+    /* 삭제된 사용자 */
+    .deleted-user {
+        color: var(--toss-gray-400);
+        font-style: italic;
+        font-size: 13px;
+    }
+
+    /* 상위계정 표시 */
+    .parent-name {
+        color: var(--toss-gray-400);
+        font-size: 12px;
+        font-weight: 400;
+    }
+
+    /* 빈 상태 */
+    .empty-state {
+        text-align: center;
+        padding: 64px 20px;
+        color: var(--toss-gray-400);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 12px; display: block; }
+    .empty-state p { font-size: 15px; font-weight: 500; }
+
+    /* 페이지네이션 */
+    .toss-pagination {
+        display: flex; align-items: center; justify-content: center;
+        gap: 4px; margin-top: 20px;
+    }
+    .toss-pagination a, .toss-pagination span {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border-radius: 10px;
+        font-size: 14px; font-weight: 500;
+        text-decoration: none; transition: all 0.15s;
+        color: var(--toss-gray-600);
+    }
+    .toss-pagination a:hover { background: var(--toss-gray-100); }
+    .toss-pagination .active {
+        background: var(--toss-blue); color: #fff; font-weight: 700;
+    }
+    .toss-pagination .nav-btn {
+        width: auto; padding: 0 14px;
+        font-size: 13px; font-weight: 600;
+    }
+
+    /* 일괄 변경 바 */
+    .bulk-bar {
+        display: none; position: fixed; bottom: 0; left: var(--sidebar-w); right: 0;
+        background: #fff; border-top: 1px solid var(--toss-gray-200);
+        padding: 14px 32px; z-index: 999;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+        align-items: center; gap: 16px;
+    }
+    .bulk-bar.show { display: flex; }
+    .bulk-bar .bulk-count {
+        font-size: 14px; font-weight: 700; color: var(--toss-blue);
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'orders:order_list' %}" class="filter-chip {% if not current_status %}active{% endif %}">전체</a>
+        {% for val, label in status_choices %}
+        <a href="?status={{ val }}" class="filter-chip {% if current_status == val %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    <a href="{% url 'orders:order_export' %}" class="btn-toss btn-toss-success btn-toss-sm">
+        <i class="bi bi-download"></i> 엑셀 다운로드
+    </a>
+</div>
+
+<!-- 검색 -->
+<form method="get" style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+    {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+    <div style="position:relative;flex:1;max-width:400px">
+        <i class="bi bi-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--toss-gray-400);font-size:14px"></i>
+        <input type="text" name="q" value="{{ search_query }}" placeholder="주문번호 또는 회사명 검색" style="width:100%;padding:10px 14px 10px 40px;border:1px solid var(--toss-gray-200);border-radius:12px;font-size:13px;font-weight:500;outline:none;transition:border-color 0.12s;background:#fff" onfocus="this.style.borderColor='var(--toss-blue)'" onblur="this.style.borderColor='var(--toss-gray-200)'">
+    </div>
+    <button type="submit" class="btn-toss btn-toss-primary btn-toss-sm" style="padding:9px 18px">검색</button>
+    {% if search_query %}
+    <a href="{% url 'orders:order_list' %}{% if current_status %}?status={{ current_status }}{% endif %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:9px 14px;text-decoration:none">초기화</a>
+    {% endif %}
+</form>
+
+<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#eef4ff;border-radius:12px;margin-bottom:16px;border:1px solid #c7d9f6;">
+    <i class="bi bi-megaphone-fill" style="color:var(--toss-blue);font-size:15px;flex-shrink:0"></i>
+    <span style="font-size:13px;color:var(--toss-gray-800);font-weight:500">접수 완료 시 관리자에게 주문번호 알려주시면 셋팅 및 진행 도와드리고 있습니다.</span>
+</div>
+
+{% if request.user.is_admin or request.user.is_accountant %}
+<div class="select-all-bar">
+    <input type="checkbox" class="order-check" id="checkAll">
+    <label for="checkAll" style="cursor:pointer">전체 선택</label>
+</div>
+{% endif %}
+
+<div {% if request.user.is_admin or request.user.is_accountant %}style="margin-bottom:80px"{% endif %}>
+    {% for order in orders %}
+    <div class="order-card status-{{ order.status }} {% if request.user.is_admin or request.user.is_accountant %}has-check{% endif %}" onclick="location.href='{% url 'orders:order_detail' order.pk %}'">
+
+        {% if request.user.is_admin or request.user.is_accountant %}
+        <div class="order-check-wrap" onclick="event.stopPropagation()">
+            <input type="checkbox" class="order-check order-row-check" value="{{ order.pk }}">
+        </div>
+        {% endif %}
+
+        <div class="order-card-top">
+            <div style="display:flex;align-items:center;gap:12px">
+                <span class="order-number"><span style="font-weight:500;color:var(--toss-gray-400);font-size:13px;margin-right:4px">주문번호 :</span>{{ order.order_number }}</span>
+                <span class="toss-badge {% if order.status == 'submitted' %}blue{% elif order.status == 'processing' %}orange{% elif order.status == 'completed' %}green{% else %}gray{% endif %}">
+                    {{ order.get_status_display }}
+                </span>
+            </div>
+            <div class="order-card-badges">
+                {% if not request.user.is_seller %}
+                    {% if order.approved_by %}
+                    <span class="approval-dot approved"><i class="bi bi-shield-fill-check"></i> {{ order.approved_by.first_name|default:order.approved_by.company_name|default:order.approved_by.username }}</span>
+                    {% else %}
+                    <span class="approval-dot pending"><i class="bi bi-shield"></i> 미승인</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="order-card-body">
+            {% if not request.user.is_seller %}
+            <div class="order-info-item">
+                <span class="label">주문자</span>
+                <span class="value">
+                    {% if order.user %}
+                        {% if order.user.parent %}<span class="parent-name">{{ order.user.parent.company_name|default:order.user.parent.username }} / </span>{% endif %}{{ order.user.company_name|default:order.user.username }}
+                    {% else %}
+                        <span class="deleted-user">(삭제된 사용자)</span>
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+            <div class="order-info-item">
+                <span class="label">상품</span>
+                <span class="value">{{ order.product.name }}</span>
+            </div>
+            <div class="order-info-item">
+                <span class="label">건수</span>
+                <span class="value">{{ order.item_count }}건</span>
+            </div>
+            {% if not request.user.is_seller %}
+            <div class="order-info-item">
+                <span class="label">금액</span>
+                <span class="value amount">{{ order.total_amount|floatformat:0|intcomma }}원</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="order-card-bottom">
+            <div class="order-meta">
+                <span class="meta-item"><i class="bi bi-calendar3"></i> {{ order.created_at|date:"Y.m.d H:i" }}</span>
+            </div>
+            <div class="order-actions" onclick="event.stopPropagation()">
+                <a href="{% url 'orders:order_detail' order.pk %}" class="action-link">상세보기</a>
+                {% if not request.user.is_manager %}
+                <a href="{% url 'orders:order_grid' %}?renew={{ order.pk }}" class="action-link blue">캠페인 재연장</a>
+                {% endif %}
+                {% if request.user.is_admin or request.user.is_accountant or request.user.is_manager %}
+                    {% if order.status == 'submitted' %}
+                    <form method="post" action="{% url 'orders:order_cancel' order.pk %}" style="display:inline" onsubmit="return confirm('주문 {{ order.order_number }}을(를) 취소하시겠습니까?')">
+                        {% csrf_token %}
+                        <button type="submit" class="action-link red">취소</button>
+                    </form>
+                    {% endif %}
+                    {% if request.user.is_admin or request.user.is_accountant %}
+                    <form method="post" action="{% url 'orders:order_delete' order.pk %}" style="display:inline" onsubmit="return confirm('주문 {{ order.order_number }}을(를) 삭제하시겠습니까? 복구할 수 없습니다.')">
+                        {% csrf_token %}
+                        <button type="submit" class="action-link red">삭제</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>주문이 없습니다</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if orders.has_other_pages %}
+<div class="toss-pagination">
+    {% if orders.has_previous %}
+    <a href="?page={{ orders.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="nav-btn">이전</a>
+    {% endif %}
+    {% for num in orders.paginator.page_range %}
+    {% if orders.number == num %}
+    <span class="active">{{ num }}</span>
+    {% else %}
+    <a href="?page={{ num }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
+    {% endif %}
+    {% endfor %}
+    {% if orders.has_next %}
+    <a href="?page={{ orders.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="nav-btn">다음</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if request.user.is_admin or request.user.is_accountant %}
+<!-- 일괄 상태 변경 바 -->
+<form method="post" action="{% url 'orders:order_bulk_status_update' %}" id="bulkForm">
+    {% csrf_token %}
+    <div class="bulk-bar" id="bulkBar">
+        <span class="bulk-count"><span id="selectedCount">0</span>건 선택</span>
+        <select name="status" class="toss-select" style="padding:8px 12px;font-size:13px">
+            {% for val, label in status_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn-toss btn-toss-primary btn-toss-sm">일괄 변경</button>
+        <button type="button" class="btn-toss btn-toss-light btn-toss-sm" onclick="clearSelection()">취소</button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if request.user.is_admin or request.user.is_accountant %}
+<script>
+(function() {
+    var checkAll = document.getElementById('checkAll');
+    var bulkBar = document.getElementById('bulkBar');
+    var bulkForm = document.getElementById('bulkForm');
+    var countEl = document.getElementById('selectedCount');
+    var rowChecks = document.querySelectorAll('.order-row-check');
+
+    function updateBar() {
+        var checked = document.querySelectorAll('.order-row-check:checked');
+        countEl.textContent = checked.length;
+        if (checked.length > 0) {
+            bulkBar.classList.add('show');
+        } else {
+            bulkBar.classList.remove('show');
+        }
+    }
+
+    checkAll.addEventListener('change', function() {
+        rowChecks.forEach(function(cb) { cb.checked = checkAll.checked; });
+        updateBar();
+    });
+
+    rowChecks.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            checkAll.checked = document.querySelectorAll('.order-row-check:checked').length === rowChecks.length;
+            updateBar();
+        });
+    });
+
+    bulkForm.addEventListener('submit', function(e) {
+        var checked = document.querySelectorAll('.order-row-check:checked');
+        if (checked.length === 0) { e.preventDefault(); return; }
+        bulkForm.querySelectorAll('input[name="order_ids"]').forEach(function(el) { el.remove(); });
+        checked.forEach(function(cb) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'order_ids';
+            input.value = cb.value;
+            bulkForm.appendChild(input);
+        });
+    });
+
+    window.clearSelection = function() {
+        checkAll.checked = false;
+        rowChecks.forEach(function(cb) { cb.checked = false; });
+        updateBar();
+    };
+})();
+</script>
+{% endif %}
+{% endblock %}

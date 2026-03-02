@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}로그인 - 제이투랩 OMS{% endblock %}
+
+{% block content_noauth %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center" style="background: var(--toss-gray-50);">
+    <div style="width:380px">
+        <div style="text-align:center;margin-bottom:40px">
+            <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--toss-gray-900)">
+                <span style="color:var(--toss-blue)">J2</span>LAB
+            </div>
+            <p style="color:var(--toss-gray-500);font-size:14px;margin-top:8px">
+                B2B 리워드 트래픽 관리 시스템
+            </p>
+        </div>
+
+        <div class="toss-card">
+            <div class="card-body" style="padding:32px">
+                {% if form.errors %}
+                <div class="toss-alert toss-alert-error mb-3">
+                    <i class="bi bi-x-circle-fill"></i>
+                    아이디 또는 비밀번호가 올바르지 않습니다.
+                </div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div style="margin-bottom:16px">
+                        <label class="toss-label">아이디</label>
+                        <input type="text" name="username" class="toss-input w-100" placeholder="아이디를 입력하세요" autofocus>
+                    </div>
+                    <div style="margin-bottom:24px">
+                        <label class="toss-label">비밀번호</label>
+                        <input type="password" name="password" class="toss-input w-100" placeholder="비밀번호를 입력하세요">
+                    </div>
+                    <button type="submit" class="btn-toss btn-toss-primary w-100" style="padding:14px;font-size:16px">
+                        로그인
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

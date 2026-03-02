@@ -1,0 +1,44 @@
+{% load humanize %}
+<!-- 최근 주문 -->
+<div style="background:#fff;border:1px solid var(--toss-gray-200);border-radius:16px;overflow:hidden">
+    <div style="padding:16px 24px;font-size:15px;font-weight:700;color:var(--toss-gray-900);border-bottom:1px solid var(--toss-gray-100);display:flex;align-items:center;justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px">
+            <i class="bi bi-clock-history" style="color:var(--toss-blue)"></i> 최근 주문
+        </span>
+        <a href="{% url 'orders:order_list' %}" style="font-size:13px;font-weight:600;color:var(--toss-blue);text-decoration:none">전체 보기 <i class="bi bi-chevron-right" style="font-size:11px"></i></a>
+    </div>
+    <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+                <tr>
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">주문번호</th>
+                    {% if show_user_col %}<th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">{{ user_col_label|default:"업체" }}</th>{% endif %}
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">상품</th>
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">건수</th>
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">금액</th>
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">상태</th>
+                    <th style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--toss-gray-500);text-align:left;background:#f8fafc;border-bottom:2px solid var(--toss-gray-200);white-space:nowrap">주문일</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr onclick="location.href='{% url 'orders:order_detail' order.pk %}'" style="cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);font-weight:700;color:var(--toss-gray-800)">{{ order.order_number }}</td>
+                    {% if show_user_col %}<td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);font-weight:500;color:var(--toss-gray-700)">{{ order.user.company_name|default:order.user.username }}</td>{% endif %}
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);font-weight:500;color:var(--toss-gray-700)">{{ order.product.name }}</td>
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);font-weight:600;color:var(--toss-gray-700)">{{ order.item_count }}건</td>
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);font-weight:700;color:var(--toss-blue)">{{ order.total_amount|floatformat:0|intcomma }}원</td>
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100)">
+                        <span class="toss-badge {% if order.status == 'submitted' %}blue{% elif order.status == 'processing' %}orange{% elif order.status == 'completed' %}green{% else %}gray{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="padding:11px 14px;border-bottom:1px solid var(--toss-gray-100);color:var(--toss-gray-400);font-weight:500;white-space:nowrap">{{ order.created_at|date:"m/d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="{% if show_user_col %}7{% else %}6{% endif %}" style="text-align:center;padding:48px;color:var(--toss-gray-400)"><i class="bi bi-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>아직 주문이 없습니다</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

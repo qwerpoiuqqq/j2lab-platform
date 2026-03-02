@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}단가 설정 - 제이투랩 OMS{% endblock %}
+{% block page_title %}<h5>단가 설정</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 업체 리스트 */
+    .user-list { display: flex; flex-direction: column; gap: 8px; }
+    .user-card {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 20px; background: #fff;
+        border: 1px solid var(--toss-gray-100); border-radius: 14px;
+        transition: all 0.15s; gap: 12px;
+    }
+    .user-card:hover { border-color: var(--toss-gray-200); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .user-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+    .user-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .avatar.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .avatar.seller { background: #e6f9f1; color: var(--toss-green); }
+    .user-name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); }
+    .user-meta { font-size: 12px; color: var(--toss-gray-400); }
+    .role-tag {
+        display: inline-block; padding: 2px 8px; border-radius: 10px;
+        font-size: 11px; font-weight: 600;
+    }
+    .role-tag.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .role-tag.seller { background: #e6f9f1; color: var(--toss-green); }
+    .price-count {
+        font-size: 12px; color: var(--toss-blue); font-weight: 600;
+        background: var(--toss-blue-light); padding: 2px 10px; border-radius: 10px;
+    }
+    .btn-config {
+        padding: 7px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+        color: var(--toss-blue); background: var(--toss-blue-light);
+        border: none; cursor: pointer; transition: all 0.15s;
+        text-decoration: none;
+    }
+    .btn-config:hover { background: var(--toss-blue); color: #fff; }
+
+    /* 모달 */
+    .modal-backdrop {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+        z-index: 1000; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+        background: #f8f9fa; border-radius: 20px; width: 620px; max-width: 95vw;
+        max-height: 85vh; display: flex; flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 22px 28px 18px; border-bottom: 1px solid #e9ecef;
+        background: #fff; border-radius: 20px 20px 0 0;
+    }
+    .modal-header h6 { margin: 0; font-size: 17px; font-weight: 800; color: #111; }
+    .modal-close {
+        width: 32px; height: 32px; border: none; background: var(--toss-gray-50);
+        border-radius: 50%; cursor: pointer; font-size: 16px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--toss-gray-500); transition: all 0.15s;
+    }
+    .modal-close:hover { background: var(--toss-gray-100); }
+    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+
+    /* 카테고리 탭 (모달 내) */
+    .cat-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .cat-tab {
+        padding: 7px 16px; border-radius: 20px;
+        font-size: 13px; font-weight: 700;
+        border: 1.5px solid #dee2e6;
+        background: #fff; color: #333;
+        cursor: pointer; transition: all 0.15s;
+    }
+    .cat-tab:hover { border-color: var(--toss-blue); color: var(--toss-blue); }
+    .cat-tab.active { background: var(--toss-blue); color: #fff; border-color: var(--toss-blue); }
+
+    /* 상품 카드 */
+    .product-row {
+        background: #fff; border-radius: 14px; padding: 16px 20px;
+        margin-bottom: 10px; border: 1px solid #e9ecef;
+        display: flex; align-items: center; gap: 16px;
+        transition: border-color 0.15s;
+    }
+    .product-row:hover { border-color: #ced4da; }
+    .product-name-col { flex: 1; min-width: 0; }
+    .product-name { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 4px; }
+    .product-default {
+        font-size: 12px; color: #666; display: flex; gap: 8px; align-items: center;
+    }
+    .product-default .def-tag {
+        background: #f1f3f5; padding: 2px 8px; border-radius: 6px;
+        font-weight: 600; color: #495057;
+    }
+    .input-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .input-group-inline { display: flex; align-items: center; gap: 8px; }
+    .input-label {
+        font-size: 13px; color: #111; font-weight: 700;
+        min-width: 32px; text-align: right;
+    }
+    .input-suffix { font-size: 13px; color: #666; font-weight: 600; }
+
+    /* 인풋 */
+    .price-input {
+        width: 110px; border: 1.5px solid #dee2e6;
+        border-radius: 10px; padding: 9px 12px;
+        font-size: 15px; font-weight: 700;
+        text-align: right; background: #fff;
+        transition: all 0.15s; color: #111;
+    }
+    .price-input:focus {
+        border-color: var(--toss-blue);
+        box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+        outline: none;
+    }
+    .price-input.empty { color: #adb5bd; font-weight: 400; }
+    .price-input.saved { animation: savedFlash 0.6s ease; }
+
+    .reduction-input {
+        width: 80px; border: 1.5px solid #dee2e6;
+        border-radius: 10px; padding: 9px 12px;
+        font-size: 15px; font-weight: 700;
+        text-align: right; background: #fff;
+        transition: all 0.15s; color: #111;
+    }
+    .reduction-input:focus {
+        border-color: var(--toss-blue);
+        box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+        outline: none;
+    }
+    .reduction-input.empty { color: #adb5bd; font-weight: 400; }
+    .reduction-input.saved { animation: savedFlash 0.6s ease; }
+
+    @keyframes savedFlash {
+        0% { background: #a7f3d0; }
+        100% { background: #fff; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p style="font-size:14px;color:var(--toss-gray-500);margin:0">
+        업체별 <b>설정하기</b>를 눌러 단가와 감은 비율을 설정합니다. 비우면 상품 기본값이 적용됩니다.
+    </p>
+</div>
+
+{% if matrix %}
+<div class="user-list">
+    {% for row in matrix %}
+    <div class="user-card">
+        <div class="user-left">
+            <div class="avatar {% if row.user.role == 'agency' %}agency{% else %}seller{% endif %}">
+                {{ row.user.company_name|make_list|first|default:"?" }}
+            </div>
+            <div>
+                <div class="user-name">{{ row.user.company_name|default:row.user.username }}</div>
+                <div class="user-meta">
+                    <span class="role-tag {{ row.user.role }}">{{ row.user.get_role_display }}</span>
+                    {{ row.user.username }}{% if row.user.parent %} &middot; {{ row.user.parent.company_name|default:row.user.parent.username }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="user-right">
+            {% with configured=row.configured_count %}
+            {% if configured > 0 %}
+            <span class="price-count">{{ configured }}개 설정됨</span>
+            {% endif %}
+            {% endwith %}
+            <button class="btn-config" onclick="openModal({{ row.user.id }})">설정하기</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ── 모달 ── #}
+<div class="modal-backdrop" id="priceModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h6 id="modalTitle">단가 설정</h6>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" style="padding:16px 28px;border-top:1px solid #e9ecef;display:flex;justify-content:flex-end;gap:8px;background:#fff;border-radius:0 0 20px 20px">
+            <button class="btn-toss btn-toss-light" onclick="closeModal()">닫기</button>
+            <button class="btn-toss btn-toss-primary" id="btnSaveAll" onclick="saveAll()">
+                <i class="bi bi-check-lg"></i> 단가 설정 저장하기
+            </button>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="toss-card">
+    <div class="card-body text-center" style="padding:60px 20px">
+        <i class="bi bi-people" style="font-size:48px;color:var(--toss-gray-300)"></i>
+        <p style="color:var(--toss-gray-500);margin-top:16px">
+            등록된 업체가 없습니다. 먼저 업체를 등록해주세요.
+        </p>
+        <a href="{% url 'accounts:user_create' %}" class="btn-toss btn-toss-primary">업체 등록하기</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+// 매트릭스 데이터를 JS 객체로
+const matrixData = {};
+{% for row in matrix %}
+matrixData[{{ row.user.id }}] = {
+    name: "{{ row.user.company_name|default:row.user.username|escapejs }}",
+    prices: [
+        {% for item in row.prices %}
+        {
+            productId: {{ item.product.id }},
+            productName: "{{ item.product.name|escapejs }}",
+            categoryId: {{ item.product.category_id|default:'0' }},
+            basePrice: {{ item.product.base_price|floatformat:0 }},
+            defaultRate: {{ item.product.reduction_rate }},
+            price: {% if item.price != None %}{{ item.price }}{% else %}null{% endif %},
+            reductionRate: {% if item.reduction_rate != None %}{{ item.reduction_rate }}{% else %}null{% endif %}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+};
+{% endfor %}
+
+const categories = [
+    {% for cat in categories %}
+    { id: {{ cat.id }}, name: "{{ cat.name|escapejs }}" }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+let currentUserId = null;
+let currentCatId = null;
+
+function openModal(userId) {
+    currentUserId = userId;
+    const data = matrixData[userId];
+    document.getElementById('modalTitle').textContent = data.name + ' 단가 설정';
+
+    // 사용 중인 카테고리 파악
+    const usedCats = new Set(data.prices.map(p => p.categoryId));
+    const activeCats = categories.filter(c => usedCats.has(c.id));
+    if (usedCats.has(0)) activeCats.push({ id: 0, name: '미분류' });
+
+    let html = '';
+
+    // 탭
+    if (activeCats.length > 1) {
+        html += '<div class="cat-tabs">';
+        activeCats.forEach((cat, i) => {
+            html += `<button class="cat-tab ${i === 0 ? 'active' : ''}" data-cat-id="${cat.id}" onclick="switchModalTab(${cat.id})">${cat.name}</button>`;
+        });
+        html += '</div>';
+    }
+
+    // 상품 목록
+    data.prices.forEach(p => {
+        const priceVal = p.price !== null ? p.price : '';
+        const rateVal = p.reductionRate !== null ? p.reductionRate : '';
+        const priceEmpty = p.price === null ? 'empty' : '';
+        const rateEmpty = p.reductionRate === null ? 'empty' : '';
+
+        html += `
+        <div class="product-row" data-cat-id="${p.categoryId}">
+            <div class="product-name-col">
+                <div class="product-name">${p.productName}</div>
+                <div class="product-default">
+                    <span class="def-tag">${p.basePrice.toLocaleString()}원</span>
+                    <span class="def-tag">감은 ${p.defaultRate}%</span>
+                </div>
+            </div>
+            <div class="input-col">
+                <div class="input-group-inline">
+                    <span class="input-label">단가</span>
+                    <input type="number" class="price-input ${priceEmpty}"
+                           data-product-id="${p.productId}" data-user-id="${userId}"
+                           value="${priceVal}" placeholder="${p.basePrice.toLocaleString()}" min="0">
+                    <span class="input-suffix">원</span>
+                </div>
+                <div class="input-group-inline">
+                    <span class="input-label">감은</span>
+                    <input type="number" class="reduction-input ${rateEmpty}"
+                           data-product-id="${p.productId}" data-user-id="${userId}"
+                           value="${rateVal}" placeholder="${p.defaultRate}" min="0" max="100">
+                    <span class="input-suffix">%</span>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('modalBody').innerHTML = html;
+
+    // 인풋 이벤트 바인딩
+    document.querySelectorAll('#modalBody .price-input, #modalBody .reduction-input').forEach(input => {
+        input.addEventListener('focus', function() { this.select(); });
+    });
+
+    // 첫 탭 활성화
+    if (activeCats.length > 1) {
+        switchModalTab(activeCats[0].id);
+    }
+
+    document.getElementById('priceModal').classList.add('open');
+}
+
+function closeModal() {
+    document.getElementById('priceModal').classList.remove('open');
+    currentUserId = null;
+    // 카운트 업데이트
+    updateAllCounts();
+}
+
+function switchModalTab(catId) {
+    currentCatId = catId;
+    document.querySelectorAll('#modalBody .cat-tab').forEach(t => t.classList.remove('active'));
+    const activeTab = document.querySelector(`#modalBody .cat-tab[data-cat-id="${catId}"]`);
+    if (activeTab) activeTab.classList.add('active');
+    document.querySelectorAll('#modalBody .product-row').forEach(row => {
+        row.style.display = (row.dataset.catId == catId) ? '' : 'none';
+    });
+}
+
+
+
+function saveAll() {
+    const btn = document.getElementById('btnSaveAll');
+    const rows = document.querySelectorAll('#modalBody .product-row');
+    if (!rows.length) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 저장 중...';
+
+    const promises = [];
+    rows.forEach(row => {
+        const priceInput = row.querySelector('.price-input');
+        const reductionInput = row.querySelector('.reduction-input');
+        const productId = parseInt(priceInput.dataset.productId);
+        const userId = parseInt(priceInput.dataset.userId);
+        const price = priceInput.value.trim();
+        const reductionRate = reductionInput.value.trim();
+
+        const p = fetch('/products/prices/api/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({
+                product_id: productId,
+                user_id: userId,
+                price: price === '' ? null : parseInt(price),
+                reduction_rate: reductionRate === '' ? null : parseInt(reductionRate),
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'deleted') {
+                priceInput.classList.add('empty');
+                reductionInput.classList.add('empty');
+            } else {
+                priceInput.classList.toggle('empty', data.price == null);
+                reductionInput.classList.toggle('empty', data.reduction_rate == null);
+            }
+            priceInput.classList.add('saved');
+            reductionInput.classList.add('saved');
+            setTimeout(() => { priceInput.classList.remove('saved'); reductionInput.classList.remove('saved'); }, 800);
+
+            const item = matrixData[userId].prices.find(p => p.productId === productId);
+            if (item) {
+                item.price = data.price != null ? data.price : null;
+                item.reductionRate = data.reduction_rate != null ? data.reduction_rate : null;
+            }
+        });
+        promises.push(p);
+    });
+
+    Promise.all(promises)
+        .then(() => {
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> 저장 완료!';
+            btn.style.background = 'var(--toss-green)';
+            btn.style.borderColor = 'var(--toss-green)';
+            updateAllCounts();
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> 단가 설정 저장하기';
+                btn.style.background = '';
+                btn.style.borderColor = '';
+            }, 1500);
+        })
+        .catch(() => {
+            btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> 저장 실패';
+            btn.style.background = 'var(--toss-red)';
+            btn.style.borderColor = 'var(--toss-red)';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> 단가 설정 저장하기';
+                btn.style.background = '';
+                btn.style.borderColor = '';
+            }, 1500);
+        });
+}
+
+function updateAllCounts() {
+    document.querySelectorAll('.user-card').forEach((card, idx) => {
+        const btn = card.querySelector('.btn-config');
+        const userId = parseInt(btn.getAttribute('onclick').match(/\d+/)[0]);
+        const data = matrixData[userId];
+        if (!data) return;
+        const count = data.prices.filter(p => p.price !== null || p.reductionRate !== null).length;
+        let badge = card.querySelector('.price-count');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'price-count';
+                card.querySelector('.user-right').insertBefore(badge, btn);
+            }
+            badge.textContent = count + '개 설정됨';
+        } else if (badge) {
+            badge.remove();
+        }
+    });
+}
+
+// ESC로 모달 닫기
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+});
+// 백드롭 클릭으로 닫기
+document.getElementById('priceModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

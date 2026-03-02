@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>{% if is_edit %}공지사항 수정{% else %}공지사항 등록{% endif %}</h5>{% endblock %}
+
+{% block content %}
+<div class="toss-card" style="max-width:720px">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="toss-label">제목</label>
+                {{ form.title }}
+                {% if form.title.errors %}<div style="color:var(--toss-red);font-size:13px;margin-top:4px">{{ form.title.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="toss-label">내용</label>
+                {{ form.content }}
+                {% if form.content.errors %}<div style="color:var(--toss-red);font-size:13px;margin-top:4px">{{ form.content.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="d-flex gap-4 mb-4">
+                <div class="form-check">
+                    {{ form.is_pinned }}
+                    <label class="form-check-label" for="{{ form.is_pinned.id_for_label }}" style="font-size:14px;font-weight:500;color:var(--toss-gray-700)">상단 고정</label>
+                </div>
+                <div class="form-check">
+                    {{ form.is_active }}
+                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}" style="font-size:14px;font-weight:500;color:var(--toss-gray-700)">활성</label>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn-toss btn-toss-primary">{% if is_edit %}수정{% else %}등록{% endif %}</button>
+                <a href="{% url 'dashboard:notice_list' %}" class="btn-toss btn-toss-light">취소</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

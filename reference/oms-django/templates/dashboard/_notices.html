@@ -1,0 +1,38 @@
+{% if notices %}
+<div style="background:#fff;border:1px solid var(--toss-gray-200);border-radius:16px;margin-bottom:16px;overflow:hidden">
+    <div style="padding:14px 24px;border-bottom:1px solid var(--toss-gray-100);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="var b=this.parentElement.querySelector('.notice-body'),c=this.querySelector('.chevron');b.classList.toggle('d-none');c.style.transform=b.classList.contains('d-none')?'rotate(-90deg)':''">
+        <span style="font-size:15px;font-weight:700;color:var(--toss-gray-900);display:flex;align-items:center;gap:8px">
+            <i class="bi bi-megaphone-fill" style="color:var(--toss-blue)"></i> 공지사항
+        </span>
+        <i class="bi bi-chevron-down chevron" style="font-size:12px;color:var(--toss-gray-400);transition:transform .2s"></i>
+    </div>
+    <div class="notice-body">
+        {% for notice in notices %}
+        <a href="#" style="display:flex;align-items:center;gap:10px;padding:14px 24px;text-decoration:none;{% if not forloop.last %}border-bottom:1px solid var(--toss-gray-50);{% endif %}transition:background .1s" onmouseover="this.style.background='var(--toss-gray-50)'" onmouseout="this.style.background=''" onclick="event.preventDefault();document.getElementById('noticeModalTitle').textContent='{{ notice.title|escapejs }}';document.getElementById('noticeModalDate').textContent='{{ notice.created_at|date:"Y.m.d H:i" }}';document.getElementById('noticeModalBody').innerHTML=`{{ notice.content|escape|escapejs }}`;document.getElementById('noticeModalPinned').style.display='{% if notice.is_pinned %}inline-flex{% else %}none{% endif %}';new bootstrap.Modal(document.getElementById('noticeModal')).show()">
+            {% if notice.is_pinned %}<span class="toss-badge orange" style="font-size:11px;flex-shrink:0">고정</span>{% endif %}
+            <span style="font-weight:600;font-size:14px;color:var(--toss-gray-800);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ notice.title }}</span>
+            <span style="font-size:12px;color:var(--toss-gray-400);flex-shrink:0">{{ notice.created_at|date:"Y.m.d" }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 공지사항 상세 모달 -->
+<div class="modal fade" id="noticeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:600px">
+        <div class="modal-content" style="border:none;border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.12)">
+            <div class="modal-header" style="border-bottom:1px solid var(--toss-gray-100);padding:20px 24px">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span id="noticeModalPinned" class="toss-badge orange" style="font-size:11px;display:none">고정</span>
+                        <h6 id="noticeModalTitle" style="margin:0;font-weight:700;font-size:16px;color:var(--toss-gray-900)"></h6>
+                    </div>
+                    <div id="noticeModalDate" style="font-size:12px;color:var(--toss-gray-400)"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div id="noticeModalBody" class="modal-body" style="padding:24px;font-size:15px;line-height:1.8;color:var(--toss-gray-800);max-height:60vh;overflow-y:auto"></div>
+        </div>
+    </div>
+</div>
+{% endif %}

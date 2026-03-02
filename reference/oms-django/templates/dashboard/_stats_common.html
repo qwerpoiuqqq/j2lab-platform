@@ -1,0 +1,52 @@
+{% load humanize %}
+<!-- 주문 현황 -->
+<div style="background:#fff;border:1px solid var(--toss-gray-200);border-radius:16px;margin-bottom:16px;overflow:hidden">
+    <div style="padding:16px 24px;font-size:15px;font-weight:700;color:var(--toss-gray-900);border-bottom:1px solid var(--toss-gray-100);display:flex;align-items:center;gap:8px">
+        <i class="bi bi-bar-chart-line" style="color:var(--toss-blue)"></i> 주문 현황
+    </div>
+    <div style="padding:20px 24px">
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-4">
+                <div style="background:var(--toss-gray-50);border-radius:12px;padding:16px 18px;border-left:4px solid var(--toss-blue)">
+                    <div style="font-size:12px;font-weight:500;color:var(--toss-gray-400);margin-bottom:4px">접수완료</div>
+                    <div style="font-size:22px;font-weight:800;color:var(--toss-blue)">{{ status_submitted }}<span style="font-size:13px;font-weight:500;color:var(--toss-gray-400);margin-left:2px">건</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div style="background:var(--toss-gray-50);border-radius:12px;padding:16px 18px;border-left:4px solid #f59e0b">
+                    <div style="font-size:12px;font-weight:500;color:var(--toss-gray-400);margin-bottom:4px">작업중</div>
+                    <div style="font-size:22px;font-weight:800;color:#f59e0b">{{ status_processing }}<span style="font-size:13px;font-weight:500;color:var(--toss-gray-400);margin-left:2px">건</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div style="background:var(--toss-gray-50);border-radius:12px;padding:16px 18px;border-left:4px solid var(--toss-green)">
+                    <div style="font-size:12px;font-weight:500;color:var(--toss-gray-400);margin-bottom:4px">완료</div>
+                    <div style="font-size:22px;font-weight:800;color:var(--toss-green)">{{ status_completed }}<span style="font-size:13px;font-weight:500;color:var(--toss-gray-400);margin-left:2px">건</span></div>
+                </div>
+            </div>
+        </div>
+        <div style="border-top:1px solid var(--toss-gray-100);padding-top:16px">
+            <div style="font-size:12px;font-weight:600;color:var(--toss-gray-400);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">물량 통계</div>
+            <div class="row g-3">
+                <div class="col-6">
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--toss-gray-50);border-radius:10px">
+                        <i class="bi bi-calendar3" style="font-size:18px;color:var(--toss-blue)"></i>
+                        <div>
+                            <div style="font-size:11px;font-weight:500;color:var(--toss-gray-400)">{{ period_label }}</div>
+                            <div style="font-size:18px;font-weight:800;color:var(--toss-gray-900)">{{ period_items|floatformat:0|intcomma }}<span style="font-size:12px;font-weight:500;color:var(--toss-gray-400);margin-left:2px">타</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--toss-gray-50);border-radius:10px">
+                        <i class="bi bi-graph-up-arrow" style="font-size:18px;color:var(--toss-green)"></i>
+                        <div>
+                            <div style="font-size:11px;font-weight:500;color:var(--toss-gray-400)">누적</div>
+                            <div style="font-size:18px;font-weight:800;color:var(--toss-gray-900)">{{ total_items|floatformat:0|intcomma }}<span style="font-size:12px;font-weight:500;color:var(--toss-gray-400);margin-left:2px">타</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

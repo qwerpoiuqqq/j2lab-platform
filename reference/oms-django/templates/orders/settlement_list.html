@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block page_title %}<h5>정산 내역</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .period-btn {
+        padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+        border: 1px solid var(--toss-gray-200); background: #fff; color: var(--toss-gray-600);
+        cursor: pointer; transition: all 0.15s;
+    }
+    .period-btn:hover { border-color: var(--toss-blue); color: var(--toss-blue); }
+    .period-btn.active { background: var(--toss-blue); color: #fff; border-color: var(--toss-blue); }
+    .toss-pagination {
+        display: flex; align-items: center; justify-content: center;
+        gap: 4px; margin-top: 20px;
+    }
+    .toss-pagination a, .toss-pagination span {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border-radius: 10px;
+        font-size: 14px; font-weight: 500;
+        text-decoration: none; color: var(--toss-gray-600);
+        transition: all 0.15s;
+    }
+    .toss-pagination a:hover { background: var(--toss-gray-100); }
+    .toss-pagination .active {
+        background: var(--toss-blue); color: #fff; font-weight: 700;
+    }
+    .toss-pagination .nav-btn {
+        width: auto; padding: 0 14px;
+        font-size: 13px; font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 요약 카드 -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">정산 건수</div>
+            <div class="stat-value">{{ summary.total_count|default:0 }}건</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">정산 총액</div>
+            <div class="stat-value" style="color:var(--toss-blue)">{{ summary.total_amount|default:0|floatformat:0|intcomma }}원</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card" style="display:flex;align-items:center;justify-content:center">
+            <a href="?{{ request.GET.urlencode }}&export=excel" class="btn-toss btn-toss-light">
+                <i class="bi bi-download"></i> 엑셀 다운로드
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 필터 -->
+<div class="toss-card mb-4">
+    <div class="card-body">
+        <form method="get" class="filter-bar">
+            <button type="submit" name="period" value="month" class="period-btn {% if period == 'month' and not date_from %}active{% endif %}">이번 달</button>
+            <button type="submit" name="period" value="all" class="period-btn {% if period == 'all' or date_from %}active{% endif %}">전체</button>
+            <span style="color:var(--toss-gray-300)">|</span>
+            <input type="date" name="date_from" value="{{ date_from }}" class="toss-input" style="width:160px" placeholder="시작일">
+            <span style="color:var(--toss-gray-400);font-size:13px">~</span>
+            <input type="date" name="date_to" value="{{ date_to }}" class="toss-input" style="width:160px" placeholder="종료일">
+            <button type="submit" name="period" value="all" class="btn-toss btn-toss-primary btn-toss-sm">조회</button>
+        </form>
+    </div>
+</div>
+
+<!-- 정산 테이블 -->
+<div class="toss-card">
+    <div style="overflow-x:auto">
+        <table class="toss-table">
+            <thead>
+                <tr>
+                    <th>업체</th>
+                    <th>주문번호</th>
+                    <th>상품</th>
+                    <th>건수</th>
+                    <th>금액</th>
+                    <th>승인일</th>
+                    <th>승인자</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.user.company_name|default:order.user.username }}</td>
+                    <td>
+                        <a href="{% url 'orders:order_detail' order.pk %}" style="color:var(--toss-blue);font-weight:600;text-decoration:none">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td>{{ order.product.name }}</td>
+                    <td style="font-weight:600">{{ order.item_count }}건</td>
+                    <td style="font-weight:700;color:var(--toss-gray-900)">{{ order.total_amount|floatformat:0|intcomma }}원</td>
+                    <td style="color:var(--toss-gray-500)">
+                        {% if order.confirmed_at %}
+                            {{ order.confirmed_at|date:"m/d H:i" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--toss-gray-600)">
+                        {% if order.confirmed_by %}
+                            {{ order.confirmed_by.company_name|default:order.confirmed_by.username }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="toss-badge {% if order.status == 'paid' %}blue{% elif order.status == 'processing' %}orange{% elif order.status == 'completed' %}green{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center;padding:48px;color:var(--toss-gray-400)">
+                        정산 내역이 없습니다
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if orders.has_other_pages %}
+<div class="toss-pagination">
+    {% if orders.has_previous %}
+    <a href="?page={{ orders.previous_page_number }}&period={{ period }}&date_from={{ date_from }}&date_to={{ date_to }}" class="nav-btn">이전</a>
+    {% endif %}
+    {% for num in orders.paginator.page_range %}
+    {% if orders.number == num %}
+    <span class="active">{{ num }}</span>
+    {% else %}
+    <a href="?page={{ num }}&period={{ period }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ num }}</a>
+    {% endif %}
+    {% endfor %}
+    {% if orders.has_next %}
+    <a href="?page={{ orders.next_page_number }}&period={{ period }}&date_from={{ date_from }}&date_to={{ date_to }}" class="nav-btn">다음</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

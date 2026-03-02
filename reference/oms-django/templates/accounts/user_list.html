@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>업체 관리</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-tree { display: flex; flex-direction: column; gap: 12px; }
+    .tree-group {
+        background: #fff; border-radius: 16px;
+        border: 1px solid var(--toss-gray-100);
+        overflow: hidden;
+    }
+    .tree-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 20px; gap: 12px;
+        border-bottom: 1px solid var(--toss-gray-50);
+        transition: background 0.1s;
+    }
+    .tree-item:last-child { border-bottom: none; }
+    .tree-item:hover { background: var(--toss-gray-50); }
+    .tree-item.depth-1 { padding-left: 40px; }
+    .tree-item.depth-2 { padding-left: 60px; }
+
+    .tree-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .tree-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 12px; flex-shrink: 0;
+    }
+    .avatar.admin { background: #fce7f3; color: #be185d; }
+    .avatar.accountant { background: #ede9fe; color: #7c3aed; }
+    .avatar.manager { background: #fef3c7; color: #d97706; }
+    .avatar.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .avatar.seller { background: #e6f9f1; color: var(--toss-green); }
+
+    .user-name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); white-space: nowrap; }
+    .user-detail { font-size: 12px; color: var(--toss-gray-400); white-space: nowrap; }
+
+    .role-tag {
+        display: inline-block; padding: 2px 8px; border-radius: 10px;
+        font-size: 11px; font-weight: 600; flex-shrink: 0;
+    }
+    .role-tag.admin { background: #fce7f3; color: #be185d; }
+    .role-tag.accountant { background: #ede9fe; color: #7c3aed; }
+    .role-tag.manager { background: #fef3c7; color: #d97706; }
+    .role-tag.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .role-tag.seller { background: #e6f9f1; color: var(--toss-green); }
+
+    .status-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.active { background: var(--toss-green); }
+    .status-dot.inactive { background: var(--toss-gray-300); }
+
+    .btn-edit {
+        padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+        color: var(--toss-gray-500); background: var(--toss-gray-50);
+        border: 1px solid var(--toss-gray-100); cursor: pointer;
+        text-decoration: none; transition: all 0.15s;
+    }
+    .btn-edit:hover { background: var(--toss-gray-100); color: var(--toss-gray-700); }
+
+    .section-label {
+        font-size: 12px; font-weight: 600; color: var(--toss-gray-400);
+        letter-spacing: 0.03em; margin: 24px 0 8px; padding-left: 4px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    .tree-line {
+        color: var(--toss-gray-300); font-size: 11px; margin-right: 2px;
+    }
+    .count-badge {
+        font-size: 11px; color: var(--toss-gray-400); font-weight: 400;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <p style="font-size:14px;color:var(--toss-gray-500);margin:0">
+        {% if request.user.is_admin or request.user.is_accountant %}
+        업체 계정을 관리합니다. 단가는 <a href="{% url 'products:price_matrix' %}" style="color:var(--toss-blue);font-weight:600">단가 설정</a>에서 관리하세요.
+        {% elif request.user.is_manager %}
+        소속 대행사 및 셀러 목록
+        {% else %}
+        소속 셀러 {{ sellers|length }}개
+        {% endif %}
+    </p>
+    <a href="{% url 'accounts:user_create' %}" class="btn-toss btn-toss-primary btn-toss-sm">
+        <i class="bi bi-plus-lg"></i> 업체 추가
+    </a>
+</div>
+
+{% if request.user.is_admin or request.user.is_accountant %}
+
+<div class="user-tree">
+
+    {# ── 총관리자 ── #}
+    {% for row in admin_rows %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar admin">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag admin">총관리자</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.first_name %} &middot; {{ row.user.first_name }}{% endif %}</span>
+                {% if row.sellers %}<span class="count-badge">셀러 {{ row.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}" title="{% if row.user.is_active %}활성{% else %}비활성{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for ar in row.accountants %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last and not row.sellers %}└{% else %}├{% endif %}</span>
+                <div class="avatar accountant">{{ ar.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ ar.user.company_name|default:ar.user.username }}</span>
+                <span class="role-tag accountant">경리</span>
+                <span class="user-detail">{{ ar.user.username }}{% if ar.user.first_name %} &middot; {{ ar.user.first_name }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if ar.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' ar.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% for sr in row.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ sr.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ sr.user.company_name|default:sr.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ sr.user.username }}{% if sr.user.phone %} &middot; {{ sr.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if sr.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' sr.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {# ── 책임자 그룹 ── #}
+    {% for mg in manager_groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar manager">{{ mg.manager.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ mg.manager.company_name|default:mg.manager.username }}</span>
+                <span class="role-tag manager">책임자</span>
+                <span class="user-detail">{{ mg.manager.username }}{% if mg.manager.first_name %} &middot; {{ mg.manager.first_name }}{% endif %}</span>
+                {% if mg.agencies %}<span class="count-badge">대행사 {{ mg.agencies|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if mg.manager.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' mg.manager.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for ag in mg.agencies %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last and not ag.sellers %}└{% else %}├{% endif %}</span>
+                <div class="avatar agency">{{ ag.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ ag.agency.company_name|default:ag.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ ag.agency.username }}</span>
+                {% if ag.sellers %}<span class="count-badge">셀러 {{ ag.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if ag.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' ag.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in ag.sellers %}
+        <div class="tree-item depth-2">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {# ── 책임자 미배정 대행사 ── #}
+    {% if groups %}
+    <div class="section-label">책임자 미배정 대행사</div>
+    {% for group in groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ group.agency.company_name|default:group.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ group.agency.username }}</span>
+                {% if group.sellers %}<span class="count-badge">셀러 {{ group.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if group.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in group.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ── 소속 없는 셀러 ── #}
+    {% if indie_sellers %}
+    <div class="section-label">소속 없는 셀러</div>
+    <div class="tree-group">
+        {% for row in indie_sellers %}
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not admin_rows and not manager_groups and not groups and not indie_sellers %}
+    <div class="tree-group" style="padding:60px 20px;text-align:center">
+        <i class="bi bi-people" style="font-size:36px;color:var(--toss-gray-300);display:block;margin-bottom:12px"></i>
+        <p style="color:var(--toss-gray-400);margin:0">등록된 업체가 없습니다</p>
+    </div>
+    {% endif %}
+
+</div>
+
+{% elif request.user.is_manager %}
+{# ── 책임자: 대행사→셀러 2단계 트리 ── #}
+<div class="user-tree">
+    {% for group in manager_view_groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ group.agency.company_name|default:group.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ group.agency.username }}{% if group.agency.phone %} &middot; {{ group.agency.phone }}{% endif %}</span>
+                {% if group.sellers %}<span class="count-badge">셀러 {{ group.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if group.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in group.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% empty %}
+    <div class="tree-group" style="padding:48px 20px;text-align:center">
+        <p style="color:var(--toss-gray-400);margin:0">소속 대행사가 없습니다</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+{# ── 대행사: 소속 셀러 목록 ── #}
+<div class="user-tree">
+    <div class="tree-group">
+        {% for u in sellers %}
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar seller">{{ u.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ u.company_name|default:"-" }}</span>
+                <span class="user-detail">{{ u.username }}{% if u.phone %} &middot; {{ u.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if u.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' u.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% empty %}
+        <div style="padding:48px 20px;text-align:center;color:var(--toss-gray-400)">소속 셀러가 없습니다</div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

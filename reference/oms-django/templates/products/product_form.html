@@ -1,0 +1,624 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>{{ title }}</h5>{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<style>
+    /* Quill 에디터 */
+    #quillEditor {
+        background: #fff;
+        border: 1px solid var(--toss-gray-200);
+        border-top: none;
+        border-radius: 0 0 10px 10px;
+        min-height: 120px;
+        font-size: 14px;
+    }
+    #quillEditor .ql-editor { min-height: 120px; line-height: 1.7; }
+    .ql-toolbar.ql-snow {
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 10px 10px 0 0;
+        background: var(--toss-gray-50);
+    }
+    /* 스프레드시트 미리보기 */
+    .sheet-preview {
+        overflow-x: auto; padding: 4px;
+    }
+    .sheet-table {
+        border-collapse: collapse; width: max-content; min-width: 100%;
+    }
+    .sheet-table th {
+        background: #4472C4; color: #fff;
+        font-size: 13px; font-weight: 600;
+        padding: 10px 16px; text-align: center;
+        border: 1px solid #3a62a8;
+        white-space: nowrap; min-width: 120px;
+        position: relative; cursor: pointer;
+        transition: background 0.15s;
+    }
+    .sheet-table th:hover { background: #3a62a8; }
+    .sheet-table th.selected { background: #2b5298; box-shadow: inset 0 -3px 0 #ffc107; }
+    .sheet-table th .required-dot {
+        display: inline-block; width: 6px; height: 6px;
+        background: #ffc107; border-radius: 50%; margin-left: 4px; vertical-align: middle;
+    }
+    .sheet-table th .type-tag {
+        display: block; font-size: 10px; font-weight: 400;
+        opacity: 0.75; margin-top: 2px;
+    }
+    .sheet-table td {
+        background: #fff; border: 1px solid var(--toss-gray-200);
+        padding: 8px 16px; font-size: 13px; color: var(--toss-gray-400);
+        text-align: center; min-width: 120px;
+    }
+    .sheet-add-col {
+        background: var(--toss-gray-50) !important;
+        border: 1px dashed var(--toss-gray-300) !important;
+        cursor: pointer; color: var(--toss-gray-400) !important;
+        font-size: 20px !important; font-weight: 300 !important;
+        transition: all 0.15s; min-width: 60px !important;
+    }
+    .sheet-add-col:hover {
+        background: var(--toss-blue-light) !important;
+        color: var(--toss-blue) !important;
+        border-color: var(--toss-blue) !important;
+    }
+
+    /* 필드 편집 패널 */
+    .field-editor {
+        background: var(--toss-gray-50);
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 12px; padding: 16px;
+        margin-top: 16px;
+    }
+    .field-editor .fe-label {
+        font-size: 12px; font-weight: 600;
+        color: var(--toss-gray-500); margin-bottom: 4px;
+    }
+    .field-editor .fe-input {
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 8px; padding: 7px 10px;
+        font-size: 13px; width: 100%;
+        transition: border-color 0.15s;
+    }
+    .field-editor .fe-input:focus {
+        border-color: var(--toss-blue);
+        box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+        outline: none;
+    }
+    .field-editor .fe-select {
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 8px; padding: 7px 10px;
+        font-size: 13px; width: 100%;
+    }
+
+    .move-btn {
+        width: 28px; height: 28px; border-radius: 6px;
+        border: 1px solid var(--toss-gray-200); background: #fff;
+        cursor: pointer; display: inline-flex;
+        align-items: center; justify-content: center;
+        font-size: 14px; color: var(--toss-gray-500);
+        transition: all 0.15s;
+    }
+    .move-btn:hover { background: var(--toss-gray-100); color: var(--toss-gray-800); }
+    .move-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .color-preset {
+        width: 18px; height: 18px; border-radius: 4px;
+        cursor: pointer; border: 2px solid transparent;
+        transition: all 0.12s; display: inline-block;
+    }
+    .color-preset:hover { transform: scale(1.2); }
+    .color-preset.active { border-color: var(--toss-gray-900); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="toss-card">
+            <div class="card-header">기본 정보</div>
+            <div class="card-body">
+                <form method="post" id="productForm">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    {% if field.name == 'schema_text' %}
+                    {{ field }}
+                    {% elif field.name == 'description' %}
+                    <div style="margin-bottom:18px">
+                        <label class="toss-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        <div id="quillEditor"></div>
+                        <textarea name="description" id="id_description" style="display:none">{{ field.value|default_if_none:"" }}</textarea>
+                        {% if field.errors %}<div style="color:var(--toss-red);font-size:12px;margin-top:4px">{{ field.errors.0 }}</div>{% endif %}
+                    </div>
+                    {% elif field.field.widget.input_type == 'checkbox' %}
+                    <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px">
+                        {{ field }}
+                        <label for="{{ field.id_for_label }}" style="font-size:14px;font-weight:500;color:var(--toss-gray-700);cursor:pointer">{{ field.label }}</label>
+                    </div>
+                    {% else %}
+                    <div style="margin-bottom:18px">
+                        <label class="toss-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div style="color:var(--toss-red);font-size:12px;margin-top:4px">{{ field.errors.0 }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <div class="d-flex gap-2" style="margin-top:24px">
+                        <button type="submit" class="btn-toss btn-toss-primary">저장</button>
+                        <a href="{% url 'products:product_list' %}" class="btn-toss btn-toss-light" style="text-decoration:none">취소</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 가격 설정 카드 -->
+        <div class="toss-card mt-4">
+            <div class="card-header">
+                <i class="bi bi-calculator" style="color:var(--toss-blue)"></i> 가격 설정
+            </div>
+            <div class="card-body">
+                <div style="margin-bottom:16px">
+                    <label class="toss-label">수량 기준 필드</label>
+                    <select id="quantityFieldSelect" class="toss-select w-100" onchange="updateQuantityField()">
+                        <option value="">선택 안 함 (슬롯 수 = 수량)</option>
+                    </select>
+                    <div style="font-size:11px;color:var(--toss-gray-400);margin-top:4px">
+                        이 필드의 값이 가격 계산의 수량이 됩니다
+                    </div>
+                </div>
+                <div id="pricingPreview" style="background:var(--toss-gray-50);border-radius:10px;padding:14px 16px">
+                    <div style="font-size:12px;color:var(--toss-gray-500);margin-bottom:8px;font-weight:600">가격 공식</div>
+                    <div id="pricingFormula" style="font-size:14px;color:var(--toss-gray-800);line-height:1.8"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="toss-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>접수 양식 미리보기</span>
+                <span style="font-size:12px;color:var(--toss-gray-400)">열 클릭으로 편집</span>
+            </div>
+            <div class="card-body">
+                <div class="sheet-preview">
+                    <table class="sheet-table" id="sheetTable">
+                        <thead><tr id="sheetHead"></tr></thead>
+                        <tbody>
+                            <tr id="sheetSample1"></tr>
+                            <tr id="sheetSample2"></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 필드 편집 패널 -->
+                <div class="field-editor" id="fieldEditor" style="display:none">
+                    <div class="d-flex justify-content-between align-items-center" style="margin-bottom:12px">
+                        <span style="font-size:14px;font-weight:700;color:var(--toss-gray-800)">
+                            <i class="bi bi-pencil-square" style="color:var(--toss-blue)"></i>
+                            <span id="editorTitle">필드 편집</span>
+                        </span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="move-btn" id="moveLeftBtn" onclick="moveField(-1)" title="왼쪽으로"><i class="bi bi-chevron-left"></i></button>
+                            <button type="button" class="move-btn" id="moveRightBtn" onclick="moveField(1)" title="오른쪽으로"><i class="bi bi-chevron-right"></i></button>
+                            <button type="button" class="move-btn" onclick="removeField()" title="삭제" style="color:var(--toss-red);border-color:#fdd"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="fe-label">열 이름</div>
+                            <input type="text" class="fe-input" id="feFieldLabel" placeholder="예: 플레이스명" oninput="updateCurrentField()">
+                        </div>
+                        <div class="col-3">
+                            <div class="fe-label">타입</div>
+                            <select class="fe-select" id="feFieldType" onchange="updateCurrentField()">
+                                <option value="text">텍스트</option>
+                                <option value="url">URL</option>
+                                <option value="number">숫자</option>
+                                <option value="date">날짜</option>
+                                <option value="calc">자동계산 (숫자)</option>
+                                <option value="date_calc">자동계산 (날짜)</option>
+                                <option value="select">선택</option>
+                                <option value="readonly">설명 (입력불가)</option>
+                            </select>
+                        </div>
+                        <div class="col-3" id="feRequiredWrap">
+                            <div class="fe-label">필수 여부</div>
+                            <select class="fe-select" id="feFieldRequired" onchange="updateCurrentField()">
+                                <option value="true">필수</option>
+                                <option value="false">선택사항</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <div class="fe-label">헤더 색상</div>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <input type="color" id="feFieldColor" value="#4472C4" onchange="updateCurrentField()"
+                                       style="width:36px;height:32px;border:1px solid var(--toss-gray-200);border-radius:6px;padding:2px;cursor:pointer">
+                                <div id="feColorPresets" style="display:flex;gap:3px;flex-wrap:wrap">
+                                    <span class="color-preset" data-color="#4472C4" style="background:#4472C4" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#00B050" style="background:#00B050" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#FFC000" style="background:#FFC000" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#FF6B35" style="background:#FF6B35" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#C00000" style="background:#C00000" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#7030A0" style="background:#7030A0" onclick="pickColor(this)"></span>
+                                    <span class="color-preset" data-color="#333D4B" style="background:#333D4B" onclick="pickColor(this)"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6" id="feSampleWrap">
+                            <div class="fe-label">샘플 텍스트</div>
+                            <input type="text" class="fe-input" id="feFieldSample" placeholder="미리보기에 표시될 예시 값" oninput="updateCurrentField()">
+                        </div>
+                        <div class="col-3" id="feOptionsWrap" style="display:none">
+                            <div class="fe-label">선택 옵션</div>
+                            <input type="text" class="fe-input" id="feFieldOptions" placeholder="콤마 구분" oninput="updateCurrentField()">
+                        </div>
+                        <div class="col-12" id="feDescWrap" style="display:none">
+                            <div class="fe-label">설명 내용 (주문자에게 표시)</div>
+                            <textarea class="fe-input" id="feFieldDesc" rows="2" placeholder="예: 5위 이내 키워드 최대 5개까지 작성 부탁드립니다" oninput="updateCurrentField()"></textarea>
+                        </div>
+                        <div class="col-12" id="feCalcWrap" style="display:none">
+                            <div class="fe-label">수식 설정</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <select class="fe-select" id="feCalcFieldA" onchange="updateCurrentField()" style="flex:1"></select>
+                                <select class="fe-select" id="feCalcOp" onchange="updateCurrentField()" style="width:60px;text-align:center">
+                                    <option value="*">&times;</option>
+                                    <option value="+">+</option>
+                                    <option value="-">−</option>
+                                    <option value="/">&divide;</option>
+                                </select>
+                                <select class="fe-select" id="feCalcFieldB" onchange="updateCurrentField()" style="flex:1"></select>
+                            </div>
+                            <div style="margin-top:6px;font-size:11px;color:var(--toss-gray-400)">
+                                숫자 타입 필드끼리 연산합니다. 주문자가 값을 입력하면 자동 계산됩니다.
+                            </div>
+                        </div>
+                        <div class="col-12" id="feDateCalcWrap" style="display:none">
+                            <div class="fe-label">날짜 계산 설정</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <select class="fe-select" id="feDateCalcDate" onchange="updateCurrentField()" style="flex:1"></select>
+                                <span style="font-size:13px;color:var(--toss-gray-500);white-space:nowrap">+</span>
+                                <select class="fe-select" id="feDateCalcDays" onchange="updateCurrentField()" style="flex:1"></select>
+                                <span style="font-size:13px;color:var(--toss-gray-500);white-space:nowrap">− 1일</span>
+                            </div>
+                            <div style="margin-top:6px;font-size:11px;color:var(--toss-gray-400)">
+                                시작일 + 작업일 수 − 1 = 마감일 (시작일 포함)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let schema = [];
+let selectedIdx = -1;
+
+try {
+    const raw = document.getElementById('id_schema_text').value;
+    schema = raw ? JSON.parse(raw) : [];
+} catch(e) { schema = []; }
+
+const TYPE_LABELS = {text: '텍스트', url: 'URL', number: '숫자', date: '날짜', calc: '자동계산', date_calc: '날짜계산', select: '선택', readonly: '설명'};
+const OP_LABELS = {'*': '×', '+': '+', '-': '−', '/': '÷'};
+const SAMPLE_VALUES = {
+    text: ['샘플 텍스트', '데이터 입력'],
+    url: ['https://example.com', 'https://...'],
+    number: ['100', '50'],
+    date: ['2026-02-15', '2026-03-01'],
+    select: null, // uses options
+};
+
+function renderSheet() {
+    const head = document.getElementById('sheetHead');
+    const row1 = document.getElementById('sheetSample1');
+    const row2 = document.getElementById('sheetSample2');
+
+    let thHtml = '';
+    let td1Html = '';
+    let td2Html = '';
+
+    schema.forEach((field, idx) => {
+        const sel = idx === selectedIdx ? ' selected' : '';
+        const reqDot = field.required ? '<span class="required-dot"></span>' : '';
+        const bgColor = field.color || '#4472C4';
+        const borderColor = darkenColor(bgColor, 0.15);
+        thHtml += `<th class="${sel}" onclick="selectField(${idx})" style="background:${sel ? darkenColor(bgColor, 0.2) : bgColor};border-color:${borderColor}">
+            ${field.label || field.name || '(이름없음)'}${reqDot}
+            <span class="type-tag">${TYPE_LABELS[field.type] || field.type}</span>
+        </th>`;
+
+        let s1 = '', s2 = '';
+        if (field.type === 'readonly') {
+            const desc = field.description || '설명 텍스트';
+            td1Html += `<td style="background:var(--toss-gray-50);color:var(--toss-gray-500);font-size:12px;font-style:italic">${desc}</td>`;
+            td2Html += `<td style="background:var(--toss-gray-50);color:var(--toss-gray-500);font-size:12px;font-style:italic">${desc}</td>`;
+        } else if (field.type === 'calc') {
+            const fa = field.formula || {};
+            const opLabel = OP_LABELS[fa.operator] || '×';
+            const aField = schema.find(f => f.name === fa.fieldA);
+            const bField = schema.find(f => f.name === fa.fieldB);
+            const hint = (aField ? aField.label : '?') + ' ' + opLabel + ' ' + (bField ? bField.label : '?');
+            td1Html += `<td style="background:#eff6ff;color:var(--toss-blue);font-size:12px;font-weight:600">= ${hint}</td>`;
+            td2Html += `<td style="background:#eff6ff;color:var(--toss-blue);font-size:12px;font-weight:600">= 자동계산</td>`;
+        } else if (field.type === 'date_calc') {
+            const fa = field.formula || {};
+            const dateF = schema.find(f => f.name === fa.dateField);
+            const daysF = schema.find(f => f.name === fa.daysField);
+            const hint = (dateF ? dateF.label : '?') + ' + ' + (daysF ? daysF.label : '?') + ' − 1';
+            td1Html += `<td style="background:#eff6ff;color:var(--toss-blue);font-size:12px;font-weight:600">= ${hint}</td>`;
+            td2Html += `<td style="background:#eff6ff;color:var(--toss-blue);font-size:12px;font-weight:600">= 자동계산</td>`;
+        } else {
+            if (field.sample) {
+                s1 = field.sample;
+                s2 = field.sample;
+            } else if (field.type === 'select' && field.options && field.options.length) {
+                s1 = field.options[0] || '';
+                s2 = field.options[Math.min(1, field.options.length - 1)] || '';
+            } else {
+                const sv = SAMPLE_VALUES[field.type] || SAMPLE_VALUES.text;
+                s1 = sv[0]; s2 = sv[1];
+            }
+            td1Html += `<td>${s1}</td>`;
+            td2Html += `<td>${s2}</td>`;
+        }
+    });
+
+    // + 열 추가 버튼
+    thHtml += `<th class="sheet-add-col" onclick="addField()">+</th>`;
+    td1Html += `<td class="sheet-add-col" onclick="addField()" style="font-size:12px !important">열 추가</td>`;
+    td2Html += `<td class="sheet-add-col" onclick="addField()"></td>`;
+
+    head.innerHTML = thHtml;
+    row1.innerHTML = td1Html;
+    row2.innerHTML = td2Html;
+
+    document.getElementById('id_schema_text').value = JSON.stringify(schema);
+    if (document.getElementById('quantityFieldSelect')) refreshQuantityDropdown();
+}
+
+function selectField(idx) {
+    selectedIdx = idx;
+    const field = schema[idx];
+    document.getElementById('feFieldLabel').value = field.label || '';
+    document.getElementById('feFieldType').value = field.type || 'text';
+    document.getElementById('feFieldRequired').value = field.required ? 'true' : 'false';
+    document.getElementById('feFieldOptions').value = (field.options || []).join(', ');
+    document.getElementById('feFieldColor').value = field.color || '#4472C4';
+    document.getElementById('feFieldDesc').value = field.description || '';
+    document.getElementById('feFieldSample').value = field.sample || '';
+    updatePresetActive(field.color || '#4472C4');
+    const hideInput = field.type === 'readonly' || field.type === 'calc' || field.type === 'date_calc';
+    document.getElementById('feOptionsWrap').style.display = field.type === 'select' ? '' : 'none';
+    document.getElementById('feDescWrap').style.display = field.type === 'readonly' ? '' : 'none';
+    document.getElementById('feRequiredWrap').style.display = hideInput ? 'none' : '';
+    document.getElementById('feSampleWrap').style.display = hideInput ? 'none' : '';
+    document.getElementById('feCalcWrap').style.display = field.type === 'calc' ? '' : 'none';
+    document.getElementById('feDateCalcWrap').style.display = field.type === 'date_calc' ? '' : 'none';
+    if (field.type === 'calc') populateCalcDropdowns(idx, field.formula || {});
+    if (field.type === 'date_calc') populateDateCalcDropdowns(idx, field.formula || {});
+    document.getElementById('editorTitle').textContent = `"${field.label || field.name || '새 필드'}" 편집`;
+    document.getElementById('fieldEditor').style.display = '';
+    document.getElementById('moveLeftBtn').disabled = idx === 0;
+    document.getElementById('moveRightBtn').disabled = idx === schema.length - 1;
+    renderSheet();
+}
+
+function updateCurrentField() {
+    if (selectedIdx < 0 || selectedIdx >= schema.length) return;
+    const f = schema[selectedIdx];
+    f.label = document.getElementById('feFieldLabel').value.trim();
+    f.name = labelToName(f.label);
+    f.type = document.getElementById('feFieldType').value;
+    f.required = document.getElementById('feFieldRequired').value === 'true';
+    f.color = document.getElementById('feFieldColor').value;
+    updatePresetActive(f.color);
+    const hideInput = f.type === 'readonly' || f.type === 'calc' || f.type === 'date_calc';
+    document.getElementById('feOptionsWrap').style.display = f.type === 'select' ? '' : 'none';
+    document.getElementById('feDescWrap').style.display = f.type === 'readonly' ? '' : 'none';
+    document.getElementById('feRequiredWrap').style.display = hideInput ? 'none' : '';
+    document.getElementById('feSampleWrap').style.display = hideInput ? 'none' : '';
+    document.getElementById('feCalcWrap').style.display = f.type === 'calc' ? '' : 'none';
+    document.getElementById('feDateCalcWrap').style.display = f.type === 'date_calc' ? '' : 'none';
+    f.sample = document.getElementById('feFieldSample').value.trim() || '';
+    refreshQuantityDropdown();
+    if (f.type === 'select') {
+        const optStr = document.getElementById('feFieldOptions').value;
+        f.options = optStr.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+        delete f.options;
+    }
+    if (f.type === 'readonly') {
+        f.description = document.getElementById('feFieldDesc').value;
+        f.required = false;
+    } else {
+        delete f.description;
+    }
+    if (f.type === 'calc') {
+        f.required = false;
+        f.formula = {
+            fieldA: document.getElementById('feCalcFieldA').value,
+            operator: document.getElementById('feCalcOp').value,
+            fieldB: document.getElementById('feCalcFieldB').value,
+        };
+        populateCalcDropdowns(selectedIdx, f.formula);
+    } else if (f.type === 'date_calc') {
+        f.required = false;
+        f.formula = {
+            dateField: document.getElementById('feDateCalcDate').value,
+            daysField: document.getElementById('feDateCalcDays').value,
+        };
+        populateDateCalcDropdowns(selectedIdx, f.formula);
+    } else {
+        delete f.formula;
+    }
+    document.getElementById('editorTitle').textContent = `"${f.label || f.name || '새 필드'}" 편집`;
+    renderSheet();
+}
+
+function addField() {
+    schema.push({name: '', label: '', type: 'text', required: true, color: '#4472C4'});
+    selectField(schema.length - 1);
+}
+
+function removeField() {
+    if (selectedIdx < 0) return;
+    schema.splice(selectedIdx, 1);
+    selectedIdx = -1;
+    document.getElementById('fieldEditor').style.display = 'none';
+    renderSheet();
+}
+
+function moveField(dir) {
+    if (selectedIdx < 0) return;
+    const newIdx = selectedIdx + dir;
+    if (newIdx < 0 || newIdx >= schema.length) return;
+    [schema[selectedIdx], schema[newIdx]] = [schema[newIdx], schema[selectedIdx]];
+    selectField(newIdx);
+}
+
+function labelToName(label) {
+    if (!label) return '';
+    return label.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9가-힣_]/g, '').toLowerCase() || 'field';
+}
+
+function populateCalcDropdowns(currentIdx, formula) {
+    const numFields = schema.filter((f, i) => i !== currentIdx && (f.type === 'number'));
+    const selA = document.getElementById('feCalcFieldA');
+    const selB = document.getElementById('feCalcFieldB');
+    const opSel = document.getElementById('feCalcOp');
+    selA.innerHTML = '<option value="">필드 선택</option>' + numFields.map(f =>
+        `<option value="${f.name}" ${f.name === formula.fieldA ? 'selected' : ''}>${f.label || f.name}</option>`
+    ).join('');
+    selB.innerHTML = '<option value="">필드 선택</option>' + numFields.map(f =>
+        `<option value="${f.name}" ${f.name === formula.fieldB ? 'selected' : ''}>${f.label || f.name}</option>`
+    ).join('');
+    opSel.value = formula.operator || '*';
+}
+
+function populateDateCalcDropdowns(currentIdx, formula) {
+    const dateFields = schema.filter((f, i) => i !== currentIdx && f.type === 'date');
+    const numFields = schema.filter((f, i) => i !== currentIdx && f.type === 'number');
+    const selDate = document.getElementById('feDateCalcDate');
+    const selDays = document.getElementById('feDateCalcDays');
+    selDate.innerHTML = '<option value="">시작일 필드</option>' + dateFields.map(f =>
+        `<option value="${f.name}" ${f.name === formula.dateField ? 'selected' : ''}>${f.label || f.name}</option>`
+    ).join('');
+    selDays.innerHTML = '<option value="">작업일 수 필드</option>' + numFields.map(f =>
+        `<option value="${f.name}" ${f.name === formula.daysField ? 'selected' : ''}>${f.label || f.name}</option>`
+    ).join('');
+}
+
+function pickColor(el) {
+    const color = el.dataset.color;
+    document.getElementById('feFieldColor').value = color;
+    updateCurrentField();
+}
+
+function updatePresetActive(color) {
+    document.querySelectorAll('.color-preset').forEach(el => {
+        el.classList.toggle('active', el.dataset.color.toUpperCase() === color.toUpperCase());
+    });
+}
+
+function darkenColor(hex, amount) {
+    hex = hex.replace('#', '');
+    let r = parseInt(hex.substring(0, 2), 16);
+    let g = parseInt(hex.substring(2, 4), 16);
+    let b = parseInt(hex.substring(4, 6), 16);
+    r = Math.max(0, Math.round(r * (1 - amount)));
+    g = Math.max(0, Math.round(g * (1 - amount)));
+    b = Math.max(0, Math.round(b * (1 - amount)));
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+// --- 가격 설정 ---
+function refreshQuantityDropdown() {
+    const sel = document.getElementById('quantityFieldSelect');
+    const currentQty = schema.find(f => f.is_quantity);
+    const currentVal = currentQty ? currentQty.name : '';
+
+    const candidates = schema.filter(f => f.type === 'number' || f.type === 'calc');
+    sel.innerHTML = '<option value="">선택 안 함 (슬롯 수 = 수량)</option>' +
+        candidates.map(f =>
+            `<option value="${f.name}" ${f.name === currentVal ? 'selected' : ''}>${f.label || f.name} (${TYPE_LABELS[f.type] || f.type})</option>`
+        ).join('');
+
+    updatePricingPreview();
+}
+
+function updateQuantityField() {
+    const sel = document.getElementById('quantityFieldSelect');
+    const selectedName = sel.value;
+
+    // 모든 필드에서 is_quantity 제거
+    schema.forEach(f => delete f.is_quantity);
+
+    // 선택된 필드에 is_quantity 설정
+    if (selectedName) {
+        const field = schema.find(f => f.name === selectedName);
+        if (field) field.is_quantity = true;
+    }
+
+    document.getElementById('id_schema_text').value = JSON.stringify(schema);
+    updatePricingPreview();
+}
+
+function updatePricingPreview() {
+    const qtyField = schema.find(f => f.is_quantity);
+    const priceInput = document.getElementById('id_base_price');
+    const unitPrice = parseInt(priceInput ? priceInput.value : 0) || 0;
+    const el = document.getElementById('pricingFormula');
+
+    if (!qtyField) {
+        el.innerHTML = `<span style="color:var(--toss-gray-400)">슬롯 1건 × ${unitPrice.toLocaleString()}원 = 공급가</span><br>` +
+            `<span style="color:var(--toss-gray-400)">공급가 + 부가세(10%) = 총 견적금액</span>`;
+    } else {
+        const label = qtyField.label || qtyField.name;
+        el.innerHTML =
+            `<div style="margin-bottom:4px"><strong style="color:var(--toss-blue)">${label}</strong> × ${unitPrice.toLocaleString()}원 = <strong>공급가</strong></div>` +
+            `<div>공급가 + <strong>부가세(10%)</strong> = <strong style="color:var(--toss-blue)">총 견적금액</strong></div>` +
+            `<div style="margin-top:8px;font-size:12px;color:var(--toss-gray-400);border-top:1px solid var(--toss-gray-200);padding-top:8px">` +
+            `예) ${label} 7,000 × ${unitPrice.toLocaleString()}원 = ${(7000 * unitPrice).toLocaleString()}원 + ${(7000 * unitPrice * 0.1).toLocaleString()}원 = <strong>${(7000 * unitPrice * 1.1).toLocaleString()}원</strong></div>`;
+    }
+}
+
+// 단가 변경 시 미리보기 업데이트
+const basePriceInput = document.getElementById('id_base_price');
+if (basePriceInput) basePriceInput.addEventListener('input', updatePricingPreview);
+
+document.getElementById('productForm').addEventListener('submit', function() {
+    document.getElementById('id_schema_text').value = JSON.stringify(schema);
+    // Quill HTML → hidden textarea
+    const html = quill.root.innerHTML;
+    document.getElementById('id_description').value = (html === '<p><br></p>') ? '' : html;
+});
+
+renderSheet();
+refreshQuantityDropdown();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+const quill = new Quill('#quillEditor', {
+    theme: 'snow',
+    placeholder: '상품 설명을 입력하세요...',
+    modules: {
+        toolbar: [
+            [{'header': [1, 2, 3, false]}],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{'color': []}, {'background': []}],
+            [{'list': 'ordered'}, {'list': 'bullet'}],
+            [{'align': []}],
+            ['link'],
+            ['clean']
+        ]
+    }
+});
+// 기존 값 로드
+const existingHtml = document.getElementById('id_description').value;
+if (existingHtml) quill.root.innerHTML = existingHtml;
+</script>
+{% endblock %}

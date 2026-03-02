@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>{{ title }}</h5>{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="toss-card">
+            <div class="card-header">업체 정보</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                    <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px">
+                        {{ field }}
+                        <label for="{{ field.id_for_label }}" style="font-size:14px;font-weight:500;color:var(--toss-gray-700);cursor:pointer">{{ field.label }}</label>
+                    </div>
+                    {% elif not field.is_hidden %}
+                    <div style="margin-bottom:18px">
+                        <label class="toss-label" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                            {% if field.name == 'parent' %}
+                            <span style="color:var(--toss-red);font-size:11px;margin-left:4px">* 필수</span>
+                            {% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <div style="color:var(--toss-red);font-size:12px;margin-top:4px">{{ field.errors.0 }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                        <div style="font-size:12px;color:var(--toss-gray-400);margin-top:4px">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% if field.name == 'parent' %}
+                        <div id="parentHint" style="font-size:12px;color:var(--toss-blue);margin-top:4px;display:none"></div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {{ field }}
+                    {% endif %}
+                    {% endfor %}
+                    <div class="d-flex justify-content-between align-items-center" style="margin-top:24px">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn-toss btn-toss-primary">저장</button>
+                            <a href="{% url 'accounts:user_list' %}" class="btn-toss btn-toss-light" style="text-decoration:none">취소</a>
+                        </div>
+                        {% if edit_user %}
+                        <button type="button" class="btn-toss btn-toss-danger btn-toss-sm" onclick="confirmDelete()">삭제</button>
+                        {% endif %}
+                    </div>
+                </form>
+                {% if edit_user %}
+                <form method="post" action="{% url 'accounts:user_delete' edit_user.pk %}" id="deleteForm" style="display:none">
+                    {% csrf_token %}
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if edit_user %}
+<script>
+function confirmDelete() {
+    if (confirm('정말 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+{% endif %}
+<script>
+(function() {
+    var roleSelect = document.getElementById('id_role');
+    var parentSelect = document.getElementById('id_parent');
+    if (!roleSelect || !parentSelect) return;
+
+    var parentData = {{ form.get_parent_json|safe }};
+    var currentParentId = '{{ form.initial.parent|default:"" }}';
+    {% if edit_user and edit_user.parent_id %}
+    currentParentId = '{{ edit_user.parent_id }}';
+    {% endif %}
+
+    // 역할 → 상위 역할 매핑
+    var roleParentMap = {
+        'accountant': 'admin',
+        'manager': 'admin',
+        'agency': 'manager',
+        'seller': 'agency'
+    };
+
+    var hintMap = {
+        'accountant': '경리는 총관리자 소속으로 배정됩니다',
+        'manager': '책임자는 총관리자 소속으로 배정됩니다',
+        'agency': '대행사는 책임자 소속으로 배정됩니다',
+        'seller': '셀러는 대행사 소속으로 배정됩니다'
+    };
+
+    function updateParent() {
+        var role = roleSelect.value;
+        var requiredParentRole = roleParentMap[role];
+        var hint = document.getElementById('parentHint');
+
+        parentSelect.innerHTML = '';
+
+        if (!requiredParentRole) {
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '-- 해당 없음 --';
+            parentSelect.appendChild(opt);
+            parentSelect.disabled = true;
+            if (hint) { hint.style.display = 'none'; }
+            return;
+        }
+
+        parentSelect.disabled = false;
+        var items = parentData[requiredParentRole] || [];
+
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- 담당자를 선택하세요 --';
+        parentSelect.appendChild(placeholder);
+
+        items.forEach(function(item) {
+            var opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.label;
+            if (String(item.id) === String(currentParentId)) {
+                opt.selected = true;
+            }
+            parentSelect.appendChild(opt);
+        });
+
+        if (hint) {
+            hint.textContent = hintMap[role] || '';
+            hint.style.display = hintMap[role] ? 'block' : 'none';
+        }
+    }
+
+    roleSelect.addEventListener('change', updateParent);
+    updateParent();
+})();
+</script>
+{% endblock %}

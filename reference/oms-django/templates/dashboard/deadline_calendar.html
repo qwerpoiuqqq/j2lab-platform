@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}마감일 캘린더 - 제이투랩 OMS{% endblock %}
+{% block page_title %}<h5>마감일 캘린더</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    #calendar {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid var(--toss-gray-100);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .fc .fc-toolbar-title {
+        font-size: 17px; font-weight: 700;
+        color: var(--toss-gray-900);
+    }
+    .fc .fc-button {
+        border-radius: 8px !important;
+        font-size: 13px; font-weight: 600;
+        padding: 6px 14px;
+        box-shadow: none !important;
+    }
+    .fc .fc-button-primary {
+        background: var(--toss-gray-100); border: none;
+        color: var(--toss-gray-700);
+    }
+    .fc .fc-button-primary:hover {
+        background: var(--toss-gray-200);
+    }
+    .fc .fc-button-primary:focus {
+        box-shadow: none !important;
+    }
+    .fc .fc-button-primary.fc-button-active,
+    .fc .fc-button-primary:not(:disabled).fc-button-active {
+        background: var(--toss-gray-800); color: #fff;
+    }
+    .fc .fc-button-primary:not(:disabled):active {
+        background: var(--toss-gray-700); color: #fff;
+    }
+    .fc .fc-daygrid-event {
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 11px; font-weight: 600;
+        cursor: pointer; border: none;
+    }
+    .fc .fc-day-today {
+        background: #fefce8 !important;
+    }
+    .fc .fc-daygrid-day-number {
+        font-size: 13px; font-weight: 500;
+        color: var(--toss-gray-700);
+        padding: 6px 10px;
+    }
+    .fc .fc-day-today .fc-daygrid-day-number {
+        font-weight: 700;
+        color: var(--toss-gray-900);
+    }
+    .fc .fc-col-header-cell-cushion {
+        font-size: 12px; font-weight: 600;
+        color: var(--toss-gray-500);
+        padding: 10px 4px;
+    }
+    .fc th {
+        font-size: 12px; font-weight: 600;
+        color: var(--toss-gray-500);
+    }
+    .fc td, .fc th {
+        border-color: var(--toss-gray-100) !important;
+    }
+    .fc .fc-scrollgrid {
+        border-color: var(--toss-gray-100) !important;
+    }
+    /* list view */
+    .fc .fc-list-event-title {
+        font-size: 13px; font-weight: 600;
+    }
+    .fc .fc-list-day-cushion {
+        background: var(--toss-gray-50) !important;
+    }
+
+    .legend {
+        display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .legend-item {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 13px; font-weight: 500; color: var(--toss-gray-600);
+    }
+    .legend-dot {
+        width: 10px; height: 10px; border-radius: 4px; flex-shrink: 0;
+    }
+
+    /* Toss modal */
+    .toss-modal .modal-content {
+        border: none; border-radius: 20px;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+    }
+    .toss-modal .modal-header {
+        border-bottom: 1px solid var(--toss-gray-100);
+        padding: 18px 24px;
+    }
+    .toss-modal .modal-body { padding: 20px 24px; }
+    .toss-modal .modal-footer {
+        border-top: 1px solid var(--toss-gray-100);
+        padding: 14px 24px; gap: 8px;
+    }
+    .info-row {
+        display: flex; justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--toss-gray-100);
+        font-size: 14px;
+    }
+    .info-row:last-child { border: none; }
+    .info-row .info-label { color: var(--toss-gray-500); font-weight: 500; }
+    .info-row .info-value { font-weight: 600; color: var(--toss-gray-900); }
+
+    .dday-badge {
+        display: inline-block;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 12px; font-weight: 700;
+    }
+
+    /* 복사 토스트 */
+    .copy-toast {
+        position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+        background: var(--toss-gray-900); color: #fff;
+        padding: 10px 24px; border-radius: 12px;
+        font-size: 14px; font-weight: 600;
+        z-index: 9999; opacity: 0; transition: opacity 0.3s;
+        pointer-events: none;
+    }
+    .copy-toast.show { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="toss-card mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap" style="padding:14px 20px">
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ffeef0;border:1px solid #f8b4bc"></div> 만료됨</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fff4e6;border:1px solid #fdd0a2"></div> 3일 이내</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fefce8;border:1px solid #fde68a"></div> 7일 이내</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f2f4f6;border:1px solid #d1d6db"></div> 여유</div>
+        </div>
+        <div id="summaryText" style="font-size:13px;color:var(--toss-gray-500)"></div>
+    </div>
+</div>
+
+<div id="calendar"></div>
+
+<!-- Detail Modal -->
+<div class="modal fade toss-modal" id="deadlineModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title" id="modalTitle" style="font-weight:700"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-toss btn-toss-light btn-toss-sm" id="modalCopy" onclick="copyOrderInfo()">
+                    <i class="bi bi-clipboard"></i> 복사
+                </button>
+                <a id="modalLink" href="#" class="btn-toss btn-toss-primary btn-toss-sm">주문 상세</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="copy-toast" id="copyToast">클립보드에 복사되었습니다</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    let currentEventData = null;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'ko',
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek,listMonth'
+        },
+        buttonText: {
+            today: '오늘',
+            month: '월',
+            week: '주',
+            list: '목록',
+        },
+        height: 'auto',
+        navLinks: true,
+        editable: false,
+        dayMaxEvents: 4,
+        moreLinkText: '더보기',
+
+        events: function(info, successCallback, failureCallback) {
+            fetch(`/api/deadlines/?start=${info.startStr.slice(0,10)}&end=${info.endStr.slice(0,10)}`)
+                .then(r => r.json())
+                .then(data => {
+                    updateSummary(data);
+                    successCallback(data);
+                })
+                .catch(failureCallback);
+        },
+
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            const props = info.event.extendedProps;
+            const days = props.days_left;
+
+            currentEventData = props;
+
+            let ddayHtml;
+            if (days < 0) {
+                ddayHtml = `<span class="dday-badge" style="background:#ffeef0;color:var(--toss-red);">D+${Math.abs(days)} 만료</span>`;
+            } else if (days === 0) {
+                ddayHtml = `<span class="dday-badge" style="background:#fff8e1;color:var(--toss-orange);">D-Day</span>`;
+            } else {
+                const bg = days <= 3 ? '#fff8e1' : days <= 7 ? '#fffde7' : 'var(--toss-blue-light)';
+                const fg = days <= 3 ? 'var(--toss-orange)' : days <= 7 ? '#d97706' : 'var(--toss-blue)';
+                ddayHtml = `<span class="dday-badge" style="background:${bg};color:${fg};">D-${days}</span>`;
+            }
+
+            document.getElementById('modalTitle').innerHTML =
+                `${ddayHtml} <span style="margin-left:8px">${props.company}</span>`;
+
+            document.getElementById('modalBody').innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">업체명</span>
+                    <span class="info-value">${props.company}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">타수</span>
+                    <span class="info-value">${props.total_quantity.toLocaleString()}타</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">리워드</span>
+                    <span class="info-value">${props.product}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">만료일자</span>
+                    <span class="info-value">${props.deadline}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">주문번호</span>
+                    <span class="info-value">${props.order_number}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">금액</span>
+                    <span class="info-value">${props.total_amount.toLocaleString()}원</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">상태</span>
+                    <span class="info-value">${props.status}</span>
+                </div>
+            `;
+
+            document.getElementById('modalLink').href = info.event.url;
+            new bootstrap.Modal(document.getElementById('deadlineModal')).show();
+        },
+
+        eventDidMount: function(info) {
+            const props = info.event.extendedProps;
+            info.el.title = `${props.company} / ${props.total_quantity}타 / ${props.product} / ${props.deadline}`;
+        },
+    });
+
+    calendar.render();
+
+    function updateSummary(events) {
+        let expired = 0, urgent = 0, soon = 0, safe = 0;
+        events.forEach(e => {
+            const d = e.extendedProps.days_left;
+            if (d < 0) expired++;
+            else if (d <= 3) urgent++;
+            else if (d <= 7) soon++;
+            else safe++;
+        });
+        const parts = [];
+        if (expired > 0) parts.push(`<span style="color:var(--toss-red);font-weight:700">만료 ${expired}건</span>`);
+        if (urgent > 0) parts.push(`<span style="color:var(--toss-orange);font-weight:700">긴급 ${urgent}건</span>`);
+        if (soon > 0) parts.push(`<span style="color:#d97706;font-weight:600">임박 ${soon}건</span>`);
+        parts.push(`전체 ${events.length}건`);
+        document.getElementById('summaryText').innerHTML = parts.join(' · ');
+    }
+
+    window.copyOrderInfo = function() {
+        if (!currentEventData) return;
+        const p = currentEventData;
+        const text = `업체명: ${p.company}\n타수: ${p.total_quantity}타\n리워드: ${p.product}\n만료일자: ${p.deadline}\n주문번호: ${p.order_number}\n금액: ${p.total_amount.toLocaleString()}원\n상태: ${p.status}`;
+        navigator.clipboard.writeText(text).then(function() {
+            const toast = document.getElementById('copyToast');
+            toast.classList.add('show');
+            setTimeout(function() { toast.classList.remove('show'); }, 2000);
+        });
+    };
+});
+</script>
+{% endblock %}

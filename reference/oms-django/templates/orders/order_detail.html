@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+{% load humanize deadline_tags %}
+{% block page_title %}<h5>주문 상세</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 상단 헤더 카드 */
+    .order-header {
+        background: #fff;
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 16px;
+        padding: 28px 32px;
+        margin-bottom: 16px;
+        position: relative;
+        overflow: hidden;
+    }
+    .order-header::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 5px;
+    }
+    .order-header.status-submitted::before { background: var(--toss-blue); }
+    .order-header.status-processing::before { background: #f59e0b; }
+    .order-header.status-completed::before { background: var(--toss-green); }
+    .order-header.status-cancelled::before { background: var(--toss-gray-300); }
+
+    .order-header-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .order-header-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .order-header-number {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--toss-gray-900);
+        letter-spacing: -0.5px;
+    }
+    .order-header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* 프로그레스 */
+    .progress-track {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding: 20px 0 8px;
+    }
+    .progress-node {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+        z-index: 2;
+    }
+    .progress-dot {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px; font-weight: 700;
+        border: 2.5px solid var(--toss-gray-200);
+        background: #fff;
+        color: var(--toss-gray-400);
+        transition: all 0.3s;
+    }
+    .progress-node.active .progress-dot {
+        border-color: var(--toss-blue);
+        background: var(--toss-blue);
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.15);
+    }
+    .progress-node.done .progress-dot {
+        border-color: var(--toss-blue);
+        background: #eef4ff;
+        color: var(--toss-blue);
+    }
+    .progress-node-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--toss-gray-400);
+    }
+    .progress-node.active .progress-node-label,
+    .progress-node.done .progress-node-label {
+        color: var(--toss-blue);
+    }
+    .progress-line {
+        flex: 1;
+        height: 3px;
+        background: var(--toss-gray-200);
+        border-radius: 2px;
+        margin-bottom: 28px;
+    }
+    .progress-line.filled {
+        background: var(--toss-blue);
+    }
+
+    /* 정보 섹션 카드 */
+    .detail-card {
+        background: #fff;
+        border: 1px solid var(--toss-gray-200);
+        border-radius: 16px;
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+    .detail-card-header {
+        padding: 16px 24px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--toss-gray-900);
+        border-bottom: 1px solid var(--toss-gray-100);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .detail-card-body {
+        padding: 20px 24px;
+    }
+
+    /* 정보 그리드 */
+    .info-rows {}
+    .info-row {
+        display: flex;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--toss-gray-50);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .ir-label {
+        width: 110px;
+        flex-shrink: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--toss-gray-400);
+        padding-top: 1px;
+    }
+    .info-row .ir-value {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--toss-gray-900);
+    }
+
+    /* 관리 패널 */
+    .manage-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .manage-group {
+        padding: 16px;
+        background: var(--toss-gray-50);
+        border-radius: 12px;
+    }
+    .manage-group-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--toss-gray-400);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    .action-btn {
+        width: 100%; padding: 11px 16px; border-radius: 10px;
+        font-weight: 600; font-size: 13px; border: none;
+        cursor: pointer; transition: all 0.15s;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .action-btn:hover { opacity: 0.85; }
+
+    /* 승인 상태 박스 */
+    .approval-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 10px;
+    }
+    .approval-box.approved {
+        background: #e6f9f1;
+        border: 1px solid #a7f3d0;
+    }
+    .approval-box.pending {
+        background: var(--toss-gray-50);
+        border: 1px solid var(--toss-gray-200);
+    }
+
+    /* 엑셀 스타일 테이블 */
+    .excel-table-wrap {
+        overflow-x: auto;
+        border-radius: 10px;
+        border: 1px solid var(--toss-gray-200);
+    }
+    .excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .excel-table thead th {
+        background: #f1f5f9;
+        padding: 10px 14px;
+        font-weight: 700;
+        font-size: 12px;
+        color: var(--toss-gray-600);
+        text-align: left;
+        white-space: nowrap;
+        border-bottom: 2px solid var(--toss-gray-200);
+        position: sticky;
+        top: 0;
+    }
+    .excel-table thead th:first-child {
+        text-align: center;
+        width: 44px;
+    }
+    .excel-table tbody tr {
+        transition: background 0.1s;
+    }
+    .excel-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    .excel-table tbody tr:nth-child(even) {
+        background: #fafbfc;
+    }
+    .excel-table tbody tr:nth-child(even):hover {
+        background: #f1f5f9;
+    }
+    .excel-table tbody td {
+        padding: 9px 14px;
+        color: var(--toss-gray-800);
+        border-bottom: 1px solid var(--toss-gray-100);
+        font-weight: 500;
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .excel-table tbody td:first-child {
+        text-align: center;
+        font-weight: 700;
+        color: var(--toss-gray-400);
+        font-size: 12px;
+    }
+    .excel-table .col-price {
+        font-weight: 700;
+        color: var(--toss-gray-700);
+        white-space: nowrap;
+    }
+    .excel-table .col-status {
+        white-space: nowrap;
+    }
+
+    /* 알림 박스 */
+    .notice-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border-radius: 10px;
+    }
+    .notice-box.warn {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+    }
+
+    /* 뒤로가기 링크 */
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--toss-gray-500);
+        text-decoration: none;
+        margin-bottom: 20px;
+        transition: color 0.12s;
+    }
+    .back-link:hover { color: var(--toss-blue); }
+</style>
+{% endblock %}
+
+{% block content %}
+{% with current=order.status %}
+
+<a href="{% url 'orders:order_list' %}" class="back-link">
+    <i class="bi bi-chevron-left"></i> 주문 목록
+</a>
+
+<!-- 상단 헤더 -->
+<div class="order-header status-{{ current }}">
+    <div class="order-header-top">
+        <div class="order-header-left">
+            <span class="order-header-number"><span style="font-weight:500;color:var(--toss-gray-400);font-size:15px;margin-right:6px">주문번호 :</span>{{ order.order_number }}</span>
+            <span class="toss-badge {% if current == 'submitted' %}blue{% elif current == 'processing' %}orange{% elif current == 'completed' %}green{% else %}gray{% endif %}" style="font-size:13px;padding:5px 14px">
+                {{ order.get_status_display }}
+            </span>
+        </div>
+        <div class="order-header-right">
+            {% if not request.user.is_seller %}
+                {% if order.approved_by %}
+                <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--toss-green)">
+                    <i class="bi bi-shield-fill-check"></i> {{ order.approved_by.first_name|default:order.approved_by.company_name|default:order.approved_by.username }}
+                </span>
+                {% else %}
+                <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--toss-gray-400)">
+                    <i class="bi bi-shield"></i> 미승인
+                </span>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-track">
+        <div class="progress-node {% if current == 'submitted' %}active{% elif current == 'processing' or current == 'completed' %}done{% endif %}">
+            <div class="progress-dot">{% if current == 'processing' or current == 'completed' %}<i class="bi bi-check-lg"></i>{% else %}1{% endif %}</div>
+            <span class="progress-node-label">접수완료</span>
+        </div>
+        <div class="progress-line {% if current == 'processing' or current == 'completed' %}filled{% endif %}"></div>
+        <div class="progress-node {% if current == 'processing' %}active{% elif current == 'completed' %}done{% endif %}">
+            <div class="progress-dot">{% if current == 'completed' %}<i class="bi bi-check-lg"></i>{% else %}2{% endif %}</div>
+            <span class="progress-node-label">작업중</span>
+        </div>
+        <div class="progress-line {% if current == 'completed' %}filled{% endif %}"></div>
+        <div class="progress-node {% if current == 'completed' %}active{% endif %}">
+            <div class="progress-dot">3</div>
+            <span class="progress-node-label">완료</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 좌측: 주문 정보 -->
+    <div class="col-md-8">
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <span><i class="bi bi-info-circle" style="margin-right:6px;color:var(--toss-blue)"></i>주문 정보</span>
+            </div>
+            <div class="detail-card-body">
+                <div class="info-rows">
+                    <div class="info-row">
+                        <span class="ir-label">주문번호</span>
+                        <span class="ir-value">{{ order.order_number }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="ir-label">주문자</span>
+                        <span class="ir-value">
+                            {% if order.user %}
+                                {% if order.user.parent %}
+                                    <span style="color:var(--toss-gray-400);font-weight:400;font-size:13px">{{ order.user.parent.company_name|default:order.user.parent.username }}</span>
+                                    <i class="bi bi-chevron-right" style="font-size:10px;color:var(--toss-gray-300);margin:0 4px"></i>
+                                {% endif %}
+                                {{ order.user.company_name|default:order.user.username }}
+                            {% else %}
+                                <span style="color:var(--toss-gray-400);font-style:italic">(삭제된 사용자)</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="ir-label">상품</span>
+                        <span class="ir-value">{{ order.product.name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="ir-label">건수</span>
+                        <span class="ir-value">{{ order.item_count }}건</span>
+                    </div>
+                    {% if not request.user.is_seller %}
+                    <div class="info-row">
+                        <span class="ir-label">총 금액</span>
+                        <span class="ir-value" style="color:var(--toss-blue);font-size:16px">{{ order.total_amount|floatformat:0|intcomma }}원</span>
+                    </div>
+                    {% endif %}
+                    <div class="info-row">
+                        <span class="ir-label">주문일</span>
+                        <span class="ir-value">{{ order.created_at|date:"Y.m.d H:i" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="ir-label">마감일</span>
+                        <span class="ir-value">
+                            {% if order.deadline %}
+                                {{ order.deadline|date:"Y.m.d" }}
+                                {% deadline_dday order.deadline %}
+                            {% else %}
+                                <span style="color:var(--toss-gray-400);font-weight:400">미설정</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if not request.user.is_seller %}
+                    <div class="info-row">
+                        <span class="ir-label">승인</span>
+                        <span class="ir-value">
+                            {% if order.approved_by %}
+                                <span style="color:var(--toss-green)">{{ order.approved_by.first_name|default:order.approved_by.company_name|default:order.approved_by.username }}</span>
+                                <span style="font-size:12px;color:var(--toss-gray-400);font-weight:400;margin-left:6px">{{ order.approved_at|date:"m/d H:i" }}</span>
+                            {% else %}
+                                <span style="color:var(--toss-gray-400);font-weight:400">미승인</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if order.memo %}
+                    <div class="info-row">
+                        <span class="ir-label">메모</span>
+                        <span class="ir-value" style="font-weight:500;line-height:1.6">{{ order.memo }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 우측: 관리 패널 -->
+    <div class="col-md-4">
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <span><i class="bi bi-gear" style="margin-right:6px;color:var(--toss-gray-500)"></i>관리</span>
+            </div>
+            <div class="detail-card-body">
+                <div class="manage-section">
+                    {% if request.user.is_admin or request.user.is_accountant or request.user.is_manager %}
+
+                    <!-- 상태 변경 -->
+                    <div class="manage-group">
+                        <div class="manage-group-label">상태 변경</div>
+                        <form method="post" action="{% url 'orders:order_status_update' order.pk %}">
+                            {% csrf_token %}
+                            <div class="d-flex gap-2">
+                                <select name="status" class="toss-select flex-grow-1" style="font-size:13px">
+                                    {% for val, label in order.Status.choices %}
+                                    <option value="{{ val }}" {% if order.status == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn-toss btn-toss-primary btn-toss-sm" style="white-space:nowrap;font-size:13px">변경</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 승인 -->
+                    {% if not order.approved_by %}
+                    <form method="post" action="{% url 'orders:order_approve' order.pk %}">
+                        {% csrf_token %}
+                        <button class="action-btn" style="background:#eef4ff;color:var(--toss-blue)">
+                            <i class="bi bi-shield-check"></i> 주문 승인
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="approval-box approved">
+                        <i class="bi bi-shield-fill-check" style="color:var(--toss-green);font-size:16px;flex-shrink:0"></i>
+                        <div>
+                            <div style="font-size:13px;font-weight:600;color:var(--toss-gray-800)">승인자: {{ order.approved_by.first_name|default:order.approved_by.company_name|default:order.approved_by.username }}</div>
+                            <div style="font-size:11px;color:var(--toss-gray-400);margin-top:2px">{{ order.approved_at|date:"Y.m.d H:i" }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 마감일 -->
+                    <div class="manage-group">
+                        <div class="manage-group-label">마감일</div>
+                        <form method="post" action="{% url 'orders:order_deadline_update' order.pk %}">
+                            {% csrf_token %}
+                            <div class="d-flex gap-2">
+                                <input type="date" name="deadline" class="toss-input flex-grow-1" style="font-size:13px" value="{{ order.deadline|date:'Y-m-d' }}">
+                                <button class="btn-toss btn-toss-light btn-toss-sm" style="white-space:nowrap;font-size:13px">설정</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 위험 액션 -->
+                    {% if order.status == 'submitted' or request.user.is_admin or request.user.is_accountant %}
+                    <div style="border-top:1px solid var(--toss-gray-100);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;gap:8px">
+                        {% if order.status == 'submitted' %}
+                        <form method="post" action="{% url 'orders:order_cancel' order.pk %}" onsubmit="return confirm('정말 취소하시겠습니까?')">
+                            {% csrf_token %}
+                            <button class="action-btn" style="background:#ffeef0;color:var(--toss-red)">
+                                <i class="bi bi-x-circle"></i> 주문 취소
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if request.user.is_admin or request.user.is_accountant %}
+                        <form method="post" action="{% url 'orders:order_delete' order.pk %}" onsubmit="return confirm('이 주문을 완전히 삭제하시겠습니까? 복구할 수 없습니다.')">
+                            {% csrf_token %}
+                            <button class="action-btn" style="background:#ffeef0;color:var(--toss-red)">
+                                <i class="bi bi-trash3"></i> 주문 삭제
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <!-- 셀러/대행사 안내 -->
+                    <div class="notice-box warn">
+                        <i class="bi bi-exclamation-circle-fill" style="color:#f59e0b;font-size:16px;flex-shrink:0;margin-top:1px"></i>
+                        <span style="font-size:13px;color:var(--toss-gray-700);line-height:1.5">취소 버튼은 따로 존재하지 않습니다. 관리자에게 말씀해주세요.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 주문 항목 — 전체 너비 -->
+<div class="detail-card" style="margin-top:16px">
+    <div class="detail-card-header">
+        <span><i class="bi bi-table" style="margin-right:6px;color:var(--toss-blue)"></i>주문 항목 <span style="color:var(--toss-gray-400);font-weight:500;margin-left:4px">{{ items|length }}건</span></span>
+        <a href="{% url 'orders:order_items_export' order.pk %}" class="btn-toss btn-toss-success btn-toss-sm" style="font-size:12px;padding:5px 12px">
+            <i class="bi bi-download"></i> 엑셀 다운로드
+        </a>
+    </div>
+    <div style="padding:0">
+        <div class="excel-table-wrap" style="border:none;border-radius:0">
+            <table class="excel-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        {% for col in columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                        {% if not request.user.is_seller %}<th>단가</th>{% endif %}
+                        <th>상태</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in item_rows %}
+                    <tr>
+                        <td>{{ row.item.row_number }}</td>
+                        {% for val in row.values %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                        {% if not request.user.is_seller %}<td class="col-price">{{ row.item.unit_price|floatformat:0|intcomma }}원</td>{% endif %}
+                        <td class="col-status">
+                            <span class="toss-badge {% if row.item.status == 'pending' %}orange{% elif row.item.status == 'processing' %}blue{% elif row.item.status == 'completed' %}green{% else %}red{% endif %}">
+                                {{ row.item.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endwith %}
+{% endblock %}

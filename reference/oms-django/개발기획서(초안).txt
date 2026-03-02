@@ -1,0 +1,118 @@
+# [개발 기획서] B2B 리워드 트래픽 대량접수 폐쇄몰 (Python Stack)
+
+## 1. 프로젝트 개요 (Project Overview)
+* **프로젝트명:** B2B 리워드 트래픽 대량접수 시스템 (OMS)
+* **목적:** 대행사(Agency)와 셀러(Seller)가 엑셀 그리드 방식을 통해 대량의 트래픽 상품을 주문하고, 3단계 계층 구조(총관리자-대행사-셀러)에 따라 자동 정산되는 폐쇄형 플랫폼 구축.
+* **핵심 가치:** 1. **Speed:** 엑셀 복사/붙여넣기로 1분 내 대량 발주 처리.
+  2. **Flexibility:** 상품별 입력 양식(Schema) 자유 커스텀.
+  3. **Accuracy:** 3단계 단가 차등 적용 및 정확한 부가세 정산.
+
+---
+
+## 2. 개발 환경 및 기술 스택 (Tech Stack)
+본 프로젝트는 대량 데이터 처리와 정산 무결성을 위해 Python 생태계를 기반으로 합니다.
+
+* **Language:** Python 3.11+
+* **Backend Framework:** Django 5.0 + Django REST Framework (DRF)
+    * *선정 이유:* 강력한 Admin 기능, 보안성(Auth), ORM의 생산성 및 유지보수 용이성.
+* **Database:** PostgreSQL
+    * *필수사항:* 상품별 가변 입력 필드 저장을 위한 `JSONField` 기능 필수 사용.
+* **Data Processing:** Pandas
+    * *용도:* 대량 주문 데이터(Excel/CSV)의 고속 유효성 검사, 포맷팅, 입출력 처리.
+* **Task Queue:** Celery + Redis
+    * *용도:* 대량 주문 접수 시 서버 부하 분산 및 비동기 백그라운드 처리.
+* **Frontend:** React.js (또는 Vue.js)
+    * *핵심 라이브러리:* `Handsontable` 또는 `AG Grid` (웹상에서 엑셀과 동일한 UX 제공).
+
+---
+
+## 3. 시스템 구조 및 권한 (User Hierarchy)
+시스템은 `Parent_ID`를 기반으로 한 **트리(Tree) 구조**로 설계됩니다. 상위 계정은 하위 계정의 데이터를 조회하고 제어할 수 있습니다.
+
+### A. 사용자 등급 (User Roles)
+1.  **총관리자 (Super Admin)**
+    * 시스템 전체 통제, 상품 생성(Schema 정의).
+    * 대행사 계정 생성 및 대행사별 **공급 단가(Base Price)** 설정.
+    * 전체 매출 및 대행사별 실적 모니터링 (Group By Agency).
+2.  **대행사 (Agency Admin)**
+    * 자신의 하위 셀러 계정 생성/관리.
+    * **단가 마크업(Markup):** 총관리자가 설정한 공급가에 본인 마진을 붙여 셀러 판매가 설정.
+    * 하위 셀러의 예치금 충전/회수 관리.
+3.  **셀러 (Seller)**
+    * 상품 주문(엑셀 그리드), 주문 현황 확인, 충전 요청.
+
+---
+
+## 4. 핵심 기능 상세 (Key Features)
+
+### A. 동적 상품 빌더 (Dynamic Product Builder)
+리워드 상품(플레이스, 인스타, 블로그 등)마다 주문에 필요한 입력값이 다르므로, NoSQL(JSON) 방식을 도입하여 유연성을 확보합니다.
+
+* **기능:** * 상품 등록 시 `입력 스키마(Input Schema)`를 관리자 화면에서 정의.
+    * 필드 타입: Text, URL, Number, Date, Select 등 지원.
+    * 필수 여부(Required) 체크 기능.
+* **Frontend 동작:** * 사용자가 상품을 선택하면, 해당 Schema를 읽어 그리드(Grid)의 헤더(Header)가 동적으로 변경됨.
+    * 예: '플레이스 트래픽' 선택 시 -> https://knowledge.loword.co.kr/func/lotofsearch 컬럼 생성.
+
+### B. 웹 엑셀 주문 시스템 (Grid Order System)
+* **UI:** 엑셀(Spreadsheet)과 동일한 행/열 구조의 웹 인터페이스.
+* **User Experience:**
+    1. 사용자가 로컬 엑셀 파일 내용을 복사(Ctrl+C).
+    2. 웹 주문창에 붙여넣기(Ctrl+V).
+* **Validation (Pandas 활용):**
+    * 주문 버튼 클릭 시 백엔드로 데이터 전송 → Pandas DataFrame 변환.
+    * Schema에 정의된 규칙(URL 형식, 필수값 누락 등) 검증.
+    * 오류 발생 시 `row_index`와 `error_msg`를 반환하여 프론트엔드 셀에 **빨간색 하이라이트** 표시.
+
+### C. 3중 자동 정산 (Cascade Billing)
+모든 금전 거래는 **부가세(VAT) 포함(x 1.1)**이 기본이며, 데이터 무결성이 보장되어야 합니다.
+
+* **단가 구조:**
+    1. **원가:** 시스템 내부 관리용.
+    2. **공급가 (Tier 1):** 총관리자 → 대행사.
+    3. **판매가 (Tier 2):** 대행사 → 셀러.
+* **정산 프로세스 (Transaction Atomic 필수):**
+    1. **셀러 결제:** `Order Amount` 차감 (판매가 기준).
+    2. **대행사 매입:** `Agency Cost` 차감 (공급가 기준).
+    3. **수익 실현:** (판매가 - 공급가) 차액은 자동으로 대행사의 마진으로 확보됨.
+
+### D. 통합 관리자 대시보드
+* **모니터링:** 전체 주문 현황을 보되, **[대행사별 필터링]** 기능 필수.
+* **상태 관리:** 접수 → 작업중 → 완료 → AS요청 → AS완료.
+* **정산 리포트:** 월별 대행사 매입/매출 현황 엑셀 다운로드 기능.
+
+---
+
+## 5. 데이터베이스 설계 가이드 (Schema Draft)
+Python Django Model 기준 예시입니다.
+
+```python
+# 1. 사용자 (계층 구조)
+class User(AbstractUser):
+    parent = ForeignKey('self', null=True, related_name='children', on_delete=models.SET_NULL) # 상위 대행사
+    balance = DecimalField(max_digits=12, decimal_places=2, default=0) # 예치금
+    role = CharField(max_length=20, choices=[('ADMIN', 'Admin'), ('AGENCY', 'Agency'), ('SELLER', 'Seller')])
+
+# 2. 상품 (동적 스키마)
+class Product(models.Model):
+    name = CharField(max_length=100)
+    base_cost = IntegerField(help_text="시스템 내부 원가") 
+    is_active = BooleanField(default=True)
+    input_schema = JSONField(default=dict) 
+    # Schema 예시: 
+    # [{"name": "url", "type": "url", "required": true, "label": "플레이스 주소"}, 
+    #  {"name": "keyword", "type": "text", "required": true, "label": "검색 키워드"}]
+
+# 3. 개별 단가 정책 (Price Override)
+class PricePolicy(models.Model):
+    user = ForeignKey(User, on_delete=models.CASCADE) # 특정 대행사 또는 셀러
+    product = ForeignKey(Product, on_delete=models.CASCADE)
+    price = IntegerField(help_text="해당 유저에게 적용되는 공급가")
+
+# 4. 주문 내역 (Order)
+class Order(models.Model):
+    user = ForeignKey(User, on_delete=models.CASCADE)
+    product = ForeignKey(Product, on_delete=models.PROTECT)
+    data = JSONField() # 실제 입력된 데이터 (URL, 키워드 등 Key-Value 형태)
+    status = CharField(max_length=20, choices=[('PENDING', '접수'), ('PROCESSING', '작업중'), ('COMPLETED', '완료')])
+    created_at = DateTimeField(auto_now_add=True)
