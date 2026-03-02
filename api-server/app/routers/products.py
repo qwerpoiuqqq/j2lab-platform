@@ -56,12 +56,6 @@ async def create_product(
     _current_user: User = Depends(system_admin_checker),
 ):
     """Create a new product (system_admin only)."""
-    existing = await product_service.get_product_by_code(db, body.code)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Product with code '{body.code}' already exists",
-        )
     product = await product_service.create_product(db, body)
     pipeline_warnings = validate_schema_for_pipeline(body.form_schema) if body.form_schema else []
     result = ProductResponse.model_validate(product).model_dump()
@@ -164,7 +158,6 @@ async def get_user_price_matrix(
         {
             "id": p.id,
             "name": p.name,
-            "code": p.code,
             "category": p.category,
             "base_price": int(p.base_price) if p.base_price else 0,
         }
@@ -211,15 +204,6 @@ async def update_product(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found",
         )
-
-    # Check code uniqueness if updating code
-    if body.code is not None and body.code != product.code:
-        existing = await product_service.get_product_by_code(db, body.code)
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Product with code '{body.code}' already exists",
-            )
 
     updated = await product_service.update_product(db, product, body)
     schema_to_check = body.form_schema if body.form_schema is not None else updated.form_schema

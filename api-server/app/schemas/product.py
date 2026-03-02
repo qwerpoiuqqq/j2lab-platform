@@ -13,7 +13,7 @@ class ProductCreate(BaseModel):
     """Schema for creating a product."""
 
     name: str = Field(..., min_length=1, max_length=200)
-    code: str = Field(..., min_length=1, max_length=50)
+    code: str | None = Field(None, max_length=50)
     category: str | None = Field(None, max_length=100)
     description: str | None = None
     form_schema: Any = None
@@ -52,7 +52,7 @@ class ProductResponse(BaseModel):
 
     id: int
     name: str
-    code: str
+    code: str | None = None
     category: str | None = None
     description: str | None = None
     form_schema: Any = None
@@ -89,7 +89,7 @@ class ProductBriefResponse(BaseModel):
 
     id: int
     name: str
-    code: str
+    code: str | None = None
     base_price: int | None = None
 
     @field_validator("base_price", mode="before")

@@ -33,7 +33,7 @@ class Product(Base):
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    code: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(100))
     description: Mapped[Optional[str]] = mapped_column(Text)
     form_schema: Mapped[Optional[Any]] = mapped_column(JSON)

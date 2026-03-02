@@ -138,7 +138,7 @@ async def get_excel_template(
     wb.save(buffer)
     buffer.seek(0)
 
-    filename = f"order_template_{product.code}.xlsx"
+    filename = f"order_template_{product.id}.xlsx"
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

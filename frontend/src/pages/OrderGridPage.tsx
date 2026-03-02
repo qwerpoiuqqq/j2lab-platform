@@ -393,7 +393,7 @@ export default function OrderGridPage() {
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = `template_${selectedProduct.code}.xlsx`;
+                          a.download = `template_${selectedProduct.name}.xlsx`;
                           a.click();
                           URL.revokeObjectURL(url);
                         } catch {

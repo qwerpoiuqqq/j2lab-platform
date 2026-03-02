@@ -116,7 +116,6 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    code: '',
     category: '',
     description: '',
     base_price: '',
@@ -168,7 +167,7 @@ export default function ProductsPage() {
   // -----------------------------------------------------------------------
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', code: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
+    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
     setSchemaFields([]);
     setSelectedFieldIndex(null);
     setSelectedPreset('');
@@ -179,7 +178,6 @@ export default function ProductsPage() {
     setEditing(product);
     setFormData({
       name: product.name,
-      code: product.code,
       category: product.category || '',
       description: product.description || '',
       base_price: String(product.base_price || ''),
@@ -311,8 +309,8 @@ export default function ProductsPage() {
   // Submit
   // -----------------------------------------------------------------------
   const handleSubmit = async () => {
-    if (!formData.name || !formData.code) {
-      alert('상품명과 코드를 입력하세요.');
+    if (!formData.name) {
+      alert('상품명을 입력하세요.');
       return;
     }
 
@@ -320,7 +318,6 @@ export default function ProductsPage() {
     try {
       const payload = {
         name: formData.name,
-        code: formData.code,
         category: formData.category || undefined,
         description: formData.description || undefined,
         base_price: parseInt(formData.base_price) || 0,
@@ -359,7 +356,7 @@ export default function ProductsPage() {
       render: (p) => (
         <div>
           <p className="font-medium text-gray-900">{p.name}</p>
-          <p className="text-xs text-gray-500">{p.code}</p>
+          {p.description && <p className="text-xs text-gray-500 truncate max-w-[200px]">{p.description}</p>}
         </div>
       ),
     },
@@ -516,13 +513,6 @@ export default function ProductsPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-              />
-              <Input
-                label="코드"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                required
-                disabled={!!editing}
               />
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">카테고리</label>

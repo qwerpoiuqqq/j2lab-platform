@@ -92,7 +92,7 @@ export interface FormField {
 export interface Product {
   id: number;
   name: string;
-  code: string;
+  code?: string;
   category?: string;
   description?: string;
   form_schema?: FormField[];
