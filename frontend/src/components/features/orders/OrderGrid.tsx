@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Product, FormFieldExtended } from '@/types';
+import type { Product, FormFieldExtended, CalcFormula, DateCalcFormula } from '@/types';
 import { formatCurrency, formatNumber, downloadBlob } from '@/utils/format';
+import { getCalcFormula, getDateCalcFormula } from '@/utils/schema';
 import { ordersApi } from '@/api/orders';
 import Button from '@/components/common/Button';
 import {
@@ -22,34 +23,29 @@ interface OrderGridProps {
   effectivePrice?: number;
 }
 
-function evaluateFormula(formula: string, row: OrderGridRow): number {
+function evaluateCalcFormula(formula: CalcFormula, row: OrderGridRow): number {
   try {
-    const parts = formula.split(/\s*([+\-*/])\s*/);
-    if (parts.length < 3) return 0;
-    let result = Number(row[parts[0]]) || 0;
-    for (let i = 1; i < parts.length; i += 2) {
-      const op = parts[i];
-      const val = Number(row[parts[i + 1]]) || 0;
-      switch (op) {
-        case '+': result += val; break;
-        case '-': result -= val; break;
-        case '*': result *= val; break;
-        case '/': result = val !== 0 ? result / val : 0; break;
-      }
+    const a = Number(row[formula.fieldA]) || 0;
+    const b = Number(row[formula.fieldB]) || 0;
+    switch (formula.operator) {
+      case '+': return Math.round(a + b);
+      case '-': return Math.round(a - b);
+      case '*': return Math.round(a * b);
+      case '/': return b !== 0 ? Math.round(a / b) : 0;
     }
-    return Math.round(result);
+    return 0;
   } catch {
     return 0;
   }
 }
 
-function evaluateDateCalc(baseField: string, daysField: string, row: OrderGridRow): string {
+function evaluateDateCalcFormula(formula: DateCalcFormula, row: OrderGridRow): string {
   try {
-    const baseVal = row[baseField];
+    const baseVal = row[formula.dateField];
     if (!baseVal) return '';
     const baseDate = new Date(String(baseVal));
     if (isNaN(baseDate.getTime())) return '';
-    const days = parseInt(String(row[daysField])) || 0;
+    const days = parseInt(String(row[formula.daysField])) || 0;
     baseDate.setDate(baseDate.getDate() + days);
     return baseDate.toISOString().split('T')[0];
   } catch {
@@ -74,10 +70,12 @@ function createEmptyRow(schema: FormFieldExtended[]): OrderGridRow {
 function computeRow(row: OrderGridRow, schema: FormFieldExtended[]): OrderGridRow {
   const computed = { ...row };
   for (const field of schema) {
-    if (field.type === 'calc' && field.formula) {
-      computed[field.name] = evaluateFormula(field.formula, computed);
-    } else if (field.type === 'date_calc' && field.base_field && field.days_field) {
-      computed[field.name] = evaluateDateCalc(field.base_field, field.days_field, computed);
+    if (field.type === 'calc') {
+      const f = getCalcFormula(field);
+      if (f) computed[field.name] = evaluateCalcFormula(f, computed);
+    } else if (field.type === 'date_calc') {
+      const f = getDateCalcFormula(field);
+      if (f) computed[field.name] = evaluateDateCalcFormula(f, computed);
     }
   }
   return computed;

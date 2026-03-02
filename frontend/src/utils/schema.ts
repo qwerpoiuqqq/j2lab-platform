@@ -1,4 +1,4 @@
-import type { FormFieldExtended } from '@/types';
+import type { FormFieldExtended, CalcFormula, DateCalcFormula } from '@/types';
 
 /**
  * Normalize schema from various formats to the standard array format.
@@ -26,6 +26,18 @@ export function normalizeSchema(raw: any): FormFieldExtended[] {
 }
 
 function normalizeField(f: any): FormFieldExtended {
+  // Migrate legacy formula formats to new object format
+  let formula = f.formula;
+
+  if (f.type === 'calc' && typeof formula === 'string' && formula) {
+    // Legacy string formula "fieldA * fieldB" → { fieldA, operator, fieldB }
+    const parsed = parseLegacyCalcFormula(formula);
+    if (parsed) formula = parsed;
+  } else if (f.type === 'date_calc' && !formula && f.base_field && f.days_field) {
+    // Legacy separate base_field/days_field → { dateField, daysField }
+    formula = { dateField: f.base_field, daysField: f.days_field } as DateCalcFormula;
+  }
+
   return {
     name: f.name || f.key || '',
     label: f.label || f.name || '',
@@ -35,12 +47,61 @@ function normalizeField(f: any): FormFieldExtended {
     color: f.color,
     sample: f.sample,
     options: f.options,
-    formula: f.formula,
-    base_field: f.base_field,
-    days_field: f.days_field,
+    formula,
     is_quantity: f.is_quantity,
     description: f.description,
   };
+}
+
+/** Parse legacy string formula "fieldA * fieldB" into CalcFormula object */
+function parseLegacyCalcFormula(str: string): CalcFormula | null {
+  const ops = ['*', '+', '-', '/'] as const;
+  for (const op of ops) {
+    const idx = str.indexOf(` ${op} `);
+    if (idx !== -1) {
+      return {
+        fieldA: str.substring(0, idx).trim(),
+        operator: op,
+        fieldB: str.substring(idx + 3).trim(),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Type-safe helpers to extract formula parts
+ */
+export function getCalcFormula(field: FormFieldExtended): CalcFormula | null {
+  if (field.type !== 'calc' || !field.formula) return null;
+  if (typeof field.formula === 'object' && 'fieldA' in field.formula) {
+    return field.formula as CalcFormula;
+  }
+  // Legacy string fallback
+  if (typeof field.formula === 'string') {
+    return parseLegacyCalcFormula(field.formula);
+  }
+  return null;
+}
+
+export function getDateCalcFormula(field: FormFieldExtended): DateCalcFormula | null {
+  if (field.type !== 'date_calc' || !field.formula) return null;
+  if (typeof field.formula === 'object' && 'dateField' in field.formula) {
+    return field.formula as DateCalcFormula;
+  }
+  return null;
+}
+
+/**
+ * Auto-generate field name from label (Korean-friendly)
+ * e.g. "플레이스 URL" → "플레이스_url", "일 작업량(타수)" → "일_작업량(타수)"
+ */
+export function labelToName(label: string): string {
+  if (!label) return '';
+  return label
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9가-힣_()]/g, '')
+    .toLowerCase() || 'field';
 }
 
 /**

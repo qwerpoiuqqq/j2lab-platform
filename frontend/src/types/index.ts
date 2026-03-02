@@ -550,12 +550,21 @@ export interface SettlementSecretItem {
 
 export type FieldType = 'text' | 'url' | 'number' | 'date' | 'select' | 'calc' | 'date_calc' | 'readonly';
 
+export interface CalcFormula {
+  fieldA: string;
+  operator: '+' | '-' | '*' | '/';
+  fieldB: string;
+}
+
+export interface DateCalcFormula {
+  dateField: string;
+  daysField: string;
+}
+
 export interface FormFieldExtended extends FormField {
   type: FieldType;
   options?: string[];
-  formula?: string;
-  base_field?: string;
-  days_field?: string;
+  formula?: CalcFormula | DateCalcFormula | string;  // object (new) or string (legacy)
   color?: string;
   sample?: string;
   is_quantity?: boolean;
