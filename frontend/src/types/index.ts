@@ -55,6 +55,7 @@ export interface UpdateUserRequest {
   name?: string;
   phone?: string;
   role?: UserRole;
+  parent_id?: string | null;
   is_active?: boolean;
 }
 

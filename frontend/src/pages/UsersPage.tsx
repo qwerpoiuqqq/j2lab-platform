@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import UserList from '@/components/features/users/UserList';
 import UserForm from '@/components/features/users/UserForm';
 import Pagination from '@/components/common/Pagination';
@@ -18,6 +18,11 @@ import { getRoleLabel } from '@/utils/format';
 import type { User, UserRole, Company, UpdateUserRequest } from '@/types';
 import { usersApi } from '@/api/users';
 import { companiesApi } from '@/api/companies';
+
+const PARENT_ROLE_MAP: Record<string, { parentRole: string; label: string }> = {
+  distributor: { parentRole: 'order_handler', label: '상위 담당자' },
+  sub_account: { parentRole: 'distributor', label: '상위 총판' },
+};
 const roleFilterOptions = [
   { value: '', label: '전체 역할' },
   { value: 'system_admin', label: '시스템 관리자' },
@@ -54,6 +59,8 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<UpdateUserRequest>({});
   const [editLoading, setEditLoading] = useState(false);
+  const [editParentCandidates, setEditParentCandidates] = useState<User[]>([]);
+  const [editParentLoading, setEditParentLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,10 +128,39 @@ export default function UsersPage() {
     }
   };
 
+  const loadParentCandidates = useCallback(async (role: string, companyId?: number) => {
+    const config = PARENT_ROLE_MAP[role];
+    if (!config) {
+      setEditParentCandidates([]);
+      return;
+    }
+    setEditParentLoading(true);
+    try {
+      const params: { role: string; company_id?: number; size: number } = {
+        role: config.parentRole,
+        size: 100,
+      };
+      if (companyId) params.company_id = companyId;
+      const res = await usersApi.list(params);
+      setEditParentCandidates(res.items);
+    } catch {
+      setEditParentCandidates([]);
+    } finally {
+      setEditParentLoading(false);
+    }
+  }, []);
+
   const openEdit = (user: User) => {
     setEditingUser(user);
-    setEditForm({ name: user.name, phone: user.phone, role: user.role, is_active: user.is_active });
+    setEditForm({
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+      parent_id: user.parent_id || undefined,
+      is_active: user.is_active,
+    });
     setShowEditModal(true);
+    loadParentCandidates(user.role, user.company_id);
   };
 
   const handleUpdate = async () => {
@@ -253,7 +289,7 @@ export default function UsersPage() {
           )}
         </div>
       ) : (
-        <UserList users={filteredUsers} loading={loading} onEdit={(user) => { openEdit(user); }} />
+        <UserList users={filteredUsers} allUsers={users} loading={loading} onEdit={(user) => { openEdit(user); }} />
       )}
 
       <Pagination
@@ -287,7 +323,11 @@ export default function UsersPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
               <select
                 value={editForm.role || editingUser.role}
-                onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole;
+                  setEditForm({ ...editForm, role: newRole, parent_id: undefined });
+                  loadParentCandidates(newRole, editingUser.company_id);
+                }}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 {roleFilterOptions.filter((o) => o.value).map((opt) => (
@@ -295,6 +335,33 @@ export default function UsersPage() {
                 ))}
               </select>
             </div>
+            {PARENT_ROLE_MAP[editForm.role || editingUser.role] && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {PARENT_ROLE_MAP[editForm.role || editingUser.role].label}
+                </label>
+                <select
+                  value={editForm.parent_id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, parent_id: e.target.value || null })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  disabled={editParentLoading}
+                >
+                  <option value="">
+                    {editParentLoading ? '로딩 중...' : '선택하세요'}
+                  </option>
+                  {editParentCandidates.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
+                </select>
+                {!editParentLoading && editParentCandidates.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    해당 역할의 상위 유저가 없습니다.
+                  </p>
+                )}
+              </div>
+            )}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"

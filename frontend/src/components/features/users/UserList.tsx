@@ -5,6 +5,7 @@ import { formatDateTime, getRoleLabel } from '@/utils/format';
 
 interface UserListProps {
   users: User[];
+  allUsers?: User[];
   loading?: boolean;
   onEdit?: (user: User) => void;
 }
@@ -20,7 +21,10 @@ function getRoleBadgeVariant(role: string) {
   return map[role] || 'default';
 }
 
-export default function UserList({ users, loading, onEdit }: UserListProps) {
+export default function UserList({ users, allUsers, loading, onEdit }: UserListProps) {
+  const parentMap = new Map<string, User>();
+  (allUsers || users).forEach((u) => parentMap.set(u.id, u));
+
   const columns: Column<User>[] = [
     {
       key: 'name',
@@ -42,6 +46,19 @@ export default function UserList({ users, loading, onEdit }: UserListProps) {
           {getRoleLabel(u.role)}
         </Badge>
       ),
+    },
+    {
+      key: 'parent',
+      header: '상위 유저',
+      render: (u) => {
+        if (!u.parent_id) return <span className="text-gray-400">-</span>;
+        const parent = parentMap.get(u.parent_id);
+        return parent ? (
+          <span className="text-gray-600 text-sm">{parent.name}</span>
+        ) : (
+          <span className="text-gray-400 text-xs">{u.parent_id.slice(0, 8)}...</span>
+        );
+      },
     },
     {
       key: 'company',
