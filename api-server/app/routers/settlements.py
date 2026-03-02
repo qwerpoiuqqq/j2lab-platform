@@ -22,11 +22,30 @@ from app.schemas.settlement import (
 )
 from app.core.config import settings
 from app.services import settlement_service
+from app.services.user_service import get_line_user_ids
 
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 
-admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
 system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
+
+
+async def _resolve_settlement_filters(
+    current_user: User,
+    db: AsyncSession,
+) -> dict:
+    """Resolve company_id and handler_user_ids based on current user's role."""
+    user_role = UserRole(current_user.role)
+    filters: dict = {"company_id": None, "handler_user_ids": None}
+
+    if user_role == UserRole.COMPANY_ADMIN:
+        filters["company_id"] = current_user.company_id
+    elif user_role == UserRole.ORDER_HANDLER:
+        line_ids = await get_line_user_ids(db, current_user.id)
+        filters["handler_user_ids"] = line_ids
+    # system_admin: no filters
+
+    return filters
 
 
 @router.get("/", response_model=SettlementResponse)
@@ -36,12 +55,14 @@ async def list_settlements(
     date_from: date | None = None,
     date_to: date | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
-    """List settlements with date range filter (system_admin, company_admin)."""
+    """List settlements with date range filter and role-based scope."""
+    scope = await _resolve_settlement_filters(current_user, db)
     offset = (page - 1) * size
     rows, summary, total = await settlement_service.get_settlement_data(
         db, date_from=date_from, date_to=date_to, skip=offset, limit=size,
+        company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
     )
     pages = (total + size - 1) // size if size > 0 else 0
     return SettlementResponse(
@@ -59,11 +80,13 @@ async def settlement_by_handler(
     date_from: date | None = None,
     date_to: date | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
-    """Get settlement data aggregated by handler (user)."""
+    """Get settlement data aggregated by handler with role-based scope."""
+    scope = await _resolve_settlement_filters(current_user, db)
     return await settlement_service.get_settlement_by_handler(
         db, date_from=date_from, date_to=date_to,
+        company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
     )
 
 
@@ -72,11 +95,13 @@ async def settlement_by_company(
     date_from: date | None = None,
     date_to: date | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
-    """Get settlement data aggregated by company."""
+    """Get settlement data aggregated by company with role-based scope."""
+    scope = await _resolve_settlement_filters(current_user, db)
     return await settlement_service.get_settlement_by_company(
         db, date_from=date_from, date_to=date_to,
+        company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
     )
 
 
@@ -85,11 +110,13 @@ async def settlement_by_date(
     date_from: date | None = None,
     date_to: date | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
-    """Get settlement data aggregated by date (for chart display)."""
+    """Get settlement data aggregated by date with role-based scope."""
+    scope = await _resolve_settlement_filters(current_user, db)
     return await settlement_service.get_settlement_by_date(
         db, date_from=date_from, date_to=date_to,
+        company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
     )
 
 
@@ -117,13 +144,15 @@ async def export_settlements(
     date_from: date | None = None,
     date_to: date | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
-    """Export settlement data as Excel file."""
+    """Export settlement data as Excel file with role-based scope."""
     from openpyxl import Workbook
 
+    scope = await _resolve_settlement_filters(current_user, db)
     rows, summary, _ = await settlement_service.get_settlement_data(
         db, date_from=date_from, date_to=date_to, skip=0, limit=50000,
+        company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
     )
 
     wb = Workbook()

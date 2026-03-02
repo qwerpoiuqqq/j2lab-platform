@@ -390,6 +390,7 @@ async def get_assignment_queue(
     assignment_status: str | None = None,
     skip: int = 0,
     limit: int = 50,
+    handler_user_ids: list | None = None,
 ) -> list[OrderItem]:
     """Get order items pending assignment or awaiting confirmation."""
     from app.models.order import Order
@@ -407,6 +408,8 @@ async def get_assignment_queue(
 
     if company_id is not None:
         query = query.where(Order.company_id == company_id)
+    if handler_user_ids is not None:
+        query = query.where(Order.user_id.in_(handler_user_ids))
     if assignment_status:
         query = query.where(OrderItem.assignment_status == assignment_status)
 
@@ -422,6 +425,7 @@ async def get_assignment_queue_enriched(
     assignment_status: str | None = None,
     skip: int = 0,
     limit: int = 50,
+    handler_user_ids: list | None = None,
 ) -> list[dict]:
     """Get enriched assignment queue with AI recommendation info."""
     from app.models.order import Order
@@ -429,7 +433,7 @@ async def get_assignment_queue_enriched(
 
     items = await get_assignment_queue(
         db, company_id=company_id, assignment_status=assignment_status,
-        skip=skip, limit=limit,
+        skip=skip, limit=limit, handler_user_ids=handler_user_ids,
     )
 
     enriched = []

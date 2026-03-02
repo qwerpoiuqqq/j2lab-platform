@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import Input from '@/components/common/Input';
 import Button from '@/components/common/Button';
-import type { CreateUserRequest, Company, UserRole } from '@/types';
+import type { CreateUserRequest, Company, UserRole, User } from '@/types';
 import { useAuthStore } from '@/store/auth';
+import { usersApi } from '@/api/users';
 
 interface UserFormProps {
   companies: Company[];
@@ -18,6 +19,11 @@ const roleOptions: { value: UserRole; label: string }[] = [
   { value: 'sub_account', label: '하부계정' },
 ];
 
+const PARENT_ROLE_MAP: Record<string, { parentRole: string; label: string }> = {
+  distributor: { parentRole: 'order_handler', label: '상위 담당자' },
+  sub_account: { parentRole: 'distributor', label: '상위 총판' },
+};
+
 export default function UserForm({ companies, onSubmit, loading, onCancel }: UserFormProps) {
   const currentUser = useAuthStore((s) => s.user);
   const [email, setEmail] = useState('');
@@ -28,6 +34,9 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
   const [companyId, setCompanyId] = useState<number | undefined>(
     currentUser?.company_id || undefined,
   );
+  const [parentId, setParentId] = useState<string | undefined>(undefined);
+  const [parentCandidates, setParentCandidates] = useState<User[]>([]);
+  const [loadingParents, setLoadingParents] = useState(false);
 
   const availableRoles =
     currentUser?.role === 'system_admin'
@@ -38,6 +47,43 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
           )
         : roleOptions.filter((r) => r.value === 'sub_account');
 
+  // distributor가 sub_account를 생성할 때는 parent_id가 자동으로 자신이 됨
+  const parentConfig = PARENT_ROLE_MAP[role];
+  const needsParent = !!parentConfig && currentUser?.role !== 'distributor';
+
+  useEffect(() => {
+    if (!needsParent) {
+      setParentCandidates([]);
+      setParentId(undefined);
+      return;
+    }
+
+    const fetchParents = async () => {
+      setLoadingParents(true);
+      try {
+        const effectiveCompanyId = companyId || currentUser?.company_id;
+        const params: { role: string; company_id?: number; size: number } = {
+          role: parentConfig.parentRole,
+          size: 100,
+        };
+        if (effectiveCompanyId) {
+          params.company_id = effectiveCompanyId;
+        }
+        const res = await usersApi.list(params);
+        setParentCandidates(res.items);
+        if (res.items.length > 0 && !res.items.some((u) => u.id === parentId)) {
+          setParentId(undefined);
+        }
+      } catch {
+        setParentCandidates([]);
+      } finally {
+        setLoadingParents(false);
+      }
+    };
+
+    fetchParents();
+  }, [role, companyId]);
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -47,6 +93,7 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
       phone: phone || undefined,
       company_id: companyId,
       role,
+      parent_id: parentId || undefined,
     });
   };
 
@@ -121,6 +168,39 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {needsParent && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {parentConfig.label} <span className="text-danger-500">*</span>
+          </label>
+          <select
+            value={parentId || ''}
+            onChange={(e) => setParentId(e.target.value || undefined)}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            required
+            disabled={loadingParents}
+          >
+            <option value="">
+              {loadingParents ? '로딩 중...' : '선택하세요'}
+            </option>
+            {parentCandidates.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+          {!loadingParents && parentCandidates.length === 0 && (
+            <p className="mt-1 text-xs text-amber-600">
+              해당 역할의 상위 유저가 없습니다. 먼저{' '}
+              {parentConfig.parentRole === 'order_handler'
+                ? '접수 담당자'
+                : '총판'}
+              를 생성하세요.
+            </p>
+          )}
         </div>
       )}
 

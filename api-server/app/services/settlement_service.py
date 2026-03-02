@@ -28,8 +28,10 @@ from app.schemas.settlement import (
 def _base_filters(
     date_from: date | None = None,
     date_to: date | None = None,
+    company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> list:
-    """Build common settlement filters."""
+    """Build common settlement filters with optional company/handler scope."""
     settled_statuses = [
         OrderStatus.PAYMENT_CONFIRMED.value,
         OrderStatus.PROCESSING.value,
@@ -44,6 +46,11 @@ def _base_filters(
 
         end_of_day = datetime.combine(date_to, time.max, tzinfo=timezone.utc)
         filters.append(Order.created_at <= end_of_day)
+
+    if company_id is not None:
+        filters.append(Order.company_id == company_id)
+    if handler_user_ids is not None:
+        filters.append(Order.user_id.in_(handler_user_ids))
 
     return filters
 
@@ -67,9 +74,11 @@ async def get_settlement_data(
     date_to: date | None = None,
     skip: int = 0,
     limit: int = 50,
+    company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> tuple[list[SettlementRow], SettlementSummary, int]:
     """Get settlement data with corrected cost calculation."""
-    filters = _base_filters(date_from, date_to)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
 
     # Count
     count_stmt = (
@@ -183,9 +192,19 @@ async def get_settlement_by_handler(
     db: AsyncSession,
     date_from: date | None = None,
     date_to: date | None = None,
+    company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> list[SettlementByHandlerRow]:
-    """Aggregate settlements by order handler (user who created the order)."""
-    filters = _base_filters(date_from, date_to)
+    """Aggregate settlements by responsible order_handler.
+
+    Resolves the handler for each order by tracing the parent chain:
+    - order_handler → self
+    - distributor → parent (= order_handler)
+    - sub_account → parent.parent (= order_handler via distributor)
+    """
+    from sqlalchemy.orm import aliased
+
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
 
     cost_expr = case(
         (
@@ -195,11 +214,30 @@ async def get_settlement_by_handler(
         else_=Product.base_price * OrderItem.quantity,
     )
 
+    # Aliases for parent chain traversal
+    OrderUser = aliased(User, name="order_user")       # 주문자
+    ParentUser = aliased(User, name="parent_user")     # 주문자의 parent
+    GrandparentUser = aliased(User, name="gp_user")    # 주문자의 parent.parent
+
+    # Resolve handler_id: trace up to order_handler level
+    handler_id_expr = case(
+        (OrderUser.role == "order_handler", OrderUser.id),
+        (OrderUser.role == "distributor", OrderUser.parent_id),
+        (OrderUser.role == "sub_account", ParentUser.parent_id),
+        else_=OrderUser.id,  # fallback (company_admin 등)
+    )
+
+    handler_name_expr = case(
+        (OrderUser.role == "order_handler", OrderUser.name),
+        (OrderUser.role == "distributor", ParentUser.name),
+        (OrderUser.role == "sub_account", GrandparentUser.name),
+        else_=OrderUser.name,
+    )
+
     stmt = (
         select(
-            User.id.label("handler_id"),
-            User.name.label("handler_name"),
-            User.role.label("handler_role"),
+            handler_id_expr.label("handler_id"),
+            handler_name_expr.label("handler_name"),
             func.count(func.distinct(Order.id)).label("order_count"),
             func.count(OrderItem.id).label("item_count"),
             func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
@@ -208,9 +246,11 @@ async def get_settlement_by_handler(
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
         .join(Product, OrderItem.product_id == Product.id)
-        .join(User, Order.user_id == User.id)
+        .join(OrderUser, Order.user_id == OrderUser.id)
+        .outerjoin(ParentUser, OrderUser.parent_id == ParentUser.id)
+        .outerjoin(GrandparentUser, ParentUser.parent_id == GrandparentUser.id)
         .where(*filters)
-        .group_by(User.id, User.name, User.role)
+        .group_by(handler_id_expr, handler_name_expr)
         .order_by(func.sum(OrderItem.subtotal).desc())
     )
 
@@ -222,9 +262,9 @@ async def get_settlement_by_handler(
         profit = revenue - cost
         margin = round((profit / revenue * 100) if revenue > 0 else 0.0, 2)
         rows.append(SettlementByHandlerRow(
-            handler_id=str(row.handler_id),
-            handler_name=row.handler_name,
-            handler_role=row.handler_role,
+            handler_id=str(row.handler_id) if row.handler_id else "unknown",
+            handler_name=row.handler_name or "미지정",
+            handler_role="order_handler",
             order_count=row.order_count,
             item_count=row.item_count,
             total_revenue=revenue,
@@ -239,11 +279,13 @@ async def get_settlement_by_company(
     db: AsyncSession,
     date_from: date | None = None,
     date_to: date | None = None,
+    company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> list[SettlementByCompanyRow]:
     """Aggregate settlements by company."""
     from app.models.company import Company
 
-    filters = _base_filters(date_from, date_to)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
 
     cost_expr = case(
         (
@@ -295,9 +337,11 @@ async def get_settlement_by_date(
     db: AsyncSession,
     date_from: date | None = None,
     date_to: date | None = None,
+    company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> list[SettlementByDateRow]:
     """Aggregate settlements by date (for chart data)."""
-    filters = _base_filters(date_from, date_to)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
 
     cost_expr = case(
         (

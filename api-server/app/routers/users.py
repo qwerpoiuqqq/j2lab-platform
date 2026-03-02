@@ -123,6 +123,60 @@ async def create_user(
             }
         )
 
+    # --- parent_id validation for distributor / sub_account creation ---
+    if target_role == UserRole.DISTRIBUTOR and creator_role != UserRole.DISTRIBUTOR:
+        # distributor 생성 시 parent_id 필수 (=order_handler)
+        if body.parent_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="총판(distributor) 생성 시 상위 담당자(parent_id)가 필수입니다.",
+            )
+        parent = await user_service.get_user_by_id(db, body.parent_id)
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"parent_id '{body.parent_id}'에 해당하는 유저가 없습니다.",
+            )
+        if parent.role != UserRole.ORDER_HANDLER.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="총판의 상위 유저는 접수 담당자(order_handler)여야 합니다.",
+            )
+        if body.company_id is not None and parent.company_id != body.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="총판과 상위 담당자의 회사가 일치하지 않습니다.",
+            )
+        # company_id를 parent에서 상속
+        if body.company_id is None:
+            body = body.model_copy(update={"company_id": parent.company_id})
+
+    if target_role == UserRole.SUB_ACCOUNT and creator_role != UserRole.DISTRIBUTOR:
+        # sub_account 생성 시 parent_id 필수 (=distributor)
+        if body.parent_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="하부계정(sub_account) 생성 시 상위 총판(parent_id)이 필수입니다.",
+            )
+        parent = await user_service.get_user_by_id(db, body.parent_id)
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"parent_id '{body.parent_id}'에 해당하는 유저가 없습니다.",
+            )
+        if parent.role != UserRole.DISTRIBUTOR.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="하부계정의 상위 유저는 총판(distributor)이어야 합니다.",
+            )
+        if body.company_id is not None and parent.company_id != body.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="하부계정과 상위 총판의 회사가 일치하지 않습니다.",
+            )
+        if body.company_id is None:
+            body = body.model_copy(update={"company_id": parent.company_id})
+
     # Non-system_admin roles must have a company_id
     if target_role != UserRole.SYSTEM_ADMIN and body.company_id is None:
         raise HTTPException(

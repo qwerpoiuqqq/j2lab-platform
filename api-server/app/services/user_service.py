@@ -12,6 +12,31 @@ from app.models.user import ROLE_HIERARCHY, User, UserRole
 from app.schemas.user import UserCreate, UserTreeNode, UserUpdate
 
 
+async def get_line_user_ids(
+    db: AsyncSession,
+    handler_id: uuid.UUID,
+) -> list[uuid.UUID]:
+    """order_handler의 하위 유저 ID 목록 반환 (handler 자신 + distributor + sub_account).
+
+    계층: handler -> distributor -> sub_account
+    """
+    # 1단계: handler의 직접 하위 (distributor들)
+    dist_result = await db.execute(
+        select(User.id).where(User.parent_id == handler_id)
+    )
+    distributor_ids = [row[0] for row in dist_result.all()]
+
+    # 2단계: distributor들의 하위 (sub_account들)
+    sub_account_ids: list[uuid.UUID] = []
+    if distributor_ids:
+        sub_result = await db.execute(
+            select(User.id).where(User.parent_id.in_(distributor_ids))
+        )
+        sub_account_ids = [row[0] for row in sub_result.all()]
+
+    return [handler_id] + distributor_ids + sub_account_ids
+
+
 async def get_users(
     db: AsyncSession,
     skip: int = 0,
@@ -25,7 +50,7 @@ async def get_users(
 
     - system_admin: sees all users
     - company_admin: sees only users in the same company
-    - order_handler: sees only users in the same company
+    - order_handler: sees only users in their line (self + distributors + sub_accounts)
     - distributor: sees only their sub_accounts
     - sub_account: sees only themselves
     """
@@ -35,11 +60,15 @@ async def get_users(
     # Role-based scope filtering
     if current_user:
         user_role = UserRole(current_user.role)
-        if user_role == UserRole.COMPANY_ADMIN or user_role == UserRole.ORDER_HANDLER:
+        if user_role == UserRole.COMPANY_ADMIN:
             query = query.where(User.company_id == current_user.company_id)
             count_query = count_query.where(
                 User.company_id == current_user.company_id
             )
+        elif user_role == UserRole.ORDER_HANDLER:
+            line_ids = await get_line_user_ids(db, current_user.id)
+            query = query.where(User.id.in_(line_ids))
+            count_query = count_query.where(User.id.in_(line_ids))
         elif user_role == UserRole.DISTRIBUTOR:
             query = query.where(User.parent_id == current_user.id)
             count_query = count_query.where(User.parent_id == current_user.id)

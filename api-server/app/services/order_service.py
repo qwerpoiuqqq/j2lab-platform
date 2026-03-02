@@ -117,11 +117,16 @@ async def get_orders(
     # Role-based scope
     if current_user:
         user_role = UserRole(current_user.role)
-        if user_role in (UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER):
+        if user_role == UserRole.COMPANY_ADMIN:
             query = query.where(Order.company_id == current_user.company_id)
             count_query = count_query.where(
                 Order.company_id == current_user.company_id
             )
+        elif user_role == UserRole.ORDER_HANDLER:
+            from app.services.user_service import get_line_user_ids
+            line_ids = await get_line_user_ids(db, current_user.id)
+            query = query.where(Order.user_id.in_(line_ids))
+            count_query = count_query.where(Order.user_id.in_(line_ids))
         elif user_role == UserRole.DISTRIBUTOR:
             # distributor sees own orders + sub_account orders
             sub_query = select(User.id).where(User.parent_id == current_user.id)

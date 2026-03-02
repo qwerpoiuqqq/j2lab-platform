@@ -40,8 +40,14 @@ async def get_assignment_queue(
 ):
     """Get order items pending assignment with AI recommendation info."""
     company_id = None
-    if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
+    handler_user_ids = None
+    user_role = UserRole(current_user.role)
+
+    if user_role == UserRole.COMPANY_ADMIN:
         company_id = current_user.company_id
+    elif user_role == UserRole.ORDER_HANDLER:
+        from app.services.user_service import get_line_user_ids
+        handler_user_ids = await get_line_user_ids(db, current_user.id)
 
     enriched = await assignment_service.get_assignment_queue_enriched(
         db,
@@ -49,6 +55,7 @@ async def get_assignment_queue(
         assignment_status=assignment_status,
         skip=skip,
         limit=limit,
+        handler_user_ids=handler_user_ids,
     )
 
     return {"items": enriched}
