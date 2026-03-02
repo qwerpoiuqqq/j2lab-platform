@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import { assignmentsApi, type AssignmentQueueItem } from '@/api/assignments';
@@ -38,6 +38,7 @@ export default function AssignmentQueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [choosingId, setChoosingId] = useState<number | null>(null);
   const [bulkConfirming, setBulkConfirming] = useState(false);
 
   const fetchQueue = useCallback(async () => {
@@ -82,6 +83,18 @@ export default function AssignmentQueuePage() {
     }
   };
 
+  const handleChoose = async (itemId: number, action: 'new' | 'extend') => {
+    setChoosingId(itemId);
+    try {
+      await assignmentsApi.choose(itemId, action);
+      await fetchQueue();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '선택 처리에 실패했습니다.');
+    } finally {
+      setChoosingId(null);
+    }
+  };
+
   const handleBulkConfirm = async () => {
     if (selectedIds.size === 0) return;
     setBulkConfirming(true);
@@ -114,6 +127,10 @@ export default function AssignmentQueuePage() {
     } else {
       setSelectedIds(new Set(items.map((item) => item.order_item_id)));
     }
+  };
+
+  const isExtendRecommended = (item: AssignmentQueueItem): boolean => {
+    return item.ai_recommendation === 'extend' && item.extend_target_campaign_id != null;
   };
 
   return (
@@ -199,54 +216,122 @@ export default function AssignmentQueuePage() {
                     상태
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    AI추천
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     작업
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {items.map((item) => (
-                  <tr key={item.order_item_id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(item.order_item_id)}
-                        onChange={() => toggleSelect(item.order_item_id)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-primary-600">
-                      {item.order_number || `#${item.order_id}`}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {item.company_name || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {item.place_name || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.campaign_type || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.assigned_account_name || '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={getAssignmentBadgeVariant(item.assignment_status)}>
-                        {getAssignmentStatusLabel(item.assignment_status)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      {item.assignment_status === 'auto_assigned' && (
-                        <Button
-                          size="sm"
-                          variant="success"
-                          onClick={() => handleConfirm(item.order_item_id)}
-                          loading={confirmingId === item.order_item_id}
-                        >
-                          확인
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
+                  <Fragment key={item.order_item_id}>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item.order_item_id)}
+                          onChange={() => toggleSelect(item.order_item_id)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-primary-600">
+                        {item.order_number || `#${item.order_id}`}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {item.company_name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {item.place_name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {item.campaign_type || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {item.assigned_account_name || '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={getAssignmentBadgeVariant(item.assignment_status)}>
+                          {getAssignmentStatusLabel(item.assignment_status)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.ai_recommendation === 'extend' ? (
+                          <Badge variant="info">연장 추천</Badge>
+                        ) : (
+                          <Badge variant="default">신규</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.assignment_status === 'auto_assigned' && (
+                          <div className="flex items-center gap-2">
+                            {isExtendRecommended(item) ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={() => handleChoose(item.order_item_id, 'extend')}
+                                  loading={choosingId === item.order_item_id}
+                                >
+                                  연장 세팅
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  onClick={() => handleChoose(item.order_item_id, 'new')}
+                                  loading={choosingId === item.order_item_id}
+                                >
+                                  신규 세팅
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="success"
+                                onClick={() => handleChoose(item.order_item_id, 'new')}
+                                loading={choosingId === item.order_item_id}
+                              >
+                                신규 세팅
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        {item.assignment_status === 'confirmed' && (
+                          <span className="text-xs text-gray-400">확인완료</span>
+                        )}
+                      </td>
+                    </tr>
+                    {/* Extend target info row */}
+                    {item.extend_target_info && (
+                      <tr key={`${item.order_item_id}-extend-info`} className="bg-blue-50/50">
+                        <td />
+                        <td colSpan={8} className="px-4 py-2">
+                          <div className="flex items-center gap-4 text-xs text-gray-600">
+                            <span className="font-medium text-blue-700">기존 캠페인 연장 대상:</span>
+                            <span>
+                              캠페인 ID: <span className="font-mono font-medium">{item.extend_target_info.campaign_id}</span>
+                            </span>
+                            <span>
+                              상태: <Badge variant={item.extend_target_info.status === 'active' ? 'success' : 'default'}>
+                                {item.extend_target_info.status}
+                              </Badge>
+                            </span>
+                            {item.extend_target_info.campaign_type && (
+                              <span>유형: {item.extend_target_info.campaign_type}</span>
+                            )}
+                            {(item.extend_target_info.start_date || item.extend_target_info.end_date) && (
+                              <span>
+                                기간: {item.extend_target_info.start_date || '?'} ~ {item.extend_target_info.end_date || '?'}
+                              </span>
+                            )}
+                            {item.extend_target_info.total_limit != null && (
+                              <span>총 한도: {item.extend_target_info.total_limit.toLocaleString()}</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

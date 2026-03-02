@@ -1,16 +1,64 @@
-"""Settlement service: revenue/profit analysis from orders + order_items."""
+"""Settlement service: revenue/profit analysis from orders + order_items.
+
+PHASE 0: Cost calculation uses SuperapAccount.unit_cost (via cost_unit_price snapshot)
+         instead of Product.base_price.
+PHASE 6: Added by-handler, by-company, by-date aggregation views.
+"""
 
 from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product
+from app.models.superap_account import SuperapAccount
 from app.models.user import User
-from app.schemas.settlement import SettlementRow, SettlementSummary
+from app.schemas.settlement import (
+    SettlementRow,
+    SettlementSummary,
+    SettlementByHandlerRow,
+    SettlementByCompanyRow,
+    SettlementByDateRow,
+)
+
+
+def _base_filters(
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list:
+    """Build common settlement filters."""
+    settled_statuses = [
+        OrderStatus.PAYMENT_CONFIRMED.value,
+        OrderStatus.PROCESSING.value,
+        OrderStatus.COMPLETED.value,
+    ]
+    filters = [Order.status.in_(settled_statuses)]
+
+    if date_from is not None:
+        filters.append(Order.created_at >= date_from)
+    if date_to is not None:
+        from datetime import datetime, time, timezone
+
+        end_of_day = datetime.combine(date_to, time.max, tzinfo=timezone.utc)
+        filters.append(Order.created_at <= end_of_day)
+
+    return filters
+
+
+def _calc_cost(item: OrderItem, product: Product) -> int:
+    """Calculate cost with 3-tier priority (PHASE 0 fix).
+
+    Priority:
+    1. cost_unit_price (snapshot at assignment time) * quantity
+    2. Product.base_price * quantity (fallback)
+    """
+    quantity = item.quantity or 1
+    if item.cost_unit_price is not None:
+        return int(item.cost_unit_price) * quantity
+    return int(product.base_price or 0) * quantity
 
 
 async def get_settlement_data(
@@ -20,29 +68,10 @@ async def get_settlement_data(
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[SettlementRow], SettlementSummary, int]:
-    """Get settlement data from completed/payment_confirmed orders.
+    """Get settlement data with corrected cost calculation."""
+    filters = _base_filters(date_from, date_to)
 
-    Calculates profit = unit_price * quantity - base_price * quantity per item.
-    Returns (rows, summary, total_count).
-    """
-    # Base filter: only confirmed/completed/processing orders
-    settled_statuses = [
-        OrderStatus.PAYMENT_CONFIRMED.value,
-        OrderStatus.PROCESSING.value,
-        OrderStatus.COMPLETED.value,
-    ]
-
-    base_filter = Order.status.in_(settled_statuses)
-    filters = [base_filter]
-
-    if date_from is not None:
-        filters.append(Order.created_at >= date_from)
-    if date_to is not None:
-        from datetime import datetime, time, timezone
-        end_of_day = datetime.combine(date_to, time.max, tzinfo=timezone.utc)
-        filters.append(Order.created_at <= end_of_day)
-
-    # Count total items
+    # Count
     count_stmt = (
         select(func.count())
         .select_from(OrderItem)
@@ -51,7 +80,7 @@ async def get_settlement_data(
     )
     total = (await db.execute(count_stmt)).scalar_one()
 
-    # Fetch items with joins
+    # Fetch items
     stmt = (
         select(OrderItem, Order, Product, User)
         .join(Order, OrderItem.order_id == Order.id)
@@ -68,10 +97,9 @@ async def get_settlement_data(
     rows: list[SettlementRow] = []
     for item, order, product, user in rows_raw:
         unit_price = int(item.unit_price) if item.unit_price else 0
-        base_price = int(product.base_price) if product.base_price else 0
         quantity = item.quantity or 1
         subtotal = unit_price * quantity
-        cost = base_price * quantity
+        cost = _calc_cost(item, product)
         profit = subtotal - cost
         margin_pct = round((profit / subtotal * 100) if subtotal > 0 else 0.0, 2)
 
@@ -83,7 +111,7 @@ async def get_settlement_data(
             user_role=user.role,
             quantity=quantity,
             unit_price=unit_price,
-            base_price=base_price,
+            base_price=int(product.base_price) if product.base_price else 0,
             subtotal=subtotal,
             cost=cost,
             profit=profit,
@@ -91,9 +119,7 @@ async def get_settlement_data(
             created_at=order.created_at,
         ))
 
-    # Summary: compute over ALL matching items (not just the page)
     summary = await _compute_summary(db, filters)
-
     return rows, summary, total
 
 
@@ -101,7 +127,7 @@ async def _compute_summary(
     db: AsyncSession,
     filters: list,
 ) -> SettlementSummary:
-    """Compute aggregated summary stats over filtered settlement data."""
+    """Compute aggregated summary with corrected cost (PHASE 0)."""
     stmt = (
         select(
             func.count(OrderItem.id).label("item_count"),
@@ -117,13 +143,16 @@ async def _compute_summary(
     order_count = result.order_count
     total_revenue = int(result.total_revenue)
 
-    # Cost calculation requires base_price from product
+    # Cost: use cost_unit_price when available, else base_price
+    cost_expr = case(
+        (
+            OrderItem.cost_unit_price.isnot(None),
+            OrderItem.cost_unit_price * OrderItem.quantity,
+        ),
+        else_=Product.base_price * OrderItem.quantity,
+    )
     cost_stmt = (
-        select(
-            func.coalesce(
-                func.sum(Product.base_price * OrderItem.quantity), 0
-            ).label("total_cost"),
-        )
+        select(func.coalesce(func.sum(cost_expr), 0).label("total_cost"))
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
         .join(Product, OrderItem.product_id == Product.id)
@@ -133,7 +162,9 @@ async def _compute_summary(
     total_cost = int(cost_result.total_cost)
 
     total_profit = total_revenue - total_cost
-    avg_margin = round((total_profit / total_revenue * 100) if total_revenue > 0 else 0.0, 2)
+    avg_margin = round(
+        (total_profit / total_revenue * 100) if total_revenue > 0 else 0.0, 2
+    )
 
     return SettlementSummary(
         total_revenue=total_revenue,
@@ -143,3 +174,169 @@ async def _compute_summary(
         order_count=order_count,
         item_count=item_count,
     )
+
+
+# ---- PHASE 6: New aggregation views ----
+
+
+async def get_settlement_by_handler(
+    db: AsyncSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[SettlementByHandlerRow]:
+    """Aggregate settlements by order handler (user who created the order)."""
+    filters = _base_filters(date_from, date_to)
+
+    cost_expr = case(
+        (
+            OrderItem.cost_unit_price.isnot(None),
+            OrderItem.cost_unit_price * OrderItem.quantity,
+        ),
+        else_=Product.base_price * OrderItem.quantity,
+    )
+
+    stmt = (
+        select(
+            User.id.label("handler_id"),
+            User.name.label("handler_name"),
+            User.role.label("handler_role"),
+            func.count(func.distinct(Order.id)).label("order_count"),
+            func.count(OrderItem.id).label("item_count"),
+            func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
+            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+        )
+        .select_from(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(User, Order.user_id == User.id)
+        .where(*filters)
+        .group_by(User.id, User.name, User.role)
+        .order_by(func.sum(OrderItem.subtotal).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = []
+    for row in result.all():
+        revenue = int(row.total_revenue)
+        cost = int(row.total_cost)
+        profit = revenue - cost
+        margin = round((profit / revenue * 100) if revenue > 0 else 0.0, 2)
+        rows.append(SettlementByHandlerRow(
+            handler_id=str(row.handler_id),
+            handler_name=row.handler_name,
+            handler_role=row.handler_role,
+            order_count=row.order_count,
+            item_count=row.item_count,
+            total_revenue=revenue,
+            total_cost=cost,
+            total_profit=profit,
+            avg_margin_pct=margin,
+        ))
+    return rows
+
+
+async def get_settlement_by_company(
+    db: AsyncSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[SettlementByCompanyRow]:
+    """Aggregate settlements by company."""
+    from app.models.company import Company
+
+    filters = _base_filters(date_from, date_to)
+
+    cost_expr = case(
+        (
+            OrderItem.cost_unit_price.isnot(None),
+            OrderItem.cost_unit_price * OrderItem.quantity,
+        ),
+        else_=Product.base_price * OrderItem.quantity,
+    )
+
+    stmt = (
+        select(
+            Company.id.label("company_id"),
+            Company.name.label("company_name"),
+            func.count(func.distinct(Order.id)).label("order_count"),
+            func.count(OrderItem.id).label("item_count"),
+            func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
+            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+        )
+        .select_from(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .outerjoin(Company, Order.company_id == Company.id)
+        .where(*filters)
+        .group_by(Company.id, Company.name)
+        .order_by(func.sum(OrderItem.subtotal).desc())
+    )
+
+    result = await db.execute(stmt)
+    rows = []
+    for row in result.all():
+        revenue = int(row.total_revenue)
+        cost = int(row.total_cost)
+        profit = revenue - cost
+        margin = round((profit / revenue * 100) if revenue > 0 else 0.0, 2)
+        rows.append(SettlementByCompanyRow(
+            company_id=row.company_id,
+            company_name=row.company_name or "미지정",
+            order_count=row.order_count,
+            item_count=row.item_count,
+            total_revenue=revenue,
+            total_cost=cost,
+            total_profit=profit,
+            avg_margin_pct=margin,
+        ))
+    return rows
+
+
+async def get_settlement_by_date(
+    db: AsyncSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[SettlementByDateRow]:
+    """Aggregate settlements by date (for chart data)."""
+    filters = _base_filters(date_from, date_to)
+
+    cost_expr = case(
+        (
+            OrderItem.cost_unit_price.isnot(None),
+            OrderItem.cost_unit_price * OrderItem.quantity,
+        ),
+        else_=Product.base_price * OrderItem.quantity,
+    )
+
+    date_col = func.date(Order.created_at).label("order_date")
+
+    stmt = (
+        select(
+            date_col,
+            func.count(func.distinct(Order.id)).label("order_count"),
+            func.count(OrderItem.id).label("item_count"),
+            func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
+            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+        )
+        .select_from(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(*filters)
+        .group_by(date_col)
+        .order_by(date_col.asc())
+    )
+
+    result = await db.execute(stmt)
+    rows = []
+    for row in result.all():
+        revenue = int(row.total_revenue)
+        cost = int(row.total_cost)
+        profit = revenue - cost
+        rows.append(SettlementByDateRow(
+            date=str(row.order_date),
+            order_count=row.order_count,
+            item_count=row.item_count,
+            total_revenue=revenue,
+            total_cost=cost,
+            total_profit=profit,
+        ))
+    return rows

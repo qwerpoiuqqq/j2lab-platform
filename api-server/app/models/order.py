@@ -150,6 +150,18 @@ class Order(Base):
         DateTime(timezone=True),
     )
 
+    # Distributor order selection
+    selection_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="included",
+        server_default="included",
+    )
+    selected_by: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
+    selected_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+    )
+
     # Relationships
     user: Mapped["User"] = relationship(
         "User",
@@ -202,6 +214,9 @@ class OrderItem(Base):
         default=OrderItemStatus.PENDING.value,
     )
     result_message: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Cost tracking (PHASE 0: 배정 시점의 매체단가 스냅샷)
+    cost_unit_price: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Assignment fields
     assigned_account_id: Mapped[Optional[int]] = mapped_column(

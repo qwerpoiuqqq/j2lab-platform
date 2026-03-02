@@ -1,6 +1,8 @@
-"""Places router: CRUD for Naver Place data."""
+"""Places router: CRUD for Naver Place data + AI recommendation."""
 
 from __future__ import annotations
+
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,12 +10,51 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.models.user import User
+from app.schemas.assignment import PlaceRecommendation
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.keyword import KeywordResponse
 from app.schemas.place import PlaceResponse
-from app.services import keyword_service, place_service
+from app.services import assignment_service, keyword_service, place_service
 
 router = APIRouter(prefix="/places", tags=["places"])
+
+
+def _parse_place_id_from_url(url: str) -> int | None:
+    """Extract numeric MID (place_id) from a Naver Place URL."""
+    # Patterns: /restaurant/12345, /place/12345, m.place.naver.com/...12345
+    match = re.search(r"/(\d{5,15})", url)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+@router.get("/recommend", response_model=PlaceRecommendation)
+async def get_recommendation(
+    place_url: str = Query(..., description="Naver Place URL"),
+    company_id: int = Query(..., description="Company ID for network lookup"),
+    campaign_type: str = Query(default="traffic", description="traffic or save"),
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Get AI recommendation for a place URL at order time.
+
+    Returns whether the place is existing, previous campaign history,
+    and recommended network/action (new vs extend).
+    """
+    place_id = _parse_place_id_from_url(place_url)
+    if place_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL에서 플레이스 ID를 추출할 수 없습니다.",
+        )
+
+    recommendation = await assignment_service.get_recommendation(
+        db,
+        place_id=place_id,
+        campaign_type=campaign_type,
+        company_id=company_id,
+    )
+    return recommendation
 
 
 @router.get("/", response_model=PaginatedResponse[PlaceResponse])

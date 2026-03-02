@@ -102,6 +102,7 @@ export interface Product {
   max_work_days?: number;
   daily_deadline: string;
   deadline_timezone: string;
+  setup_delay_minutes?: number;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -140,6 +141,9 @@ export interface Order {
   payment_confirmed_by?: string;
   payment_confirmed_at?: string;
   completed_at?: string;
+  selection_status?: string;
+  selected_by?: string;
+  selected_at?: string;
   created_at: string;
   updated_at?: string;
   items?: OrderItem[];
@@ -158,6 +162,7 @@ export interface OrderItem {
   item_data?: any;
   status: string;
   result_message?: string;
+  cost_unit_price?: number;
   assigned_account_id?: number;
   assignment_status?: string;
   assigned_at?: string;

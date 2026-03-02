@@ -30,7 +30,7 @@ from app.models.campaign import Campaign
 from app.models.network_preset import NetworkPreset
 from app.models.order import OrderItem, AssignmentStatus
 from app.models.superap_account import SuperapAccount
-from app.schemas.assignment import AssignmentResult
+from app.schemas.assignment import AssignmentResult, PlaceRecommendation, CampaignBrief
 
 
 async def auto_assign(
@@ -41,19 +41,7 @@ async def auto_assign(
     company_id: int,
     total_limit: int | None = None,
 ) -> AssignmentResult:
-    """Run the auto-assignment algorithm for a single order item.
-
-    Args:
-        db: Database session
-        order_item: The order item to assign
-        campaign_type: 'traffic' or 'save'
-        place_id: Naver Place ID
-        company_id: Company ID for network preset lookup
-        total_limit: Total limit for the new campaign (for extension check)
-
-    Returns:
-        AssignmentResult with assignment details or suggestion
-    """
+    """Run the auto-assignment algorithm for a single order item."""
     result = AssignmentResult(order_item_id=order_item.id)
 
     # Step 1: Extension Check
@@ -135,22 +123,82 @@ async def auto_assign(
     return result
 
 
+async def get_recommendation(
+    db: AsyncSession,
+    place_id: int,
+    campaign_type: str,
+    company_id: int,
+) -> PlaceRecommendation:
+    """Get AI recommendation for a place (read-only, no DB writes).
+
+    Used at order entry time to show the user what the system recommends.
+    """
+    # Check extension possibility
+    extension = await _check_extension(
+        db, place_id=place_id, campaign_type=campaign_type, new_total=None
+    )
+
+    existing_campaigns: list[CampaignBrief] = []
+    is_existing = False
+    recommended_action = "new"
+    recommended_network = None
+
+    if extension is not None:
+        existing_campaign, is_extend = extension
+        is_existing = True
+        recommended_action = "extend" if is_extend else "new"
+
+        # Get campaign history for this place
+        history = await get_place_network_history(db, place_id, limit=5)
+        for c in history:
+            existing_campaigns.append(CampaignBrief(
+                campaign_id=c.id,
+                campaign_type=c.campaign_type,
+                status=c.status,
+                total_limit=c.total_limit,
+                start_date=str(c.start_date) if c.start_date else "",
+                end_date=str(c.end_date) if c.end_date else "",
+            ))
+    else:
+        # Check if this place has ANY campaigns (even older ones)
+        all_history = await get_place_network_history(db, place_id, limit=5)
+        if all_history:
+            is_existing = True
+            for c in all_history:
+                existing_campaigns.append(CampaignBrief(
+                    campaign_id=c.id,
+                    campaign_type=c.campaign_type,
+                    status=c.status,
+                    total_limit=c.total_limit,
+                    start_date=str(c.start_date) if c.start_date else "",
+                    end_date=str(c.end_date) if c.end_date else "",
+                ))
+
+    # Get recommended network
+    network = await _select_network(
+        db, place_id=place_id, campaign_type=campaign_type, company_id=company_id,
+    )
+    network_name = network.name if network else None
+
+    return PlaceRecommendation(
+        place_id=place_id,
+        is_existing=is_existing,
+        existing_campaigns=existing_campaigns,
+        recommended_network=network_name,
+        recommended_action=recommended_action,
+    )
+
+
 async def _check_extension(
     db: AsyncSession,
     place_id: int,
     campaign_type: str,
     new_total: int | None = None,
 ) -> tuple[Campaign, bool] | None:
-    """Step 1: Check if this should be an extension of an existing campaign.
-
-    Returns:
-        (existing_campaign, should_extend) or None if no recent campaign exists.
-        should_extend is True if total < 10,000, False if >= 10,000.
-    """
+    """Step 1: Check if this should be an extension of an existing campaign."""
     today = date.today()
     seven_days_ago = today - timedelta(days=7)
 
-    # Find recent campaigns for same place + type
     result = await db.execute(
         select(Campaign)
         .where(
@@ -170,7 +218,6 @@ async def _check_extension(
     if existing is None:
         return None
 
-    # Check total limit threshold
     existing_total = existing.total_limit or 0
     combined = existing_total + (new_total or 0)
 
@@ -188,10 +235,9 @@ async def _select_network(
 ) -> NetworkPreset | None:
     """Step 2: Select unused network preset with lowest tier_order.
 
-    Checks which network_presets have already been used for this place_id +
-    campaign_type, and picks the next unused one.
+    Only counts successful campaigns (not cancelled/failed) as "used".
     """
-    # Get network presets already used for this place + campaign_type
+    # PHASE 0 fix: only count successful campaigns as used
     used_presets_result = await db.execute(
         select(Campaign.network_preset_id)
         .where(
@@ -199,13 +245,13 @@ async def _select_network(
                 Campaign.place_id == place_id,
                 Campaign.campaign_type == campaign_type,
                 Campaign.network_preset_id.isnot(None),
+                Campaign.status.in_(["active", "completed", "paused", "expired"]),
             )
         )
         .distinct()
     )
     used_preset_ids = [row[0] for row in used_presets_result.all()]
 
-    # Find unused presets for this company + campaign_type
     query = (
         select(NetworkPreset)
         .where(
@@ -233,7 +279,6 @@ async def _select_account(
     from app.core.config import settings
     from sqlalchemy import func as sa_func
 
-    # Subquery: count active campaigns per account
     active_count_subquery = (
         select(sa_func.count(Campaign.id))
         .where(
@@ -264,11 +309,22 @@ async def _apply_assignment(
     order_item: OrderItem,
     result: AssignmentResult,
 ) -> None:
-    """Apply the assignment result to the order item."""
+    """Apply the assignment result to the order item and record cost."""
     if result.assigned_account_id:
         order_item.assigned_account_id = result.assigned_account_id
         order_item.assignment_status = AssignmentStatus.AUTO_ASSIGNED.value
         order_item.assigned_at = datetime.now(timezone.utc)
+
+        # PHASE 0: Record unit_cost snapshot from the assigned account
+        account = await db.execute(
+            select(SuperapAccount).where(
+                SuperapAccount.id == result.assigned_account_id
+            )
+        )
+        acc = account.scalar_one_or_none()
+        if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
+            order_item.cost_unit_price = acc.unit_cost
+
         await db.flush()
 
 
@@ -285,6 +341,18 @@ async def confirm_assignment(
         )
     order_item.assignment_status = AssignmentStatus.CONFIRMED.value
     order_item.assigned_by = confirmed_by
+
+    # PHASE 0: Also record cost if not already set
+    if order_item.cost_unit_price is None and order_item.assigned_account_id:
+        account = await db.execute(
+            select(SuperapAccount).where(
+                SuperapAccount.id == order_item.assigned_account_id
+            )
+        )
+        acc = account.scalar_one_or_none()
+        if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
+            order_item.cost_unit_price = acc.unit_cost
+
     await db.flush()
     await db.refresh(order_item)
     return order_item
@@ -302,6 +370,15 @@ async def override_assignment(
     order_item.assignment_status = AssignmentStatus.OVERRIDDEN.value
     order_item.assigned_by = confirmed_by
     order_item.assigned_at = datetime.now(timezone.utc)
+
+    # PHASE 0: Record cost from new account
+    account = await db.execute(
+        select(SuperapAccount).where(SuperapAccount.id == account_id)
+    )
+    acc = account.scalar_one_or_none()
+    if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
+        order_item.cost_unit_price = acc.unit_cost
+
     await db.flush()
     await db.refresh(order_item)
     return order_item
@@ -339,15 +416,85 @@ async def get_assignment_queue(
     return list(result.scalars().unique().all())
 
 
+async def get_assignment_queue_enriched(
+    db: AsyncSession,
+    company_id: int | None = None,
+    assignment_status: str | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[dict]:
+    """Get enriched assignment queue with AI recommendation info."""
+    from app.models.order import Order
+    from app.models.place import Place
+
+    items = await get_assignment_queue(
+        db, company_id=company_id, assignment_status=assignment_status,
+        skip=skip, limit=limit,
+    )
+
+    enriched = []
+    for item in items:
+        order = await db.get(Order, item.order_id)
+        place = await db.get(Place, item.place_id) if item.place_id else None
+        account = (
+            await db.get(SuperapAccount, item.assigned_account_id)
+            if item.assigned_account_id
+            else None
+        )
+
+        # PHASE 4: Get AI recommendation
+        ai_recommendation = "new"
+        extend_target_campaign_id = None
+        extend_target_info = None
+
+        item_data = item.item_data or {}
+        campaign_type = item_data.get("campaign_type", "traffic")
+
+        if item.place_id and order and order.company_id:
+            extension = await _check_extension(
+                db, place_id=item.place_id,
+                campaign_type=campaign_type,
+                new_total=item_data.get("total_limit"),
+            )
+            if extension is not None:
+                existing_campaign, is_extend = extension
+                if is_extend:
+                    ai_recommendation = "extend"
+                    extend_target_campaign_id = existing_campaign.id
+                    extend_target_info = {
+                        "campaign_id": existing_campaign.id,
+                        "campaign_type": existing_campaign.campaign_type,
+                        "status": existing_campaign.status,
+                        "total_limit": existing_campaign.total_limit,
+                        "start_date": str(existing_campaign.start_date) if existing_campaign.start_date else None,
+                        "end_date": str(existing_campaign.end_date) if existing_campaign.end_date else None,
+                    }
+
+        enriched.append({
+            "order_item_id": item.id,
+            "order_id": item.order_id,
+            "order_number": order.order_number if order else None,
+            "company_name": None,
+            "place_name": place.name if place else item_data.get("place_name"),
+            "place_id": item.place_id,
+            "campaign_type": campaign_type,
+            "assignment_status": item.assignment_status,
+            "assigned_account_id": item.assigned_account_id,
+            "assigned_account_name": account.user_id_superap if account else None,
+            "ai_recommendation": ai_recommendation,
+            "extend_target_campaign_id": extend_target_campaign_id,
+            "extend_target_info": extend_target_info,
+        })
+
+    return enriched
+
+
 async def get_place_network_history(
     db: AsyncSession,
     place_id: int,
     limit: int = 100,
 ) -> list[Campaign]:
-    """Get network usage history for a place (all campaign types).
-
-    Limited to prevent unbounded result sets.
-    """
+    """Get network usage history for a place (all campaign types)."""
     result = await db.execute(
         select(Campaign)
         .where(

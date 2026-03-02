@@ -5,12 +5,15 @@ Coordinates between existing services to automate:
 
 Each function is called from a router and handles one pipeline transition,
 delegating to the appropriate services and worker clients.
+
+PHASE 3: Added check_and_queue_ready_items() for deadline-based queue trigger.
+PHASE 4: Added on_assignment_choice() for user new/extend selection.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.extraction_job import ExtractionJob
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.pipeline_state import PipelineState
+from app.models.product import Product
 from app.schemas.campaign import CampaignCreate
 from app.schemas.extraction_job import ExtractionJobCreate
 from app.services import (
@@ -34,12 +38,9 @@ logger = logging.getLogger(__name__)
 async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     """Start the pipeline after payment confirmation.
 
-    For each OrderItem:
-    1. Create PipelineState (draft → payment_confirmed → extraction_queued)
-    2. Create ExtractionJob
-    3. Dispatch to keyword-worker
-
-    Order.status transitions from payment_confirmed → processing.
+    PHASE 3: Items now stay in payment_confirmed state waiting for deadline.
+    The scheduler will move them to extraction_queued when deadline passes.
+    If product has no daily_deadline or setup_delay_minutes=0, process immediately.
     """
     items = order.items
     if not items:
@@ -55,9 +56,7 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
                 item.id,
                 order.id,
             )
-            # Continue with other items — partial pipeline start is acceptable
 
-    # Transition order to processing
     order.status = OrderStatus.PROCESSING.value
     await db.flush()
 
@@ -65,14 +64,41 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
 async def _start_pipeline_for_item(
     db: AsyncSession, item: OrderItem, order: Order
 ) -> None:
-    """Start pipeline for a single order item."""
-    # 1. Create pipeline state directly at payment_confirmed
-    #    (order has already been confirmed, so we skip draft/submitted)
+    """Start pipeline for a single order item.
+
+    PHASE 3: Creates pipeline state at payment_confirmed.
+    If setup_delay_minutes=0, immediately queues for extraction.
+    Otherwise, waits for scheduler to trigger queue transition.
+    """
     state = await pipeline_service.create_pipeline_state(
         db, item.id, initial_stage="payment_confirmed"
     )
 
-    # 3. Extract place_url from item_data
+    # Check if product requires delay
+    product = await db.get(Product, item.product_id)
+    should_delay = (
+        product is not None
+        and product.setup_delay_minutes
+        and product.setup_delay_minutes > 0
+    )
+
+    if should_delay:
+        # PHASE 3: Stay at payment_confirmed, scheduler will advance later
+        logger.info(
+            "OrderItem %s will wait for deadline trigger (delay=%d min)",
+            item.id,
+            product.setup_delay_minutes,
+        )
+        return
+
+    # No delay — immediately proceed to extraction
+    await _advance_to_extraction(db, item, state)
+
+
+async def _advance_to_extraction(
+    db: AsyncSession, item: OrderItem, state: PipelineState
+) -> None:
+    """Move an item from payment_confirmed to extraction_queued."""
     place_url = _extract_place_url(item)
     if not place_url:
         await pipeline_service.transition_stage(
@@ -88,14 +114,12 @@ async def _start_pipeline_for_item(
         )
         return
 
-    # 4. Extract job parameters from item_data
     item_data = item.item_data or {}
     target_count = item_data.get("target_count", 100)
     max_rank = item_data.get("max_rank", 50)
     min_rank = item_data.get("min_rank", 1)
     name_keyword_ratio = item_data.get("name_keyword_ratio", 0.30)
 
-    # 5. Create extraction job
     job = await extraction_service.create_job(
         db,
         ExtractionJobCreate(
@@ -108,7 +132,6 @@ async def _start_pipeline_for_item(
         ),
     )
 
-    # 6. Transition to extraction_queued
     await pipeline_service.transition_stage(
         db,
         state=state,
@@ -119,7 +142,6 @@ async def _start_pipeline_for_item(
     state.extraction_job_id = job.id
     await db.flush()
 
-    # 7. Dispatch to keyword-worker (best-effort)
     try:
         await dispatch_extraction_job(
             job_id=job.id,
@@ -138,6 +160,65 @@ async def _start_pipeline_for_item(
         )
 
 
+async def check_and_queue_ready_items(db: AsyncSession) -> dict:
+    """PHASE 3: Check for items past their deadline and queue them for extraction.
+
+    Called periodically by the scheduler (every 5 minutes).
+    """
+    now = datetime.now(timezone.utc)
+    queued = 0
+    skipped = 0
+
+    # Find pipeline states at payment_confirmed
+    result = await db.execute(
+        select(PipelineState).where(
+            PipelineState.current_stage == "payment_confirmed",
+        )
+    )
+    states = list(result.scalars().all())
+
+    for state in states:
+        try:
+            item_result = await db.execute(
+                select(OrderItem).where(OrderItem.id == state.order_item_id)
+            )
+            item = item_result.scalar_one_or_none()
+            if item is None:
+                skipped += 1
+                continue
+
+            product = await db.get(Product, item.product_id)
+            if product is None:
+                skipped += 1
+                continue
+
+            # Calculate queue time
+            deadline_time = product.daily_deadline
+            delay_minutes = product.setup_delay_minutes or 0
+
+            today = now.date()
+            deadline_today = datetime.combine(
+                today, deadline_time, tzinfo=timezone.utc
+            )
+            queue_time = deadline_today + timedelta(minutes=delay_minutes)
+
+            if now >= queue_time:
+                await _advance_to_extraction(db, item, state)
+                queued += 1
+            else:
+                skipped += 1
+
+        except Exception:
+            logger.exception(
+                "Error checking pipeline state %s for deadline trigger",
+                state.id,
+            )
+            skipped += 1
+
+    await db.flush()
+    return {"queued": queued, "skipped": skipped, "total_checked": len(states)}
+
+
 async def on_extraction_complete(
     db: AsyncSession,
     order_item_id: int,
@@ -145,9 +226,9 @@ async def on_extraction_complete(
 ) -> None:
     """Handle extraction completion: trigger auto-assignment.
 
-    Called from the extraction callback after pipeline transitions to extraction_done.
+    PHASE 4: No longer auto-dispatches extensions. Waits at account_assigned
+    for user choice (new/extend) via on_assignment_choice().
     """
-    # Load order item
     result = await db.execute(
         select(OrderItem).where(OrderItem.id == order_item_id)
     )
@@ -156,7 +237,6 @@ async def on_extraction_complete(
         logger.error("OrderItem %s not found for auto-assignment", order_item_id)
         return
 
-    # Load order for company_id
     order_result = await db.execute(
         select(Order).where(Order.id == item.order_id)
     )
@@ -165,17 +245,14 @@ async def on_extraction_complete(
         logger.error("Order not found for OrderItem %s", order_item_id)
         return
 
-    # Get pipeline state
     state = await pipeline_service.get_pipeline_state(db, order_item_id)
     if state is None:
         logger.error("PipelineState not found for OrderItem %s", order_item_id)
         return
 
-    # Extract campaign_type from item_data (default: traffic)
     item_data = item.item_data or {}
     campaign_type = item_data.get("campaign_type", "traffic")
 
-    # Link place_id from extraction job to order item if not set
     if extraction_job.place_id and not item.place_id:
         item.place_id = extraction_job.place_id
         await db.flush()
@@ -190,10 +267,8 @@ async def on_extraction_complete(
         )
         return
 
-    # Extract total_limit from item_data
     total_limit = item_data.get("total_limit")
 
-    # Run auto-assignment
     try:
         assignment_result = await assignment_service.auto_assign(
             db,
@@ -213,7 +288,6 @@ async def on_extraction_complete(
         return
 
     if assignment_result.assigned_account_id:
-        # Assignment succeeded
         try:
             await pipeline_service.transition_stage(
                 db,
@@ -229,44 +303,14 @@ async def on_extraction_complete(
             )
             return
 
-        # If this is an extension, dispatch immediately (no manual confirm needed)
-        if assignment_result.is_extension and assignment_result.extend_target_campaign_id:
-            try:
-                from app.services.worker_clients import dispatch_campaign_extension
-                # Calculate extension params from item_data
-                item_data_dict = item.item_data or {}
-                duration_days = item_data_dict.get("duration_days", 30)
-                new_end = (date.today() + timedelta(days=duration_days)).isoformat()
-                additional_total = item_data_dict.get("total_limit", 3000)
-
-                await dispatch_campaign_extension(
-                    campaign_id=assignment_result.extend_target_campaign_id,
-                    new_end_date=new_end,
-                    additional_total=additional_total,
-                )
-
-                # Transition through proper stages
-                await pipeline_service.transition_stage(
-                    db, state=state,
-                    to_stage="assignment_confirmed",
-                    trigger_type="auto_extension",
-                    message="Extension auto-confirmed",
-                )
-                state.campaign_id = assignment_result.extend_target_campaign_id
-                await pipeline_service.transition_stage(
-                    db, state=state,
-                    to_stage="campaign_registering",
-                    trigger_type="auto_extension",
-                    message=f"Extension dispatched for campaign {assignment_result.extend_target_campaign_id}",
-                )
-                logger.info(
-                    "Auto-extension dispatched for OrderItem %s → Campaign %s",
-                    order_item_id, assignment_result.extend_target_campaign_id,
-                )
-            except Exception as e:
-                logger.error("Extension dispatch failed for item %s: %s", order_item_id, e)
+        # PHASE 4: Do NOT auto-dispatch extensions anymore.
+        # Wait for user to choose via the /choose endpoint.
+        logger.info(
+            "OrderItem %s assigned, waiting for user choice (is_extension=%s)",
+            order_item_id,
+            assignment_result.is_extension,
+        )
     else:
-        # No account available — admin must manually assign
         suggestion = assignment_result.suggestion or assignment_result.error or "No account available"
         state.error_message = f"Auto-assignment: {suggestion}"
         await db.flush()
@@ -277,14 +321,94 @@ async def on_extraction_complete(
         )
 
 
+async def on_assignment_choice(
+    db: AsyncSession, order_item_id: int, action: str
+) -> None:
+    """PHASE 4: Handle user's new/extend choice after assignment confirmation.
+
+    action="new": Create new campaign and dispatch registration.
+    action="extend": Dispatch campaign extension to existing campaign.
+    """
+    result = await db.execute(
+        select(OrderItem).where(OrderItem.id == order_item_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise ValueError(f"OrderItem {order_item_id} not found")
+
+    order_result = await db.execute(
+        select(Order).where(Order.id == item.order_id)
+    )
+    order = order_result.scalar_one_or_none()
+    if order is None:
+        raise ValueError(f"Order not found for OrderItem {order_item_id}")
+
+    state = await pipeline_service.get_pipeline_state(db, order_item_id)
+    if state is None:
+        raise ValueError(f"PipelineState not found for OrderItem {order_item_id}")
+
+    item_data = item.item_data or {}
+    campaign_type = item_data.get("campaign_type", "traffic")
+
+    if action == "extend":
+        # Find the extension target
+        if item.place_id:
+            extension = await assignment_service._check_extension(
+                db,
+                place_id=item.place_id,
+                campaign_type=campaign_type,
+                new_total=item_data.get("total_limit"),
+            )
+            if extension and extension[1]:  # is_extend = True
+                existing_campaign = extension[0]
+                try:
+                    from app.services.worker_clients import dispatch_campaign_extension
+                    duration_days = item_data.get("duration_days", 30)
+                    new_end = (date.today() + timedelta(days=duration_days)).isoformat()
+                    additional_total = item_data.get("total_limit", 3000)
+
+                    await dispatch_campaign_extension(
+                        campaign_id=existing_campaign.id,
+                        new_end_date=new_end,
+                        additional_total=additional_total,
+                    )
+
+                    await pipeline_service.transition_stage(
+                        db, state=state,
+                        to_stage="assignment_confirmed",
+                        trigger_type="user_choice_extend",
+                        message="Extension chosen by user",
+                    )
+                    state.campaign_id = existing_campaign.id
+                    await pipeline_service.transition_stage(
+                        db, state=state,
+                        to_stage="campaign_registering",
+                        trigger_type="user_choice_extend",
+                        message=f"Extension dispatched for campaign {existing_campaign.id}",
+                    )
+                    logger.info(
+                        "Extension dispatched for OrderItem %s → Campaign %s",
+                        order_item_id, existing_campaign.id,
+                    )
+                    return
+                except Exception as e:
+                    logger.error("Extension dispatch failed for item %s: %s", order_item_id, e)
+                    raise
+
+        # Fallback: if extension not available, treat as new
+        logger.warning(
+            "Extension not available for OrderItem %s, falling back to new",
+            order_item_id,
+        )
+
+    # action == "new" (or extend fallback)
+    await on_assignment_confirmed(db, order_item_id)
+
+
 async def on_assignment_confirmed(
     db: AsyncSession, order_item_id: int
 ) -> None:
-    """Handle assignment confirmation: create campaign and dispatch registration.
-
-    Called from the assignment confirm endpoint after confirm_assignment succeeds.
-    """
-    # Load order item
+    """Handle assignment confirmation: create campaign and dispatch registration."""
     result = await db.execute(
         select(OrderItem).where(OrderItem.id == order_item_id)
     )
@@ -293,7 +417,6 @@ async def on_assignment_confirmed(
         logger.error("OrderItem %s not found for campaign creation", order_item_id)
         return
 
-    # Load order
     order_result = await db.execute(
         select(Order).where(Order.id == item.order_id)
     )
@@ -302,13 +425,11 @@ async def on_assignment_confirmed(
         logger.error("Order not found for OrderItem %s", order_item_id)
         return
 
-    # Get pipeline state
     state = await pipeline_service.get_pipeline_state(db, order_item_id)
     if state is None:
         logger.error("PipelineState not found for OrderItem %s", order_item_id)
         return
 
-    # 1. Transition to assignment_confirmed
     try:
         await pipeline_service.transition_stage(
             db,
@@ -326,7 +447,6 @@ async def on_assignment_confirmed(
         )
         return
 
-    # 2. Get extraction job info
     extraction_job = None
     if state.extraction_job_id:
         ej_result = await db.execute(
@@ -334,7 +454,6 @@ async def on_assignment_confirmed(
         )
         extraction_job = ej_result.scalar_one_or_none()
 
-    # 3. Build campaign data from item_data and extraction results
     item_data = item.item_data or {}
     place_url = _extract_place_url(item) or ""
     place_name = ""
@@ -348,7 +467,6 @@ async def on_assignment_confirmed(
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
 
-    # 4. Select appropriate template based on campaign_type
     from app.models.campaign_template import CampaignTemplate
     template_result = await db.execute(
         select(CampaignTemplate)
@@ -361,7 +479,6 @@ async def on_assignment_confirmed(
     template = template_result.scalar_one_or_none()
     template_id = template.id if template else None
 
-    # 5. Create campaign
     campaign = await campaign_service.create_campaign(
         db,
         CampaignCreate(
@@ -380,21 +497,17 @@ async def on_assignment_confirmed(
         ),
     )
 
-    # 5. Link extraction job to campaign
     if extraction_job:
         campaign.extraction_job_id = extraction_job.id
 
-    # 6. Add keywords from extraction results to campaign pool
     if extraction_job and extraction_job.results:
         keywords = _extract_keywords_from_results(extraction_job.results)
         if keywords:
             await campaign_service.add_keywords_to_pool(db, campaign.id, keywords)
 
-    # 7. Update pipeline state
     state.campaign_id = campaign.id
     await db.flush()
 
-    # 8. Transition to campaign_registering
     try:
         await pipeline_service.transition_stage(
             db,
@@ -409,7 +522,6 @@ async def on_assignment_confirmed(
             order_item_id,
         )
 
-    # 9. Dispatch to campaign-worker (best-effort)
     try:
         await dispatch_campaign_registration(
             campaign_id=campaign.id,
@@ -425,15 +537,9 @@ async def on_assignment_confirmed(
 
 
 async def retry_stuck_pipelines(db: AsyncSession) -> dict:
-    """Find pipelines stuck for >5 minutes and retry, up to 3 times.
-
-    Returns dict with counts of retried and skipped pipelines.
-    """
-    from datetime import datetime, timedelta, timezone
-
+    """Find pipelines stuck for >5 minutes and retry, up to 3 times."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
 
-    # Find stuck pipelines (in transitional stages, not updated recently)
     stuck_stages = ["extraction_queued", "campaign_registering"]
     result = await db.execute(
         select(PipelineState).where(
@@ -447,7 +553,6 @@ async def retry_stuck_pipelines(db: AsyncSession) -> dict:
     skipped = 0
 
     for state in stuck_states:
-        # Check retry count (stored in error_message)
         retry_count = 0
         if state.error_message and "retry_count:" in state.error_message:
             try:
@@ -497,12 +602,7 @@ def _extract_place_url(item: OrderItem) -> str | None:
 
 
 def _extract_keywords_from_results(results: list | dict | None) -> list[str]:
-    """Extract keyword strings from extraction job results.
-
-    Results can be:
-    - list of strings: ["keyword1", "keyword2"]
-    - list of dicts:   [{"keyword": "keyword1", "rank": 5}, ...]
-    """
+    """Extract keyword strings from extraction job results."""
     if not results:
         return []
 

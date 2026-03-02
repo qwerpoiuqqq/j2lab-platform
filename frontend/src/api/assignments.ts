@@ -11,6 +11,17 @@ export interface AssignmentQueueItem {
   assignment_status: string;
   assigned_account_id: number | null;
   assigned_account_name: string | null;
+  // PHASE 4: AI recommendation info
+  ai_recommendation: 'new' | 'extend';
+  extend_target_campaign_id: number | null;
+  extend_target_info: {
+    campaign_id: number;
+    campaign_type: string;
+    status: string;
+    total_limit: number | null;
+    start_date: string | null;
+    end_date: string | null;
+  } | null;
 }
 
 export interface AssignmentQueueResponse {
@@ -29,6 +40,11 @@ export const assignmentsApi = {
 
   confirm: async (itemId: number): Promise<any> => {
     const response = await apiClient.post(`/assignment/${itemId}/confirm`);
+    return response.data;
+  },
+
+  choose: async (itemId: number, action: 'new' | 'extend'): Promise<any> => {
+    const response = await apiClient.post(`/assignment/${itemId}/choose`, { action });
     return response.data;
   },
 

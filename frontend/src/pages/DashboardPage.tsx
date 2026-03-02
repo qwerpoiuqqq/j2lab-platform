@@ -5,10 +5,12 @@ import RecentOrders from '@/components/features/dashboard/RecentOrders';
 import DeadlineAlerts from '@/components/features/dashboard/DeadlineAlerts';
 import KeywordWarnings from '@/components/features/dashboard/KeywordWarnings';
 import RegistrationFunnel from '@/components/features/dashboard/RegistrationFunnel';
+import SubAccountOrders from '@/components/features/orders/SubAccountOrders';
 import { dashboardApi } from '@/api/dashboard';
 import type { DashboardSummary, EnhancedDashboard, UserRole } from '@/types';
 
 const CAMPAIGN_VISIBLE_ROLES: UserRole[] = ['system_admin', 'company_admin', 'order_handler'];
+const DISTRIBUTOR_ROLES: UserRole[] = ['distributor', 'system_admin'];
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -87,6 +89,11 @@ export default function DashboardPage() {
         )}
         <RecentOrders orders={summary.recent_orders} />
       </div>
+
+      {/* Distributor: Sub-account order selection */}
+      {DISTRIBUTOR_ROLES.includes(summary.user_role) && (
+        <SubAccountOrders />
+      )}
 
       {enhanced && (
         <div className={`grid grid-cols-1 ${canSeeCampaigns ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>

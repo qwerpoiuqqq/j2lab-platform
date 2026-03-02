@@ -33,6 +33,7 @@ class OrderItemResponse(BaseModel):
     item_data: Any = None
     status: str
     result_message: str | None = None
+    cost_unit_price: int | None = None
     assigned_account_id: int | None = None
     assignment_status: str
     assigned_at: datetime | None = None
@@ -90,6 +91,9 @@ class OrderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
     completed_at: datetime | None = None
+    selection_status: str = "included"
+    selected_by: uuid.UUID | None = None
+    selected_at: datetime | None = None
     items: list[OrderItemResponse] = []
 
     @field_validator("total_amount", "vat_amount", mode="before")

@@ -211,9 +211,45 @@ Nginx 설정:
 | 배포 | Docker Compose + Nginx + AWS EC2 (t3.medium) |
 | Python | 3.11+ |
 
+## 워크플로우 기능 보완 (2026-03-02)
+
+| Phase | 기능 | 상태 |
+|-------|------|:----:|
+| 0 | 원가 계산 오류 수정 (cost_unit_price) | 구현 완료 |
+| 1 | 접수 시 AI 추천 (GET /places/recommend) | 구현 완료 |
+| 3 | 마감 트리거 (APScheduler, setup_delay_minutes) | 구현 완료 |
+| 4 | 신규/연장 선택 UI (POST /assignment/{id}/choose) | 구현 완료 |
+| 6 | 정산 대시보드 강화 (by-handler/company/date) | 구현 완료 |
+| - | 총판 접수건 선택 (include/exclude) | 구현 완료 |
+
+### 추가 API 엔드포인트
+
+- `GET /places/recommend` — AI 추천 (PHASE 1)
+- `POST /assignment/{id}/choose` — 신규/연장 선택 (PHASE 4)
+- `GET /settlements/by-handler` — 담당자별 정산 (PHASE 6)
+- `GET /settlements/by-company` — 회사별 정산 (PHASE 6)
+- `GET /settlements/by-date` — 일자별 정산 (PHASE 6)
+- `GET /orders/sub-account-pending` — 하부계정 대기 접수건
+- `POST /orders/{id}/include` — 접수건 포함
+- `POST /orders/{id}/exclude` — 접수건 제외
+- `POST /orders/bulk-include` — 일괄 포함
+
+### DB 마이그레이션 필요 (009)
+
+```
+alembic upgrade head  # order_items.cost_unit_price, products.setup_delay_minutes, orders.selection_*
+```
+
+### 새 파일
+
+- `api-server/app/core/scheduler.py` — APScheduler 설정
+- `frontend/src/api/places.ts` — 추천 API 모듈
+- `frontend/src/components/features/orders/SubAccountOrders.tsx` — 총판 접수건 선택
+
 ## 남은 TODO
 
 - [ ] quantum-campaign SQLite → PostgreSQL 캠페인 데이터 마이그레이션
 - [ ] 도메인 + SSL 설정 (Let's Encrypt)
 - [ ] 백업 자동화 (cron + scripts/backup-db.sh)
 - [ ] CI/CD 파이프라인 (GitHub Actions)
+- [ ] EC2에 apscheduler 패키지 설치 필요 (`pip install apscheduler`)

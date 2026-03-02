@@ -207,6 +207,10 @@ async def create_order(
     if len(data.items) > settings.ORDER_MAX_ITEMS:
         raise ValueError(f"최대 {settings.ORDER_MAX_ITEMS}건까지 접수 가능합니다.")
 
+    # Determine selection_status: sub_account orders start as pending
+    user_role = UserRole(current_user.role)
+    initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
+
     order = Order(
         order_number=_generate_order_number(),
         user_id=current_user.id,
@@ -215,6 +219,7 @@ async def create_order(
         payment_status=PaymentStatus.UNPAID.value,
         notes=data.notes,
         source=data.source,
+        selection_status=initial_selection,
     )
     db.add(order)
     await db.flush()
@@ -374,6 +379,7 @@ async def submit_order(
     """Submit an order: draft -> submitted.
 
     Typically done by the distributor confirming a sub_account's order.
+    Only included orders can be submitted.
     """
     current_status = OrderStatus(order.status)
     if not _can_transition(current_status, OrderStatus.SUBMITTED):
@@ -381,6 +387,10 @@ async def submit_order(
             f"Cannot submit order in '{order.status}' status. "
             "Only draft orders can be submitted."
         )
+
+    # Distributor selection check: excluded orders cannot be submitted
+    if order.selection_status == "excluded":
+        raise ValueError("제외된 접수건은 제출할 수 없습니다.")
 
     order.status = OrderStatus.SUBMITTED.value
     order.submitted_by = submitted_by.id
@@ -509,3 +519,63 @@ async def cancel_order(
     await db.flush()
     await db.refresh(order)
     return order
+
+
+# ---- Distributor order selection ----
+
+
+async def set_selection_status(
+    db: AsyncSession,
+    order: Order,
+    status: str,  # "included" | "excluded"
+    actor: User,
+) -> Order:
+    """Set the selection_status of an order (distributor action)."""
+    if status not in ("included", "excluded"):
+        raise ValueError(f"Invalid selection status: {status}")
+    if order.selection_status not in ("pending", "included", "excluded"):
+        raise ValueError(f"Cannot change selection_status from '{order.selection_status}'")
+
+    order.selection_status = status
+    order.selected_by = actor.id
+    order.selected_at = datetime.now(timezone.utc)
+
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
+async def get_sub_account_pending_orders(
+    db: AsyncSession,
+    distributor: User,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[Order]:
+    """Get pending sub-account orders for a distributor."""
+    user_role = UserRole(distributor.role)
+
+    if user_role == UserRole.SYSTEM_ADMIN:
+        # system_admin sees all pending orders
+        query = (
+            select(Order)
+            .where(Order.selection_status == "pending")
+            .order_by(Order.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+    else:
+        # distributor sees only sub-account orders
+        sub_query = select(User.id).where(User.parent_id == distributor.id)
+        query = (
+            select(Order)
+            .where(
+                Order.user_id.in_(sub_query),
+                Order.selection_status == "pending",
+            )
+            .order_by(Order.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+    result = await db.execute(query)
+    return list(result.scalars().unique().all())

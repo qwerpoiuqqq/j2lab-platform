@@ -1,4 +1,4 @@
-"""Settlements router: revenue/profit analysis, Excel export."""
+"""Settlements router: revenue/profit analysis, Excel export, aggregation views."""
 
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ from app.core.database import get_db
 from app.core.deps import RoleChecker
 from app.models.user import User, UserRole
 from app.schemas.settlement import (
+    SettlementByCompanyRow,
+    SettlementByDateRow,
+    SettlementByHandlerRow,
     SettlementResponse,
     SettlementSecretRequest,
     SettlementSecretResponse,
@@ -48,6 +51,45 @@ async def list_settlements(
         page=page,
         size=size,
         pages=pages,
+    )
+
+
+@router.get("/by-handler", response_model=list[SettlementByHandlerRow])
+async def settlement_by_handler(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Get settlement data aggregated by handler (user)."""
+    return await settlement_service.get_settlement_by_handler(
+        db, date_from=date_from, date_to=date_to,
+    )
+
+
+@router.get("/by-company", response_model=list[SettlementByCompanyRow])
+async def settlement_by_company(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Get settlement data aggregated by company."""
+    return await settlement_service.get_settlement_by_company(
+        db, date_from=date_from, date_to=date_to,
+    )
+
+
+@router.get("/by-date", response_model=list[SettlementByDateRow])
+async def settlement_by_date(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Get settlement data aggregated by date (for chart display)."""
+    return await settlement_service.get_settlement_by_date(
+        db, date_from=date_from, date_to=date_to,
     )
 
 
@@ -88,7 +130,6 @@ async def export_settlements(
     ws = wb.active
     ws.title = "Settlements"
 
-    # Header
     headers = [
         "Order ID", "Order Number", "Product", "User", "Role",
         "Qty", "Unit Price", "Base Price", "Subtotal", "Cost",
@@ -96,7 +137,6 @@ async def export_settlements(
     ]
     ws.append(headers)
 
-    # Data rows
     for row in rows:
         ws.append([
             row.order_id,
@@ -114,7 +154,6 @@ async def export_settlements(
             row.created_at.strftime("%Y-%m-%d %H:%M"),
         ])
 
-    # Summary row
     ws.append([])
     ws.append([
         "SUMMARY", "", "", "", "",

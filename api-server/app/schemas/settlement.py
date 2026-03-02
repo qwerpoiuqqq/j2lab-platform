@@ -83,3 +83,44 @@ class SettlementExportParams(BaseModel):
 
     date_from: date | None = None
     date_to: date | None = None
+
+
+# ---- PHASE 6: Aggregation views ----
+
+
+class SettlementByHandlerRow(BaseModel):
+    """Settlement aggregated by handler (user)."""
+
+    handler_id: str
+    handler_name: str
+    handler_role: str
+    order_count: int
+    item_count: int
+    total_revenue: int
+    total_cost: int
+    total_profit: int
+    avg_margin_pct: float
+
+
+class SettlementByCompanyRow(BaseModel):
+    """Settlement aggregated by company."""
+
+    company_id: int | None
+    company_name: str
+    order_count: int
+    item_count: int
+    total_revenue: int
+    total_cost: int
+    total_profit: int
+    avg_margin_pct: float
+
+
+class SettlementByDateRow(BaseModel):
+    """Settlement aggregated by date (for charts)."""
+
+    date: str
+    order_count: int
+    item_count: int
+    total_revenue: int
+    total_cost: int
+    total_profit: int

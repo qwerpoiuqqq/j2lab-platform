@@ -38,9 +38,12 @@ from app.routers.internal import callbacks
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    # Startup: nothing special needed (engine is created on import)
+    # Startup: start deadline check scheduler (PHASE 3)
+    from app.core.scheduler import start_scheduler, stop_scheduler
+    await start_scheduler()
     yield
-    # Shutdown: dispose engine connections
+    # Shutdown: stop scheduler and dispose engine connections
+    await stop_scheduler()
     await engine.dispose()
 
 

@@ -51,6 +51,12 @@ class Product(Base):
         String(30),
         default="Asia/Seoul",
     )
+    setup_delay_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=30,
+        server_default="30",
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

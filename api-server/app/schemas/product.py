@@ -24,6 +24,7 @@ class ProductCreate(BaseModel):
     max_work_days: int | None = None
     daily_deadline: time = time(18, 0)
     deadline_timezone: str = "Asia/Seoul"
+    setup_delay_minutes: int = 30
     is_active: bool = True
 
 
@@ -42,6 +43,7 @@ class ProductUpdate(BaseModel):
     max_work_days: int | None = None
     daily_deadline: time | None = None
     deadline_timezone: str | None = None
+    setup_delay_minutes: int | None = None
     is_active: bool | None = None
 
 
@@ -61,6 +63,7 @@ class ProductResponse(BaseModel):
     max_work_days: int | None = None
     daily_deadline: time
     deadline_timezone: str
+    setup_delay_minutes: int = 30
     is_active: bool
     created_at: datetime
     updated_at: datetime | None = None

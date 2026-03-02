@@ -1,12 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRightIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { productsApi } from '@/api/products';
 import { pricesApi } from '@/api/prices';
 import { ordersApi } from '@/api/orders';
+import { placesApi, type PlaceRecommendation } from '@/api/places';
 import { normalizeSchema } from '@/utils/schema';
 import type { Product, ProductSchema, CreateOrderRequest, ExcelUploadPreviewResponse } from '@/types';
+import { useAuthStore } from '@/store/auth';
 import CategorySelector from '@/components/features/orders/CategorySelector';
 import ProductSelector from '@/components/features/orders/ProductSelector';
 import OrderGrid, { type OrderGridRow } from '@/components/features/orders/OrderGrid';
@@ -22,6 +24,61 @@ export default function OrderGridPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [schema, setSchema] = useState<ProductSchema | null>(null);
+
+  // AI recommendation state
+  const user = useAuthStore((s) => s.user);
+  const [placeUrl, setPlaceUrl] = useState('');
+  const [recommendation, setRecommendation] = useState<PlaceRecommendation | null>(null);
+  const [recommendLoading, setRecommendLoading] = useState(false);
+  const recommendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Determine if the selected product schema has a place_url field
+  const hasPlaceUrlField = schema?.form_schema.some(
+    (f) => f.name === 'place_url' || f.name === 'placeUrl' || f.name === 'url',
+  );
+
+  // Debounced place recommendation fetch
+  const fetchRecommendation = useCallback(
+    (url: string) => {
+      if (recommendTimerRef.current) {
+        clearTimeout(recommendTimerRef.current);
+      }
+      if (!url || !user?.company_id) {
+        setRecommendation(null);
+        return;
+      }
+      recommendTimerRef.current = setTimeout(async () => {
+        setRecommendLoading(true);
+        try {
+          const result = await placesApi.recommend({
+            place_url: url,
+            company_id: user.company_id!,
+          });
+          setRecommendation(result);
+        } catch {
+          setRecommendation(null);
+        } finally {
+          setRecommendLoading(false);
+        }
+      }, 500);
+    },
+    [user?.company_id],
+  );
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recommendTimerRef.current) {
+        clearTimeout(recommendTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Reset recommendation when product changes
+  useEffect(() => {
+    setPlaceUrl('');
+    setRecommendation(null);
+  }, [selectedProduct?.id]);
 
   // Excel upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -230,6 +287,53 @@ export default function OrderGridPage() {
                 loading={schemaLoading}
                 onBack={() => goToStep(2)}
               >
+                {/* AI Recommendation: place_url input + recommendation card */}
+                {schema && hasPlaceUrlField && (
+                  <div className="mb-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        플레이스 URL (AI 추천)
+                      </label>
+                      <input
+                        type="url"
+                        value={placeUrl}
+                        onChange={(e) => {
+                          setPlaceUrl(e.target.value);
+                          fetchRecommendation(e.target.value);
+                        }}
+                        placeholder="https://map.naver.com/... 또는 https://m.place.naver.com/..."
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    {recommendLoading && (
+                      <div className="text-sm text-gray-500">추천 정보 조회 중...</div>
+                    )}
+                    {recommendation && (
+                      <div className="mb-4 p-4 rounded-lg border border-blue-200 bg-blue-50">
+                        <h3 className="text-sm font-semibold text-blue-800 mb-2">AI 추천</h3>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className={recommendation.is_existing ? 'text-orange-600' : 'text-green-600'}>
+                            {recommendation.is_existing ? '기존 플레이스' : '신규 플레이스'}
+                          </span>
+                          <span className="text-gray-600">
+                            추천: {recommendation.recommended_action === 'extend' ? '연장 세팅' : '신규 세팅'}
+                          </span>
+                          {recommendation.recommended_network && (
+                            <span className="text-gray-600">네트워크: {recommendation.recommended_network}</span>
+                          )}
+                        </div>
+                        {recommendation.existing_campaigns.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            이전 캠페인: {recommendation.existing_campaigns.map(c =>
+                              `${c.campaign_type}(${c.status}, ~${c.end_date})`
+                            ).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {schema && schema.form_schema.length > 0 ? (
                   <OrderGrid
                     product={selectedProduct}

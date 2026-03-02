@@ -1,4 +1,4 @@
-"""Assignment router: auto-assignment, confirm, override."""
+"""Assignment router: auto-assignment, confirm, override, choose (new/extend)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from app.core.deps import RoleChecker
 from app.models.order import OrderItem
 from app.models.user import User, UserRole
 from app.schemas.assignment import (
+    AssignmentChoiceRequest,
     AssignmentConfirmRequest,
     AssignmentOverrideRequest,
     AssignmentResult,
@@ -37,42 +38,18 @@ async def get_assignment_queue(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
-    """Get order items pending assignment or awaiting confirmation."""
-    from app.models.order import Order
-    from app.models.place import Place
-    from app.models.superap_account import SuperapAccount
-
+    """Get order items pending assignment with AI recommendation info."""
     company_id = None
     if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
         company_id = current_user.company_id
 
-    items = await assignment_service.get_assignment_queue(
+    enriched = await assignment_service.get_assignment_queue_enriched(
         db,
         company_id=company_id,
         assignment_status=assignment_status,
         skip=skip,
         limit=limit,
     )
-
-    # Enrich with related data
-    enriched = []
-    for item in items:
-        order = await db.get(Order, item.order_id)
-        place = await db.get(Place, item.place_id) if item.place_id else None
-        account = await db.get(SuperapAccount, item.assigned_account_id) if item.assigned_account_id else None
-
-        enriched.append({
-            "order_item_id": item.id,
-            "order_id": item.order_id,
-            "order_number": order.order_number if order else None,
-            "company_name": None,  # Would need company join
-            "place_name": place.name if place else (item.item_data or {}).get("place_name"),
-            "place_id": item.place_id,
-            "campaign_type": (item.item_data or {}).get("campaign_type", ""),
-            "assignment_status": item.assignment_status,
-            "assigned_account_id": item.assigned_account_id,
-            "assigned_account_name": account.user_id_superap if account else None,
-        })
 
     return {"items": enriched}
 
@@ -87,11 +64,7 @@ async def run_auto_assignment(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(admin_checker),
 ):
-    """Run auto-assignment for a specific order item.
-
-    This is typically called internally after extraction completes,
-    but can also be triggered manually.
-    """
+    """Run auto-assignment for a specific order item."""
     from sqlalchemy import select
 
     result = await db.execute(
@@ -192,6 +165,65 @@ async def confirm_assignment(
     return {"message": "Assignment confirmed", "order_item_id": updated.id}
 
 
+@router.post("/{item_id}/choose")
+async def choose_assignment_action(
+    item_id: int,
+    body: AssignmentChoiceRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(admin_checker),
+):
+    """Choose new or extend for an assignment (PHASE 4).
+
+    action=new: confirm + dispatch as new campaign registration
+    action=extend: confirm + dispatch campaign extension
+    """
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(OrderItem).where(OrderItem.id == item_id)
+    )
+    order_item = result.scalar_one_or_none()
+    if order_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order item not found",
+        )
+
+    # Confirm the assignment first
+    try:
+        updated = await assignment_service.confirm_assignment(
+            db,
+            order_item=order_item,
+            confirmed_by=current_user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    # Dispatch based on action choice
+    try:
+        await pipeline_orchestrator.on_assignment_choice(
+            db, item_id, action=body.action
+        )
+    except Exception as e:
+        logger.error(
+            "Assignment choice dispatch failed for item %s (action=%s): %s",
+            item_id, body.action, e,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Dispatch failed: {str(e)}",
+        )
+
+    return {
+        "message": f"Assignment {body.action} dispatched",
+        "order_item_id": updated.id,
+        "action": body.action,
+    }
+
+
 @router.post("/bulk-confirm")
 async def bulk_confirm(
     body: BulkConfirmRequest,
@@ -221,14 +253,12 @@ async def bulk_confirm(
             )
             confirmed.append(item_id)
 
-            # Trigger campaign registration
             try:
                 await pipeline_orchestrator.on_assignment_confirmed(db, item_id)
             except Exception as e:
                 logger.error(
                     "Campaign registration trigger failed for item %s: %s",
-                    item_id,
-                    e,
+                    item_id, e,
                 )
         except ValueError as e:
             errors.append({"item_id": item_id, "error": str(e)})

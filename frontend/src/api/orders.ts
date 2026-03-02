@@ -136,4 +136,31 @@ export const ordersApi = {
     });
     return response.data;
   },
+
+  // Distributor order selection
+  getSubAccountPending: async (params?: {
+    skip?: number;
+    limit?: number;
+  }): Promise<{ items: any[] }> => {
+    const response = await apiClient.get('/orders/sub-account-pending', { params });
+    return response.data;
+  },
+
+  includeOrder: async (orderId: number): Promise<any> => {
+    const response = await apiClient.post(`/orders/${orderId}/include`);
+    return response.data;
+  },
+
+  excludeOrder: async (orderId: number): Promise<any> => {
+    const response = await apiClient.post(`/orders/${orderId}/exclude`);
+    return response.data;
+  },
+
+  bulkInclude: async (orderIds: number[]): Promise<any> => {
+    const response = await apiClient.post('/orders/bulk-include', {
+      order_ids: orderIds,
+      status: 'included',
+    });
+    return response.data;
+  },
 };

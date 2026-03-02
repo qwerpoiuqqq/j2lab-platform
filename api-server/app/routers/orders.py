@@ -315,6 +315,97 @@ async def bulk_status_change(
     )
 
 
+@router.get("/sub-account-pending")
+async def get_sub_account_pending_orders(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Get pending sub-account orders awaiting distributor inclusion/exclusion."""
+    orders = await order_service.get_sub_account_pending_orders(
+        db, distributor=current_user, skip=skip, limit=limit,
+    )
+    return {
+        "items": [
+            {
+                "id": o.id,
+                "order_number": o.order_number,
+                "user_id": str(o.user_id),
+                "status": o.status,
+                "total_amount": int(o.total_amount) if o.total_amount else 0,
+                "selection_status": o.selection_status,
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in orders
+        ],
+    }
+
+
+@router.post("/{order_id}/include")
+async def include_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Include a sub-account order (pending -> included)."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    try:
+        await order_service.set_selection_status(db, order, "included", current_user)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {"message": "Order included", "order_id": order.id}
+
+
+@router.post("/{order_id}/exclude")
+async def exclude_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Exclude a sub-account order (pending -> excluded)."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    try:
+        await order_service.set_selection_status(db, order, "excluded", current_user)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {"message": "Order excluded", "order_id": order.id}
+
+
+@router.post("/bulk-include")
+async def bulk_include_orders(
+    body: BulkStatusRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Bulk include multiple sub-account orders."""
+    success = 0
+    errors = []
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+        try:
+            await order_service.set_selection_status(db, order, "included", current_user)
+            success += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+    return {"included": success, "errors": errors}
+
+
 @router.get("/deadlines")
 async def get_order_deadlines(
     year: int = Query(...),

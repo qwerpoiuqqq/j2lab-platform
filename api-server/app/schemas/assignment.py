@@ -22,6 +22,27 @@ class AssignmentResult(BaseModel):
     error: str | None = None
 
 
+class CampaignBrief(BaseModel):
+    """Brief campaign summary for recommendation display."""
+
+    campaign_id: int
+    campaign_type: str
+    status: str
+    total_limit: int | None = None
+    start_date: str = ""
+    end_date: str = ""
+
+
+class PlaceRecommendation(BaseModel):
+    """AI recommendation result for a place at order time."""
+
+    place_id: int
+    is_existing: bool
+    existing_campaigns: list[CampaignBrief] = []
+    recommended_network: str | None = None
+    recommended_action: str  # "new" | "extend"
+
+
 class AssignmentQueueItem(BaseModel):
     """Item in the assignment queue."""
 
@@ -39,6 +60,12 @@ class AssignmentConfirmRequest(BaseModel):
     """Request to confirm an assignment."""
 
     pass  # No body needed
+
+
+class AssignmentChoiceRequest(BaseModel):
+    """Request to choose new or extend for an assignment."""
+
+    action: str = Field(..., pattern="^(new|extend)$")
 
 
 class AssignmentOverrideRequest(BaseModel):
