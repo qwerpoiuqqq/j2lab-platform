@@ -113,6 +113,12 @@ const navItems: NavItem[] = [
     allowedRoles: ['system_admin', 'company_admin'],
     children: [
       {
+        name: '상품 목록',
+        path: '/products',
+        icon: CubeIcon,
+        allowedRoles: ['system_admin', 'company_admin'],
+      },
+      {
         name: '가격 매트릭스',
         path: '/products/prices/matrix',
         icon: CurrencyDollarIcon,
