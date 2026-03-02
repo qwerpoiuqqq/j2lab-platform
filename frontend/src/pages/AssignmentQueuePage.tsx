@@ -37,7 +37,6 @@ export default function AssignmentQueuePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [choosingId, setChoosingId] = useState<number | null>(null);
   const [bulkConfirming, setBulkConfirming] = useState(false);
 
@@ -70,18 +69,6 @@ export default function AssignmentQueuePage() {
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchQueue]);
-
-  const handleConfirm = async (itemId: number) => {
-    setConfirmingId(itemId);
-    try {
-      await assignmentsApi.confirm(itemId);
-      await fetchQueue();
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || '확인 처리에 실패했습니다.');
-    } finally {
-      setConfirmingId(null);
-    }
-  };
 
   const handleChoose = async (itemId: number, action: 'new' | 'extend') => {
     setChoosingId(itemId);
