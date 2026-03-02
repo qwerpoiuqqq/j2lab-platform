@@ -29,6 +29,9 @@ cryptography>=41.0.0
 # Excel
 openpyxl>=3.1.0
 
+# Scheduler
+apscheduler>=3.10.0
+
 # Utilities
 python-multipart>=0.0.6
 eval-type-backport>=0.2.0
