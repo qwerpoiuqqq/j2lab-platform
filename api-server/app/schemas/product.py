@@ -78,6 +78,12 @@ class ProductResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProductResponseWithWarnings(ProductResponse):
+    """Product response with pipeline validation warnings."""
+
+    pipeline_warnings: list[str] = []
+
+
 class ProductBriefResponse(BaseModel):
     """Brief product info for nested responses."""
 

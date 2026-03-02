@@ -12,6 +12,7 @@ from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.price_policy import PricePolicyCreate, PricePolicyResponse, PricePolicyUpdate
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services import price_service, product_service
+from app.services.pipeline_validation import validate_schema_for_pipeline
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -62,7 +63,10 @@ async def create_product(
             detail=f"Product with code '{body.code}' already exists",
         )
     product = await product_service.create_product(db, body)
-    return product
+    pipeline_warnings = validate_schema_for_pipeline(body.form_schema) if body.form_schema else []
+    result = ProductResponse.model_validate(product).model_dump()
+    result["pipeline_warnings"] = pipeline_warnings
+    return result
 
 
 # === Price Matrix (must be before /{product_id} routes) ===
@@ -218,7 +222,11 @@ async def update_product(
             )
 
     updated = await product_service.update_product(db, product, body)
-    return updated
+    schema_to_check = body.form_schema if body.form_schema is not None else updated.form_schema
+    pipeline_warnings = validate_schema_for_pipeline(schema_to_check) if schema_to_check else []
+    result = ProductResponse.model_validate(updated).model_dump()
+    result["pipeline_warnings"] = pipeline_warnings
+    return result
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)

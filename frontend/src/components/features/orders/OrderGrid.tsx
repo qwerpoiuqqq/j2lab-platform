@@ -19,6 +19,7 @@ interface OrderGridProps {
   schema: FormFieldExtended[];
   onSubmit: (items: OrderGridRow[], notes: string) => void;
   submitting?: boolean;
+  effectivePrice?: number;
 }
 
 function evaluateFormula(formula: string, row: OrderGridRow): number {
@@ -82,7 +83,7 @@ function computeRow(row: OrderGridRow, schema: FormFieldExtended[]): OrderGridRo
   return computed;
 }
 
-export default function OrderGrid({ product, schema, onSubmit, submitting }: OrderGridProps) {
+export default function OrderGrid({ product, schema, onSubmit, submitting, effectivePrice }: OrderGridProps) {
   const [rows, setRows] = useState<OrderGridRow[]>([computeRow(createEmptyRow(schema), schema)]);
   const [notes, setNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,14 +122,14 @@ export default function OrderGrid({ product, schema, onSubmit, submitting }: Ord
   const subtotal = rows.reduce((sum, row) => {
     if (quantityField) {
       const qty = Number(row[quantityField.name]) || 0;
-      return sum + qty * product.base_price;
+      return sum + qty * (effectivePrice ?? product.base_price);
     }
     const calcField = schema.find((f) => f.type === 'calc' && f.formula);
     if (calcField) {
       return sum + (Number(row[calcField.name]) || 0);
     }
     const qty = Number(row['quantity']) || 0;
-    const price = Number(row['unit_price']) || product.base_price;
+    const price = Number(row['unit_price']) || (effectivePrice ?? product.base_price);
     return sum + qty * price;
   }, 0);
 

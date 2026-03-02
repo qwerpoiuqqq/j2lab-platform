@@ -23,6 +23,7 @@ import SettlementPage from '@/pages/SettlementPage';
 import SettlementSecretPage from '@/pages/SettlementSecretPage';
 import CalendarPage from '@/pages/CalendarPage';
 import NoticesPage from '@/pages/NoticesPage';
+import SubAccountsPage from '@/pages/SubAccountsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -135,6 +136,20 @@ export const router = createBrowserRouter([
               {
                 path: '/calendar',
                 element: <CalendarPage />,
+              },
+            ],
+          },
+          // Distributor routes
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={['system_admin', 'company_admin', 'distributor']}
+              />
+            ),
+            children: [
+              {
+                path: '/sub-accounts',
+                element: <SubAccountsPage />,
               },
             ],
           },

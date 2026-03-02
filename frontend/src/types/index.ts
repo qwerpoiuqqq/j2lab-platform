@@ -145,6 +145,7 @@ export interface Order {
   selection_status?: string;
   selected_by?: string;
   selected_at?: string;
+  pipeline_warnings?: string[];
   created_at: string;
   updated_at?: string;
   items?: OrderItem[];
@@ -562,9 +563,11 @@ export interface FormFieldExtended extends FormField {
 }
 
 export interface ProductSchema {
-  product: Product;
+  product_id: number;
+  product_name: string;
   form_schema: FormFieldExtended[];
-  price_policies: PricePolicy[];
+  base_price: number | null;
+  effective_price: number;
 }
 
 export interface PricePolicy {

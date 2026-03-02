@@ -17,6 +17,7 @@ import type { Product, FormField } from '@/types';
 import { productsApi } from '@/api/products';
 import { categoriesApi } from '@/api/categories';
 import { useAuthStore } from '@/store/auth';
+import { PRODUCT_PRESETS } from '@/constants/productPresets';
 
 // ---------------------------------------------------------------------------
 // Extended schema field type used internally
@@ -125,6 +126,7 @@ export default function ProductsPage() {
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
 
   // -----------------------------------------------------------------------
@@ -167,6 +169,7 @@ export default function ProductsPage() {
     setFormData({ name: '', code: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
     setSchemaFields([]);
     setSelectedFieldIndex(null);
+    setSelectedPreset('');
     setShowModal(true);
   };
 
@@ -186,6 +189,35 @@ export default function ProductsPage() {
     setSchemaFields(normalizeSchema(product.form_schema) as SchemaField[]);
     setSelectedFieldIndex(null);
     setShowModal(true);
+  };
+
+  const applyPreset = (presetId: string) => {
+    setSelectedPreset(presetId);
+    if (!presetId) return; // "직접 구성" selected
+    const preset = PRODUCT_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    setFormData(prev => ({
+      ...prev,
+      name: preset.name,
+      category: preset.category,
+      description: preset.description,
+    }));
+    setSchemaFields(preset.fields.map(f => ({
+      name: f.name,
+      label: f.label,
+      type: f.type,
+      required: f.required || false,
+      color: f.color || '#333D4B',
+      sample: f.sample || '',
+      options: f.options,
+      formula: f.formula,
+      base_field: f.base_field,
+      days_field: f.days_field,
+      is_quantity: f.is_quantity,
+      description: f.description,
+      default: f.default,
+    })));
+    setSelectedFieldIndex(null);
   };
 
   // -----------------------------------------------------------------------
@@ -275,10 +307,15 @@ export default function ProductsPage() {
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
       };
 
+      let response: any;
       if (editing) {
-        await productsApi.update(editing.id, payload);
+        response = await productsApi.update(editing.id, payload);
       } else {
-        await productsApi.create(payload);
+        response = await productsApi.create(payload);
+      }
+      // Show pipeline warnings if any
+      if (response?.pipeline_warnings?.length > 0) {
+        alert('파이프라인 경고:\n' + response.pipeline_warnings.join('\n'));
       }
       setShowModal(false);
       setRefreshKey((k) => k + 1);
@@ -502,6 +539,25 @@ export default function ProductsPage() {
               onChange={(e) => setFormData({ ...formData, max_work_days: e.target.value })}
             />
           </div>
+
+          {/* Preset selector (only for create mode) */}
+          {!editing && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">상품 프리셋</label>
+              <select
+                value={selectedPreset}
+                onChange={(e) => applyPreset(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">직접 구성</option>
+                {PRODUCT_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name} - {preset.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* ============================================================ */}
           {/* Schema Builder (new spreadsheet-style) */}

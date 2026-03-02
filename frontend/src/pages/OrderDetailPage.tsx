@@ -66,6 +66,9 @@ export default function OrderDetailPage() {
           break;
         case 'confirm-payment':
           updated = await ordersApi.confirmPayment(Number(id));
+          if ((updated as any).pipeline_warnings?.length > 0) {
+            alert('파이프라인 경고:\n' + (updated as any).pipeline_warnings.join('\n'));
+          }
           break;
         case 'approve':
           updated = await ordersApi.approve(Number(id));

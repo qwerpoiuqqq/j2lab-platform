@@ -30,6 +30,7 @@ from app.schemas.order import (
 )
 from app.services import order_service
 from app.services import pipeline_orchestrator
+from app.services.pipeline_validation import validate_item_data_for_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -598,6 +599,14 @@ async def confirm_payment(
             detail=str(e),
         )
 
+    # Validate item_data for pipeline (non-blocking warnings)
+    pipeline_warnings: list[str] = []
+    if confirmed.items:
+        for item in confirmed.items:
+            item_warnings = validate_item_data_for_pipeline(item.item_data)
+            for w in item_warnings:
+                pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
+
     # Start E2E pipeline (best-effort -- payment confirmation is preserved on failure)
     try:
         await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
@@ -606,7 +615,9 @@ async def confirm_payment(
 
     # Refresh to ensure all attributes are loaded for serialization
     await db.refresh(confirmed)
-    return confirmed
+    result = OrderResponse.model_validate(confirmed).model_dump()
+    result["pipeline_warnings"] = pipeline_warnings
+    return result
 
 
 @router.post("/{order_id}/reject", response_model=OrderResponse)

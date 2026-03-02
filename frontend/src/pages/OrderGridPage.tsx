@@ -340,6 +340,7 @@ export default function OrderGridPage() {
                     schema={schema.form_schema}
                     onSubmit={handleSubmit}
                     submitting={submitMutation.isPending}
+                    effectivePrice={schema.effective_price}
                   />
                 ) : !schemaLoading ? (
                   <div className="text-center py-12 text-gray-500">

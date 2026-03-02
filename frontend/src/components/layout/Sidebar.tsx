@@ -133,6 +133,12 @@ const navItems: NavItem[] = [
     allowedRoles: ['system_admin', 'company_admin'],
   },
   {
+    name: '하부계정 관리',
+    path: '/sub-accounts',
+    icon: UserGroupIcon,
+    allowedRoles: ['system_admin', 'company_admin', 'distributor'],
+  },
+  {
     name: '회사 관리',
     path: '/companies',
     icon: BuildingOffice2Icon,
