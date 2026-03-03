@@ -262,19 +262,67 @@ async def get_place_name(place_id: int):
     """Lightweight place name lookup using Playwright.
 
     Opens a headless browser, navigates to the Naver Place page,
-    and extracts just the business name from Apollo State.
+    and extracts the business name from og:title meta tag.
+    Falls back to Apollo State if og:title is not available.
     """
-    from app.services.place_scraper import PlaceScraper
+    import re
+    from playwright.async_api import async_playwright
 
     url = f"https://m.place.naver.com/restaurant/{place_id}/home"
     try:
-        async with PlaceScraper(headless=True) as scraper:
-            place_data = await scraper.get_place_data_by_url(url)
-            if place_data and place_data.name:
-                return PlaceNameResponse(
-                    place_id=place_id,
-                    place_name=place_data.name,
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36",
+                viewport={"width": 412, "height": 915},
+                locale="ko-KR",
+            )
+            page = await context.new_page()
+            await page.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+            )
+
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=10000)
+                await asyncio.sleep(3)
+
+                # Method 1: og:title meta tag (fastest)
+                og_title = await page.evaluate(
+                    '() => document.querySelector(\'meta[property="og:title"]\')?.content || null'
                 )
+                if og_title:
+                    # Remove " : 네이버" suffix
+                    name = re.sub(r"\s*:\s*네이버$", "", og_title).strip()
+                    if name and name != "네이버 플레이스":
+                        await page.close()
+                        await context.close()
+                        await browser.close()
+                        return PlaceNameResponse(place_id=place_id, place_name=name)
+
+                # Method 2: Apollo State
+                apollo_name = await page.evaluate("""
+                    () => {
+                        const state = window.__APOLLO_STATE__;
+                        if (!state) return null;
+                        for (const key of Object.keys(state)) {
+                            if (key.startsWith('PlaceDetailBase:')) {
+                                return state[key].name || null;
+                            }
+                        }
+                        return null;
+                    }
+                """)
+                if apollo_name:
+                    await page.close()
+                    await context.close()
+                    await browser.close()
+                    return PlaceNameResponse(place_id=place_id, place_name=apollo_name)
+
+            finally:
+                await page.close()
+                await context.close()
+                await browser.close()
+
         return PlaceNameResponse(place_id=place_id, place_name=None)
     except Exception as e:
         logger.warning("Place name lookup failed for %d: %s", place_id, e)
