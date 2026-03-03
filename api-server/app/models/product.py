@@ -42,6 +42,7 @@ class Product(Base):
     reduction_rate: Mapped[Optional[int]] = mapped_column(Integer)  # 0-100%
     min_work_days: Mapped[Optional[int]] = mapped_column(Integer)
     max_work_days: Mapped[Optional[int]] = mapped_column(Integer)
+    min_daily_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     daily_deadline: Mapped[time] = mapped_column(
         Time,
         nullable=False,

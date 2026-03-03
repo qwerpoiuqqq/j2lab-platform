@@ -101,6 +101,7 @@ export interface Product {
   reduction_rate?: number;
   min_work_days?: number;
   max_work_days?: number;
+  min_daily_limit?: number;
   daily_deadline: string;
   deadline_timezone: string;
   setup_delay_minutes?: number;

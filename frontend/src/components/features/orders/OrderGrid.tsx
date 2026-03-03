@@ -1,17 +1,13 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Product, FormFieldExtended, CalcFormula, DateCalcFormula, CombinedProductConfig } from '@/types';
-import { formatCurrency, formatNumber, downloadBlob } from '@/utils/format';
+import { formatCurrency, formatNumber } from '@/utils/format';
 import { getCalcFormula, getDateCalcFormula, getDateDiffFormula } from '@/utils/schema';
-import { ordersApi } from '@/api/orders';
 import { placesApi, type PlaceRecommendationV2 } from '@/api/places';
 import { useAuthStore } from '@/store/auth';
 import Button from '@/components/common/Button';
 import {
   PlusIcon,
   TrashIcon,
-  ArrowDownTrayIcon,
-  ArrowUpTrayIcon,
-  DocumentArrowDownIcon,
   DocumentDuplicateIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
@@ -135,7 +131,6 @@ export default function OrderGrid({
 }: OrderGridProps) {
   const [rows, setRows] = useState<OrderGridRow[]>([computeRow(createEmptyRow(schema), schema)]);
   const [notes, setNotes] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
 
   // AI recommendation state per row
@@ -302,47 +297,11 @@ export default function OrderGrid({
   const vat = Math.round(subtotal * 0.1);
   const total = subtotal + vat;
 
-  const handleTemplateDownload = async () => {
-    try {
-      const blob = await ordersApi.downloadExcelTemplate(product.id);
-      downloadBlob(blob, `${product.name}_template.xlsx`);
-    } catch {
-      alert('템플릿 다운로드에 실패했습니다.');
-    }
-  };
-
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const result = await ordersApi.uploadExcel(file);
-      if (result.errors?.length) {
-        alert(`일부 오류:\n${result.errors.join('\n')}`);
-      }
-      if (result.rows?.length) {
-        setRows(result.rows.map((r) => computeRow(r, schema)));
-      }
-    } catch {
-      alert('Excel 업로드에 실패했습니다.');
-    }
-    e.target.value = '';
-  };
-
-  const handleExcelExport = () => {
-    const headers = schema.map((f) => f.label);
-    const csvRows = rows.map((row) =>
-      schema.map((f) => {
-        const val = row[f.name];
-        return typeof val === 'string' && val.includes(',') ? `"${val}"` : String(val ?? '');
-      }),
-    );
-    const bom = '\uFEFF';
-    const csv = bom + [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, `${product.name}_주문내역.csv`);
-  };
-
   const handleSubmit = () => {
+    const minDaily = product.min_daily_limit;
+    const minDays = product.min_work_days;
+    const maxDays = product.max_work_days;
+
     for (let i = 0; i < rows.length; i++) {
       if (mode === 'combined') {
         if (!rows[i].traffic_enabled && !rows[i].save_enabled) {
@@ -362,6 +321,23 @@ export default function OrderGrid({
           }
         }
       }
+
+      // 상품 제약조건 검증
+      const dailyLimit = Number(rows[i]['daily_limit']);
+      const durationDays = Number(rows[i]['duration_days']);
+      if (minDaily && dailyLimit && dailyLimit < minDaily) {
+        alert(`${i + 1}행: 일 작업량은 최소 ${minDaily} 이상이어야 합니다.`);
+        return;
+      }
+      if (minDays && durationDays && durationDays < minDays) {
+        alert(`${i + 1}행: 작업 기간은 최소 ${minDays}일 이상이어야 합니다.`);
+        return;
+      }
+      if (maxDays && durationDays && durationDays > maxDays) {
+        alert(`${i + 1}행: 작업 기간은 최대 ${maxDays}일 이하여야 합니다.`);
+        return;
+      }
+
       for (const field of schema) {
         if (field.group && !rows[i][field.group]) continue;
         if (field.required && !rows[i][field.name] && rows[i][field.name] !== 0) {
@@ -404,26 +380,12 @@ export default function OrderGrid({
         <Button size="sm" onClick={addRow} icon={<PlusIcon className="h-4 w-4" />}>
           행 추가
         </Button>
-        {mode === 'single' && (
-          <>
-            <Button size="sm" variant="secondary" onClick={handleTemplateDownload} icon={<ArrowDownTrayIcon className="h-4 w-4" />}>
-              Excel 템플릿
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()} icon={<ArrowUpTrayIcon className="h-4 w-4" />}>
-              Excel 업로드
-            </Button>
-            <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} className="hidden" />
-          </>
-        )}
-        <Button size="sm" variant="secondary" onClick={handleExcelExport} icon={<DocumentArrowDownIcon className="h-4 w-4" />}>
-          Excel 내보내기
-        </Button>
       </div>
 
       {/* Grid table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[60vh] border border-gray-200 rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">#</th>
               {schema.map((field) => (
@@ -637,7 +599,10 @@ function SuggestionCard({
   const rec = recommendation;
   const recType = rec.recommended_campaign_type;
   const recTypeRec = recType === 'traffic' ? rec.traffic : rec.save;
-  const placeStatus = rec.is_existing ? '기존 플레이스' : '신규 플레이스';
+  const placeName = rec.place_name;
+  const placeLabel = placeName
+    ? `${placeName} (${rec.is_existing ? '기존' : '신규'} 플레이스)`
+    : (rec.is_existing ? '기존 플레이스' : '신규 플레이스');
   const actionText = recTypeRec.recommended_action === 'extend' ? '연장' : '신규 세팅';
 
   return (
@@ -645,7 +610,7 @@ function SuggestionCard({
       <SparklesIcon className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-700 leading-relaxed">
-          <span className="font-medium text-blue-700">{placeStatus}</span>입니다.{' '}
+          <span className="font-medium text-blue-700">{placeLabel}</span>입니다.{' '}
           <span className={`font-semibold ${recType === 'traffic' ? 'text-blue-600' : 'text-purple-600'}`}>
             {recType === 'traffic' ? '트래픽' : '저장'}
           </span>
@@ -721,10 +686,13 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled 
         <input type="url" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} className={baseClass} placeholder="https://" disabled={disabled} {...dataAttrs} />
       );
 
-    case 'number':
+    case 'number': {
+      const minAttr = field.min !== undefined ? field.min : 0;
+      const maxAttr = field.max !== undefined ? field.max : undefined;
       return (
-        <input type="number" value={disabled ? '' : (value === '' ? '' : Number(value))} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} onKeyDown={onKeyDown} className={`${baseClass} text-right`} min={0} disabled={disabled} {...dataAttrs} />
+        <input type="number" value={disabled ? '' : (value === '' ? '' : Number(value))} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} onKeyDown={onKeyDown} className={`${baseClass} text-right`} min={minAttr} max={maxAttr} disabled={disabled} {...dataAttrs} />
       );
+    }
 
     case 'date':
       return (

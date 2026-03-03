@@ -105,6 +105,7 @@ class PlaceRecommendationV2(BaseModel):
     """Bidirectional AI recommendation for a place (both traffic and save)."""
 
     place_id: int
+    place_name: str | None = None
     is_existing: bool
     recommended_campaign_type: str  # "traffic" or "save"
     recommendation_reason: str

@@ -22,6 +22,7 @@ class ProductCreate(BaseModel):
     reduction_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
+    min_daily_limit: int | None = None
     daily_deadline: time = time(18, 0)
     deadline_timezone: str = "Asia/Seoul"
     setup_delay_minutes: int = 30
@@ -41,6 +42,7 @@ class ProductUpdate(BaseModel):
     reduction_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
+    min_daily_limit: int | None = None
     daily_deadline: time | None = None
     deadline_timezone: str | None = None
     setup_delay_minutes: int | None = None
@@ -61,6 +63,7 @@ class ProductResponse(BaseModel):
     reduction_rate: int | None = None
     min_work_days: int | None = None
     max_work_days: int | None = None
+    min_daily_limit: int | None = None
     daily_deadline: time
     deadline_timezone: str
     setup_delay_minutes: int = 30

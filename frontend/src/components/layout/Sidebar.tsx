@@ -23,7 +23,6 @@ import {
   ChevronRightIcon,
   ChartBarIcon,
   LockClosedIcon,
-  QueueListIcon,
   SignalIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/auth';
@@ -97,12 +96,6 @@ const navItems: NavItem[] = [
         name: '템플릿 관리',
         path: '/campaigns/templates',
         icon: SwatchIcon,
-        allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
-      },
-      {
-        name: '배정 대기열',
-        path: '/assignments',
-        icon: QueueListIcon,
         allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
       },
     ],

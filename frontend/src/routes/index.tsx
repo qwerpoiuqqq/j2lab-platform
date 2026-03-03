@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import ProtectedRoute from './ProtectedRoute';
 import LoginPage from '@/pages/LoginPage';
@@ -12,7 +12,7 @@ import CampaignAddPage from '@/pages/CampaignAddPage';
 import CampaignUploadPage from '@/pages/CampaignUploadPage';
 import SuperapAccountsPage from '@/pages/SuperapAccountsPage';
 import CampaignTemplatesPage from '@/pages/CampaignTemplatesPage';
-import AssignmentQueuePage from '@/pages/AssignmentQueuePage';
+
 import UsersPage from '@/pages/UsersPage';
 import CompaniesPage from '@/pages/CompaniesPage';
 import ProductsPage from '@/pages/ProductsPage';
@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: '/assignments',
-                element: <AssignmentQueuePage />,
+                element: <Navigate to="/orders?tab=queue" replace />,
               },
             ],
           },

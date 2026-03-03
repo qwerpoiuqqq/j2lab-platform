@@ -5,7 +5,9 @@ import Badge from '@/components/common/Badge';
 import {
   formatCurrency,
   formatDateTime,
+  formatRelativeTime,
   getOrderStatusLabel,
+  getRoleLabel,
 } from '@/utils/format';
 
 interface OrderListProps {
@@ -27,6 +29,20 @@ function getStatusBadgeVariant(status: string) {
     rejected: 'danger',
   };
   return map[status] || 'default';
+}
+
+function getStatusIcon(status: string): string {
+  const icons: Record<string, string> = {
+    completed: '\u2713',
+    payment_confirmed: '\u2713',
+    processing: '\u23F3',
+    submitted: '\u25CB',
+    draft: '\u25CB',
+    pending: '\u25CB',
+    cancelled: '\u2715',
+    rejected: '\u2715',
+  };
+  return icons[status] || '';
 }
 
 export default function OrderList({ orders, loading, selectable, selectedIds, onToggleSelect }: OrderListProps) {
@@ -57,33 +73,62 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       key: 'order_number',
       header: '주문번호',
       render: (order) => (
-        <span className="font-medium text-gray-900">{order.order_number}</span>
+        <span className="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs font-mono text-gray-900">
+          {order.order_number}
+        </span>
       ),
     },
     {
       key: 'user',
       header: '주문자',
       render: (order) => (
-        <div>
-          <p className="text-gray-900">{order.user?.name || order.user_id || '-'}</p>
-          <p className="text-xs text-gray-500">{order.company?.name || ''}</p>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-900 font-medium">{order.user?.name || order.user_id || '-'}</span>
+            {order.user?.role && (
+              <span className="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] leading-none font-medium">
+                {getRoleLabel(order.user.role)}
+              </span>
+            )}
+          </div>
+          {order.company?.name && (
+            <span className="inline-flex items-center bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[11px] leading-none w-fit">
+              {order.company.name}
+            </span>
+          )}
         </div>
       ),
     },
     {
       key: 'item_count',
       header: '항목수',
-      render: (order) => (
-        <span className="text-gray-600">{order.item_count || order.items?.length || 0}건</span>
-      ),
+      render: (order) => {
+        const count = order.item_count || order.items?.length || 0;
+        const productNames = order.items
+          ?.map((item) => item.product?.name)
+          .filter(Boolean);
+        const uniqueNames = productNames ? [...new Set(productNames)] : [];
+        return (
+          <div>
+            <span className="text-gray-900 font-medium">{count}건</span>
+            {uniqueNames.length > 0 && (
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[120px]">
+                {uniqueNames.join(', ')}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'total_amount',
       header: '금액',
       render: (order) => (
-        <span className="font-medium text-gray-900">
-          {formatCurrency(order.total_amount)}
-        </span>
+        <div className="text-right">
+          <span className="font-medium text-gray-900 tabular-nums">
+            {formatCurrency(order.total_amount)}
+          </span>
+        </div>
       ),
     },
     {
@@ -91,6 +136,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '상태',
       render: (order) => (
         <Badge variant={getStatusBadgeVariant(order.status)}>
+          <span className="mr-1">{getStatusIcon(order.status)}</span>
           {getOrderStatusLabel(order.status)}
         </Badge>
       ),
@@ -99,9 +145,14 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       key: 'created_at',
       header: '접수일시',
       render: (order) => (
-        <span className="text-gray-500 text-xs">
-          {formatDateTime(order.created_at)}
-        </span>
+        <div>
+          <p className="text-gray-700 text-xs">
+            {formatDateTime(order.created_at)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {formatRelativeTime(order.created_at)}
+          </p>
+        </div>
       ),
     },
   ];

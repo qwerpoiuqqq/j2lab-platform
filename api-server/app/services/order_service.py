@@ -79,6 +79,39 @@ def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", val_str):
                 errors.append(f"필드 '{name}': 날짜 형식(YYYY-MM-DD)이어야 합니다.")
 
+    # Constraints validation against product limits
+    data = item_data or {}
+
+    daily_limit = data.get("daily_limit")
+    duration_days = data.get("duration_days")
+
+    if daily_limit is not None and product.min_daily_limit is not None:
+        try:
+            if int(daily_limit) < product.min_daily_limit:
+                errors.append(
+                    f"일 작업량은 최소 {product.min_daily_limit} 이상이어야 합니다"
+                )
+        except (ValueError, TypeError):
+            pass
+
+    if duration_days is not None and product.min_work_days is not None:
+        try:
+            if int(duration_days) < product.min_work_days:
+                errors.append(
+                    f"작업 기간은 최소 {product.min_work_days}일 이상이어야 합니다"
+                )
+        except (ValueError, TypeError):
+            pass
+
+    if duration_days is not None and product.max_work_days is not None:
+        try:
+            if int(duration_days) > product.max_work_days:
+                errors.append(
+                    f"작업 기간은 최대 {product.max_work_days}일 이하여야 합니다"
+                )
+        except (ValueError, TypeError):
+            pass
+
     return errors
 
 
@@ -520,6 +553,15 @@ async def cancel_order(
     # If payment was already confirmed (edge case: should not happen per flow),
     # refund. In normal flow, cancel is only allowed for draft/submitted.
     order.status = OrderStatus.CANCELLED.value
+
+    # Cascade: cancel all related order items
+    items_result = await db.execute(
+        select(OrderItem).where(OrderItem.order_id == order.id)
+    )
+    for item in items_result.scalars().all():
+        item.status = "cancelled"
+        item.assignment_status = None
+        item.assigned_account_id = None
 
     await db.flush()
     await db.refresh(order)

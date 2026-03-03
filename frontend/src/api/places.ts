@@ -35,6 +35,7 @@ export interface TypeRecommendation {
 
 export interface PlaceRecommendationV2 {
   place_id: number;
+  place_name: string | null;
   is_existing: boolean;
   recommended_campaign_type: 'traffic' | 'save';
   recommendation_reason: string;

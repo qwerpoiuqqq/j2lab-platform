@@ -122,14 +122,6 @@ export default function AssignmentQueuePage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">배정 대기열</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          자동 배정된 계정을 확인하고 캠페인 등록을 진행합니다.
-        </p>
-      </div>
-
       {/* Status filter tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {STATUS_TABS.map((tab) => (

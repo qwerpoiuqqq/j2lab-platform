@@ -139,6 +139,7 @@ export default function ProductsPage() {
     reduction_rate: '',
     min_work_days: '',
     max_work_days: '',
+    min_daily_limit: '',
   });
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null);
@@ -183,7 +184,7 @@ export default function ProductsPage() {
   // -----------------------------------------------------------------------
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '' });
+    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '', min_daily_limit: '' });
     setSchemaFields([]);
     setSelectedFieldIndex(null);
     setSelectedPreset('');
@@ -201,6 +202,7 @@ export default function ProductsPage() {
       reduction_rate: String(product.reduction_rate || ''),
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
+      min_daily_limit: String(product.min_daily_limit || ''),
     });
     // normalizeSchema handles legacy formula migration
     setSchemaFields(normalizeSchema(product.form_schema) as SchemaField[]);
@@ -363,6 +365,7 @@ export default function ProductsPage() {
         reduction_rate: parseInt(formData.reduction_rate) || undefined,
         min_work_days: parseInt(formData.min_work_days) || undefined,
         max_work_days: parseInt(formData.max_work_days) || undefined,
+        min_daily_limit: parseInt(formData.min_daily_limit) || undefined,
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
       };
 
@@ -604,7 +607,7 @@ export default function ProductsPage() {
                   <p className="text-[11px] text-gray-400 mt-0.5">실제 원가는 네트워크 배정 계정 기준</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <Input
                   label="감은 비율(%)"
                   type="number"
@@ -623,6 +626,12 @@ export default function ProductsPage() {
                   type="number"
                   value={formData.max_work_days}
                   onChange={(e) => setFormData({ ...formData, max_work_days: e.target.value })}
+                />
+                <Input
+                  label="최소 일 작업량"
+                  type="number"
+                  value={formData.min_daily_limit}
+                  onChange={(e) => setFormData({ ...formData, min_daily_limit: e.target.value })}
                 />
               </div>
             </div>

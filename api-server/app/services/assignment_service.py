@@ -20,9 +20,11 @@ If all networks exhausted: suggest campaign type change.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+import httpx
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -697,20 +699,46 @@ def _determine_recommended_type(
     return "traffic", "트래픽 기본 추천"
 
 
+async def _fetch_place_name_lightweight(place_id: int) -> str | None:
+    """Fetch place name from Naver mobile page (lightweight, no DB)."""
+    try:
+        url = f"https://m.place.naver.com/restaurant/{place_id}/home"
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url, follow_redirects=True)
+        if resp.status_code == 200:
+            match = re.search(r"<title>(.+?)(?:\s*:\s*네이버)?</title>", resp.text)
+            if match:
+                return match.group(1).strip()
+    except Exception:
+        pass
+    return None
+
+
 async def get_recommendation_both(
     db: AsyncSession,
     place_id: int,
     company_id: int,
 ) -> PlaceRecommendationV2:
     """Get bidirectional AI recommendation for a place (both traffic and save)."""
+    from app.models.place import Place
+
     traffic_rec = await _build_type_recommendation(db, place_id, "traffic", company_id)
     save_rec = await _build_type_recommendation(db, place_id, "save", company_id)
 
     is_existing = traffic_rec.is_existing or save_rec.is_existing
     recommended_type, reason = _determine_recommended_type(traffic_rec, save_rec)
 
+    # Resolve place_name: DB first, then lightweight fetch
+    place_name: str | None = None
+    place = await db.get(Place, place_id)
+    if place and place.name:
+        place_name = place.name
+    else:
+        place_name = await _fetch_place_name_lightweight(place_id)
+
     return PlaceRecommendationV2(
         place_id=place_id,
+        place_name=place_name,
         is_existing=is_existing,
         recommended_campaign_type=recommended_type,
         recommendation_reason=reason,
