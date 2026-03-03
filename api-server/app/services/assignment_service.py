@@ -20,7 +20,6 @@ If all networks exhausted: suggest campaign type change.
 
 from __future__ import annotations
 
-import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -364,7 +363,11 @@ async def _apply_assignment(
         )
         acc = account.scalar_one_or_none()
         if acc:
-            order_item.cost_unit_price = acc.unit_cost_traffic
+            campaign_type = result.campaign_type or "traffic"
+            if campaign_type == "save":
+                order_item.cost_unit_price = acc.unit_cost_save
+            else:
+                order_item.cost_unit_price = acc.unit_cost_traffic
 
         await db.flush()
 
@@ -392,7 +395,12 @@ async def confirm_assignment(
         )
         acc = account.scalar_one_or_none()
         if acc:
-            order_item.cost_unit_price = acc.unit_cost_traffic
+            item_data = order_item.item_data or {}
+            campaign_type = item_data.get("campaign_type", "traffic")
+            if campaign_type == "save":
+                order_item.cost_unit_price = acc.unit_cost_save
+            else:
+                order_item.cost_unit_price = acc.unit_cost_traffic
 
     await db.flush()
     await db.refresh(order_item)
@@ -417,8 +425,13 @@ async def override_assignment(
         select(SuperapAccount).where(SuperapAccount.id == account_id)
     )
     acc = account.scalar_one_or_none()
-    if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
-        order_item.cost_unit_price = acc.unit_cost
+    if acc:
+        item_data = order_item.item_data or {}
+        campaign_type = item_data.get("campaign_type", "traffic")
+        if campaign_type == "save":
+            order_item.cost_unit_price = acc.unit_cost_save
+        else:
+            order_item.cost_unit_price = acc.unit_cost_traffic
 
     await db.flush()
     await db.refresh(order_item)

@@ -44,7 +44,10 @@ def _base_filters(
     filters = [Order.status.in_(settled_statuses)]
 
     if date_from is not None:
-        filters.append(Order.created_at >= date_from)
+        from datetime import datetime, time, timezone
+
+        start_of_day = datetime.combine(date_from, time.min, tzinfo=timezone.utc)
+        filters.append(Order.created_at >= start_of_day)
     if date_to is not None:
         from datetime import datetime, time, timezone
 

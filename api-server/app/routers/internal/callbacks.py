@@ -68,8 +68,30 @@ async def extraction_callback(
             db, updated_job.order_item_id
         )
         if pipeline_state:
-            if body.status == "completed":
+            if body.status == "running":
                 try:
+                    await pipeline_service.transition_stage(
+                        db,
+                        state=pipeline_state,
+                        to_stage="extraction_running",
+                        trigger_type="auto_extraction_running",
+                        message="Extraction job started",
+                    )
+                except ValueError:
+                    pass  # Already past extraction_queued
+            elif body.status == "completed":
+                try:
+                    # If still at extraction_queued (running callback was missed),
+                    # transition through extraction_running first
+                    if pipeline_state.current_stage == "extraction_queued":
+                        await pipeline_service.transition_stage(
+                            db,
+                            state=pipeline_state,
+                            to_stage="extraction_running",
+                            trigger_type="auto_extraction_running",
+                            message="Extraction running (inferred from completion)",
+                        )
+
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,

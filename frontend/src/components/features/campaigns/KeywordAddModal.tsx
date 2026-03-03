@@ -28,7 +28,8 @@ export default function KeywordAddModal({
     try {
       const keywordList = keywords.split(',').map((k) => k.trim()).filter(Boolean);
       const res = await campaignsApi.addKeywords(campaignId, keywordList);
-      setResult(`${res.added}개 키워드가 추가되었습니다.`);
+      const added = res.detail?.added ?? keywordList.length;
+      setResult(`${added}개 키워드가 추가되었습니다.`);
       onSuccess();
     } catch {
       setError('키워드 추가에 실패했습니다.');

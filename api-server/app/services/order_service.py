@@ -28,6 +28,7 @@ from app.models.order import (
     VALID_ORDER_TRANSITIONS,
 )
 from app.models.product import Product
+from app.models.superap_account import SuperapAccount
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreate
 from app.services import price_service
@@ -278,6 +279,18 @@ async def create_order(
     # Determine if this is a no-revenue order type
     is_no_revenue = data.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value)
 
+    # Validate assigned_account_id for no-revenue orders
+    assigned_account: SuperapAccount | None = None
+    if is_no_revenue and data.assigned_account_id:
+        result = await db.execute(
+            select(SuperapAccount).where(SuperapAccount.id == data.assigned_account_id)
+        )
+        assigned_account = result.scalar_one_or_none()
+        if assigned_account is None:
+            raise ValueError(f"SuperapAccount {data.assigned_account_id} not found")
+        if not assigned_account.is_active:
+            raise ValueError(f"SuperapAccount '{assigned_account.user_id_superap}' is not active")
+
     order = Order(
         order_number=await _generate_order_number(db),
         user_id=current_user.id,
@@ -334,6 +347,19 @@ async def create_order(
             subtotal=subtotal,
             item_data=item_data.item_data,
         )
+
+        # Manual account assignment for no-revenue orders
+        if is_no_revenue and assigned_account is not None:
+            order_item.assigned_account_id = assigned_account.id
+            order_item.assignment_status = "confirmed"
+            order_item.assigned_at = datetime.now(timezone.utc)
+            # Select cost based on campaign_type from item_data
+            _idata = item_data.item_data if isinstance(item_data.item_data, dict) else {}
+            if _idata.get("campaign_type") == "save":
+                order_item.cost_unit_price = assigned_account.unit_cost_save
+            else:
+                order_item.cost_unit_price = assigned_account.unit_cost_traffic
+
         db.add(order_item)
         total_amount += subtotal
 
@@ -526,8 +552,6 @@ async def reject_order(
     )
     for item in items_result.scalars().all():
         item.status = "cancelled"
-        item.assignment_status = None
-        item.assigned_account_id = None
 
     await db.flush()
     await db.refresh(order)
@@ -604,8 +628,6 @@ async def cancel_order(
     )
     for item in items_result.scalars().all():
         item.status = "cancelled"
-        item.assignment_status = None
-        item.assigned_account_id = None
 
     await db.flush()
     await db.refresh(order)

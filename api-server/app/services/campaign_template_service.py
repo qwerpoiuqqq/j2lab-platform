@@ -2,11 +2,30 @@
 
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign_template import CampaignTemplate
-from app.schemas.campaign_template import CampaignTemplateUpdate
+from app.schemas.campaign_template import CampaignTemplateCreate, CampaignTemplateUpdate
+
+
+def _generate_code(type_name: str) -> str:
+    """Generate a URL-safe code from type_name (e.g. '트래픽' -> 'traffic')."""
+    known_map = {
+        "트래픽": "traffic",
+        "저장하기": "save",
+        "랜드마크": "landmark",
+        "길찾기": "directions",
+    }
+    for korean, english in known_map.items():
+        if korean in type_name:
+            return english
+    # Fallback: slugify
+    code = re.sub(r"\s+", "_", type_name.strip())
+    code = re.sub(r"[^a-zA-Z0-9가-힣_]", "", code)
+    return code[:50].lower() or "template"
 
 
 async def get_templates(
@@ -54,6 +73,33 @@ async def get_template_by_code(
     return result.scalar_one_or_none()
 
 
+async def create_template(
+    db: AsyncSession, data: CampaignTemplateCreate
+) -> CampaignTemplate:
+    """Create a new campaign template."""
+    code = data.code or _generate_code(data.type_name)
+
+    template = CampaignTemplate(
+        code=code,
+        type_name=data.type_name,
+        description_template=data.description_template,
+        hint_text=data.hint_text,
+        campaign_type_selection=data.campaign_type_selection,
+        links=data.links or [],
+        hashtag=data.hashtag,
+        image_url_200x600=data.image_url_200x600,
+        image_url_720x780=data.image_url_720x780,
+        conversion_text_template=data.conversion_text_template,
+        steps_start=data.steps_start,
+        modules=data.modules or [],
+        is_active=data.is_active,
+    )
+    db.add(template)
+    await db.flush()
+    await db.refresh(template)
+    return template
+
+
 async def update_template(
     db: AsyncSession, template: CampaignTemplate, data: CampaignTemplateUpdate
 ) -> CampaignTemplate:
@@ -64,3 +110,11 @@ async def update_template(
     await db.flush()
     await db.refresh(template)
     return template
+
+
+async def delete_template(
+    db: AsyncSession, template: CampaignTemplate
+) -> None:
+    """Delete a campaign template."""
+    await db.delete(template)
+    await db.flush()

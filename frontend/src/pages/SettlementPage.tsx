@@ -101,6 +101,10 @@ export default function SettlementPage() {
   const [managedPage, setManagedPage] = useState(1);
   const [managedTotalPages, setManagedTotalPages] = useState(1);
   const [managedTotalItems, setManagedTotalItems] = useState(0);
+  const [managedSubView, setManagedSubView] = useState<'items' | 'company'>('items');
+  const [managedCompanyRows, setManagedCompanyRows] = useState<SettlementByCompanyRow[]>([]);
+  const [managedCompanyLoading, setManagedCompanyLoading] = useState(false);
+  const [managedCompanyError, setManagedCompanyError] = useState<string | null>(null);
 
   // Fetch "All" tab data
   useEffect(() => {
@@ -252,6 +256,35 @@ export default function SettlementPage() {
 
     return () => { cancelled = true; };
   }, [activeTab, managedPage, startDate, endDate]);
+
+  // Fetch "Managed - By Company" sub-view data
+  useEffect(() => {
+    if (activeTab !== 'managed' || managedSubView !== 'company') return;
+    let cancelled = false;
+    setManagedCompanyLoading(true);
+    setManagedCompanyError(null);
+
+    settlementsApi
+      .byCompany({
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        order_type: 'monthly_guarantee,managed',
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setManagedCompanyRows(data);
+          setManagedCompanyLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setManagedCompanyError(err?.response?.data?.detail || '업체별 지출 현황을 불러오지 못했습니다.');
+          setManagedCompanyLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab, managedSubView, startDate, endDate]);
 
   // Fetch "Daily Check" tab data
   const fetchDailyCheck = useCallback(async () => {
@@ -734,6 +767,43 @@ export default function SettlementPage() {
     },
   ];
 
+  const managedCompanyColumns: Column<SettlementByCompanyRow>[] = [
+    {
+      key: 'company_name',
+      header: '업체명',
+      render: (r) => <span className="font-medium text-gray-900">{r.company_name}</span>,
+    },
+    {
+      key: 'order_count',
+      header: '주문수',
+      render: (r) => <span className="text-gray-700">{formatNumber(r.order_count)}</span>,
+    },
+    {
+      key: 'item_count',
+      header: '아이템수',
+      render: (r) => <span className="text-gray-700">{formatNumber(r.item_count)}</span>,
+    },
+    {
+      key: 'total_cost',
+      header: '매입합계',
+      render: (r) => <span className="font-medium text-red-600">{formatCurrency(r.total_cost)}</span>,
+    },
+    {
+      key: 'total_revenue',
+      header: '매출',
+      render: (r) => <span className="text-gray-500">{formatCurrency(r.total_revenue)}</span>,
+    },
+    {
+      key: 'avg_margin_pct',
+      header: '마진율',
+      render: (r) => (
+        <Badge className="bg-gray-100 text-gray-700">
+          {r.avg_margin_pct.toFixed(1)}%
+        </Badge>
+      ),
+    },
+  ];
+
   const renderManagedTab = () => (
     <>
       {managedSummary && (
@@ -758,23 +828,63 @@ export default function SettlementPage() {
         </div>
       )}
 
-      {renderError(managedError)}
+      {/* Sub-view toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setManagedSubView('items')}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            managedSubView === 'items'
+              ? 'bg-primary-100 text-primary-700'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          건별
+        </button>
+        <button
+          onClick={() => setManagedSubView('company')}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            managedSubView === 'company'
+              ? 'bg-primary-100 text-primary-700'
+              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          업체별
+        </button>
+      </div>
 
-      <Table<Settlement>
-        columns={managedColumns}
-        data={managedRows}
-        keyExtractor={(s) => `${s.order_id}-${s.order_number}`}
-        loading={managedLoading}
-        emptyMessage="월보장/관리형 정산 내역이 없습니다."
-      />
+      {managedSubView === 'items' ? (
+        <>
+          {renderError(managedError)}
 
-      <Pagination
-        page={managedPage}
-        totalPages={managedTotalPages}
-        onPageChange={setManagedPage}
-        totalItems={managedTotalItems}
-        pageSize={20}
-      />
+          <Table<Settlement>
+            columns={managedColumns}
+            data={managedRows}
+            keyExtractor={(s) => `${s.order_id}-${s.order_number}`}
+            loading={managedLoading}
+            emptyMessage="월보장/관리형 정산 내역이 없습니다."
+          />
+
+          <Pagination
+            page={managedPage}
+            totalPages={managedTotalPages}
+            onPageChange={setManagedPage}
+            totalItems={managedTotalItems}
+            pageSize={20}
+          />
+        </>
+      ) : (
+        <>
+          {renderError(managedCompanyError)}
+
+          <Table<SettlementByCompanyRow>
+            columns={managedCompanyColumns}
+            data={managedCompanyRows}
+            keyExtractor={(r) => String(r.company_id ?? 'none')}
+            loading={managedCompanyLoading}
+            emptyMessage="업체별 지출 현황이 없습니다."
+          />
+        </>
+      )}
     </>
   );
 

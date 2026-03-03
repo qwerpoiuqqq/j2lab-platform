@@ -94,7 +94,20 @@ export default function CampaignUploadPage() {
     setConfirming(true);
     setResult(null);
     try {
-      const res = await campaignUploadApi.confirm({ items: rowNumbers });
+      const selectedItems = previews
+        .filter((p) => rowNumbers.includes(p.row_number) && p.is_valid)
+        .map((p) => ({
+          place_url: p.place_url,
+          place_name: p.place_name,
+          campaign_type: p.campaign_type,
+          start_date: p.start_date,
+          end_date: p.end_date,
+          daily_limit: p.daily_limit,
+          keywords: p.keywords,
+          agency_name: p.agency_name,
+          account_user_id: p.user_id,
+        }));
+      const res = await campaignUploadApi.confirm({ items: selectedItems });
       setPreviews([]);
       setResult({ success: true, message: res.message });
       startPolling();

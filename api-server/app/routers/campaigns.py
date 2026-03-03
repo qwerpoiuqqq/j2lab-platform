@@ -85,6 +85,8 @@ async def list_campaigns(
     company_id: int | None = None,
     place_id: int | None = None,
     campaign_type: str | None = None,
+    account_id: int | None = None,
+    search: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -111,6 +113,8 @@ async def list_campaigns(
         place_id=place_id,
         campaign_type=campaign_type,
         managed_by=managed_by_id,
+        account_id=account_id,
+        search=search,
     )
     return PaginatedResponse.create(
         items=[CampaignResponse.model_validate(c) for c in campaigns],

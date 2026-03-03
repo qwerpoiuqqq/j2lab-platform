@@ -15,7 +15,6 @@ export const campaignsApi = {
     size?: number;
     status?: string;
     account_id?: number;
-    agency?: string;
     search?: string;
   }): Promise<PaginatedResponse<CampaignListItem>> => {
     const response = await apiClient.get<PaginatedResponse<CampaignListItem>>('/campaigns', { params });
@@ -43,11 +42,11 @@ export const campaignsApi = {
   },
 
   updateSettings: async (id: number, data: CampaignSettings): Promise<Campaign> => {
-    const response = await apiClient.put<Campaign>(`/campaigns/${id}/settings`, data);
+    const response = await apiClient.patch<Campaign>(`/campaigns/${id}`, data);
     return response.data;
   },
 
-  addKeywords: async (id: number, keywords: string[]): Promise<{ added: number }> => {
+  addKeywords: async (id: number, keywords: string[]): Promise<{ message: string; detail?: { added: number; total_requested: number } }> => {
     const response = await apiClient.post(`/campaigns/${id}/keywords`, { keywords });
     return response.data;
   },
@@ -72,8 +71,8 @@ export const campaignsApi = {
     return response.data;
   },
 
-  register: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post<Campaign>(`/campaigns/${id}/register`);
+  register: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/campaigns/${id}/register`);
     return response.data;
   },
 
@@ -82,8 +81,8 @@ export const campaignsApi = {
     return response.data;
   },
 
-  rotateKeywords: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post<Campaign>(`/campaigns/${id}/rotate-keywords`);
+  rotateKeywords: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/campaigns/${id}/rotate-keywords`);
     return response.data;
   },
 
@@ -91,13 +90,13 @@ export const campaignsApi = {
     await apiClient.delete(`/campaigns/${id}`);
   },
 
-  batchDelete: async (ids: number[]): Promise<{ deleted: number }> => {
-    const response = await apiClient.post('/campaigns/batch/delete', { ids });
+  batchDelete: async (ids: number[]): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/campaigns/batch/delete', { ids });
     return response.data;
   },
 
-  retryRegistration: async (id: number): Promise<Campaign> => {
-    const response = await apiClient.post(`/campaigns/registration/retry`, { campaign_id: id });
+  retryRegistration: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/campaigns/registration/retry`, { campaign_id: id });
     return response.data;
   },
 };

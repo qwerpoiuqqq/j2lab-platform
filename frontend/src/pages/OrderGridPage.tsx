@@ -5,7 +5,8 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { productsApi } from '@/api/products';
 import { ordersApi } from '@/api/orders';
 import { pricesApi } from '@/api/prices';
-import type { Product, OrderType } from '@/types';
+import { campaignAccountsApi } from '@/api/campaignAccounts';
+import type { Product, OrderType, SuperapAccount } from '@/types';
 import { normalizeSchema } from '@/utils/schema';
 import OrderGrid, { type OrderGridRow } from '@/components/features/orders/OrderGrid';
 import Button from '@/components/common/Button';
@@ -24,6 +25,9 @@ export default function OrderGridPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderType, setOrderType] = useState<OrderType>('regular');
+  const [assignedAccountId, setAssignedAccountId] = useState<number | null>(null);
+
+  const isNoRevenue = orderType === 'monthly_guarantee' || orderType === 'managed';
 
   // Fetch products
   const { data: productsData, isLoading: productsLoading } = useQuery({
@@ -31,6 +35,14 @@ export default function OrderGridPage() {
     queryFn: () => productsApi.list({ size: 100, is_active: true }),
   });
   const products = productsData?.items ?? [];
+
+  // Fetch superap accounts for no-revenue order types
+  const { data: accountsData } = useQuery({
+    queryKey: ['superapAccounts', { is_active: true }],
+    queryFn: () => campaignAccountsApi.list({ is_active: true, size: 100 }),
+    enabled: isNoRevenue && isAdmin,
+  });
+  const accounts: SuperapAccount[] = accountsData?.items ?? [];
 
   // Fetch effective price for selected product (총판별 단가)
   const { data: productSchemaData } = useQuery({
@@ -43,11 +55,16 @@ export default function OrderGridPage() {
   // Direct input submit
   const handleDirectSubmit = async (items: OrderGridRow[], notes: string) => {
     if (!selectedProduct) return;
+    if (isNoRevenue && !assignedAccountId) {
+      alert('월보장/관리형 주문은 계정을 선택해야 합니다.');
+      return;
+    }
     setOrderSubmitting(true);
     try {
       await ordersApi.create({
         notes: notes || undefined,
         order_type: orderType,
+        assigned_account_id: isNoRevenue && assignedAccountId ? assignedAccountId : undefined,
         items: items.map((row) => ({
           product_id: selectedProduct.id,
           quantity: getQuantityFromRow(row, selectedProduct),
@@ -147,11 +164,28 @@ export default function OrderGridPage() {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                {orderType !== 'regular' && (
+                {isNoRevenue && (
                   <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
                     매출 0원 (매입만 발생)
                   </span>
                 )}
+              </div>
+            )}
+            {isAdmin && isNoRevenue && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">배정 계정:</label>
+                <select
+                  value={assignedAccountId ?? ''}
+                  onChange={(e) => setAssignedAccountId(e.target.value ? Number(e.target.value) : null)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">계정 선택 (필수)</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.user_id_superap}{acc.agency_name ? ` (${acc.agency_name})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>

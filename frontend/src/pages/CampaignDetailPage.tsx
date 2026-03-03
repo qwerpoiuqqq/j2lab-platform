@@ -33,45 +33,43 @@ export default function CampaignDetailPage() {
     }
   };
 
+  // eslint warns about loadCampaign not in deps, but loadCampaign references `id` from closure.
+  // Including loadCampaign would cause infinite loop since it's redefined every render.
+  // Using `id` as dep is the correct behavior: re-fetch when id changes.
   useEffect(() => {
     loadCampaign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleAction = async (action: string) => {
     if (!id) return;
     setActionLoading(true);
     try {
-      let updated: Campaign;
       switch (action) {
-        case 'pause':
-          updated = await campaignsApi.pause(Number(id));
+        case 'pause': {
+          const updated = await campaignsApi.pause(Number(id));
+          setCampaign(updated);
           break;
-        case 'resume':
-          updated = await campaignsApi.resume(Number(id));
+        }
+        case 'resume': {
+          const updated = await campaignsApi.resume(Number(id));
+          setCampaign(updated);
           break;
+        }
         case 'rotate':
-          updated = await campaignsApi.rotateKeywords(Number(id));
+          await campaignsApi.rotateKeywords(Number(id));
+          await loadCampaign();
           break;
         default:
           setActionLoading(false);
           return;
       }
-      setCampaign(updated);
     } catch (err: any) {
       alert(err?.response?.data?.detail || '작업에 실패했습니다.');
     } finally {
       setActionLoading(false);
     }
   };
-
-  if (loading || !campaign) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-xl border border-gray-200 h-48" />
-        <div className="bg-white rounded-xl border border-gray-200 h-64" />
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -87,6 +85,15 @@ export default function CampaignDetailPage() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
           {error}
         </div>
+      </div>
+    );
+  }
+
+  if (loading || !campaign) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="bg-white rounded-xl border border-gray-200 h-48" />
+        <div className="bg-white rounded-xl border border-gray-200 h-64" />
       </div>
     );
   }

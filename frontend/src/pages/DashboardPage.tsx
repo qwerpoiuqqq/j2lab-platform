@@ -50,6 +50,14 @@ export default function DashboardPage() {
     };
   }, []);
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+        {error}
+      </div>
+    );
+  }
+
   if (loading || !summary) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -62,14 +70,6 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 h-64" />
           <div className="bg-white rounded-xl border border-gray-200 h-64" />
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
-        {error}
       </div>
     );
   }

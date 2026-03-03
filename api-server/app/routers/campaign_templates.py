@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import RoleChecker, get_current_active_user
 from app.models.user import User, UserRole
-from app.schemas.campaign_template import CampaignTemplateResponse, CampaignTemplateUpdate
+from app.schemas.campaign_template import CampaignTemplateCreate, CampaignTemplateResponse, CampaignTemplateUpdate
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.services import campaign_template_service
 
@@ -39,6 +39,33 @@ async def list_templates(
         page=pagination.page,
         size=pagination.size,
     )
+
+
+@router.post(
+    "/",
+    response_model=CampaignTemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_template(
+    body: CampaignTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(system_admin_checker),
+):
+    """Create a new campaign template (system_admin only)."""
+    try:
+        template = await campaign_template_service.create_template(db, body)
+    except Exception as e:
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Template with type_name '{body.type_name}' or code already exists",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create campaign template",
+        )
+    return template
 
 
 @router.get("/modules")
@@ -109,3 +136,19 @@ async def update_template(
         )
     updated = await campaign_template_service.update_template(db, template, body)
     return updated
+
+
+@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template(
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(system_admin_checker),
+):
+    """Delete a campaign template (system_admin only)."""
+    template = await campaign_template_service.get_template_by_id(db, template_id)
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign template not found",
+        )
+    await campaign_template_service.delete_template(db, template)

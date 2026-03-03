@@ -68,6 +68,7 @@ class OrderCreate(BaseModel):
     notes: str | None = None
     source: str = "web"
     order_type: str = "regular"
+    assigned_account_id: int | None = None
     items: list[OrderItemCreate] = Field(..., min_length=1)
 
 

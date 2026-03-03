@@ -60,8 +60,12 @@ export default function OrderDetailPage() {
     }
   };
 
+  // eslint warns about loadOrder not in deps, but loadOrder references `id` from closure.
+  // Including loadOrder would cause infinite loop since it's redefined every render.
+  // Using `id` as dep is the correct behavior: re-fetch when id changes.
   useEffect(() => {
     loadOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleAction = async (action: string) => {
@@ -181,15 +185,6 @@ export default function OrderDetailPage() {
     }
   };
 
-  if (loading || !order) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-xl border border-gray-200 h-48" />
-        <div className="bg-white rounded-xl border border-gray-200 h-64" />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-6">
@@ -204,6 +199,15 @@ export default function OrderDetailPage() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
           {error}
         </div>
+      </div>
+    );
+  }
+
+  if (loading || !order) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="bg-white rounded-xl border border-gray-200 h-48" />
+        <div className="bg-white rounded-xl border border-gray-200 h-64" />
       </div>
     );
   }

@@ -19,6 +19,7 @@ class CampaignCreate(BaseModel):
     place_url: str = Field(..., min_length=1)
     place_name: str = ""
     campaign_type: str = Field(..., min_length=1, max_length=50)
+    campaign_code: str | None = None
     start_date: date
     end_date: date
     daily_limit: int = Field(..., ge=1)

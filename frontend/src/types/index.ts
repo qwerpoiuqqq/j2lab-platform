@@ -33,7 +33,6 @@ export interface LoginResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
-  user: User;
 }
 
 export interface RefreshResponse {
@@ -189,6 +188,7 @@ export interface CreateOrderRequest {
   }[];
   notes?: string;
   order_type?: OrderType;
+  assigned_account_id?: number;
 }
 
 // ============================================================
@@ -472,6 +472,9 @@ export interface Notification {
 export interface NotificationListResponse {
   items: Notification[];
   total: number;
+  page: number;
+  size: number;
+  pages: number;
   unread_count: number;
 }
 
@@ -484,7 +487,7 @@ export interface Notice {
   title: string;
   content: string;
   author_id: string;
-  author?: User;
+  author_name?: string;
   is_pinned: boolean;
   is_active: boolean;
   created_at: string;
@@ -707,7 +710,19 @@ export interface CampaignUploadPreviewResponse {
 }
 
 export interface CampaignUploadConfirmRequest {
-  items: number[];
+  items: CampaignUploadConfirmItem[];
+}
+
+export interface CampaignUploadConfirmItem {
+  place_url: string;
+  place_name?: string;
+  campaign_type: string;
+  start_date: string;
+  end_date: string;
+  daily_limit: number;
+  keywords: string[];
+  agency_name?: string;
+  account_user_id?: string;
 }
 
 export interface RegistrationProgressItem {

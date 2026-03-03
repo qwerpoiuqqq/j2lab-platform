@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
 import Button from '@/components/common/Button';
@@ -185,15 +185,17 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
     enabled: !isCreate,
   });
 
-  // Populate form when data loads
-  if (!isCreate && accountsData && !loaded) {
-    const acc = accountsData.items.find((a: SuperapAccount) => a.id === accountId);
-    if (acc) {
-      setUserId(acc.user_id_superap);
-      setAgencyName(acc.agency_name || '');
-      setLoaded(true);
+  // Populate form when data loads (useEffect to avoid setState during render)
+  useEffect(() => {
+    if (!isCreate && accountsData && !loaded) {
+      const acc = accountsData.items.find((a: SuperapAccount) => a.id === accountId);
+      if (acc) {
+        setUserId(acc.user_id_superap);
+        setAgencyName(acc.agency_name || '');
+        setLoaded(true);
+      }
     }
-  }
+  }, [isCreate, accountsData, loaded, accountId]);
 
   const handleSave = async () => {
     if (!userId.trim()) {

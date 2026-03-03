@@ -77,8 +77,8 @@ export const ordersApi = {
     return response.data;
   },
 
-  bulkStatus: async (data: BulkStatusRequest): Promise<{ updated: number }> => {
-    const response = await apiClient.post('/orders/bulk-status', data);
+  bulkStatus: async (data: BulkStatusRequest): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/orders/bulk-status', data);
     return response.data;
   },
 

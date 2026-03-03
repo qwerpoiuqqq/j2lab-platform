@@ -41,7 +41,15 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     PHASE 3: Items now stay in payment_confirmed state waiting for deadline.
     The scheduler will move them to extraction_queued when deadline passes.
     If product has no daily_deadline or setup_delay_minutes=0, process immediately.
+
+    Monthly guarantee / managed orders skip the full pipeline.
     """
+    # Skip pipeline for no-revenue order types (manual account assignment)
+    if order.order_type in ("monthly_guarantee", "managed"):
+        order.status = OrderStatus.PROCESSING.value
+        await db.flush()
+        return
+
     items = order.items
     if not items:
         logger.warning("Order %s has no items, skipping pipeline start", order.id)
@@ -269,6 +277,15 @@ async def on_extraction_complete(
 
     total_limit = item_data.get("total_limit")
 
+    if order.company_id is None:
+        state.error_message = "Order has no company_id, cannot auto-assign"
+        await db.flush()
+        logger.warning(
+            "OrderItem %s order has no company_id, skipping auto-assignment",
+            order_item_id,
+        )
+        return
+
     try:
         assignment_result = await assignment_service.auto_assign(
             db,
@@ -468,6 +485,8 @@ async def on_assignment_confirmed(
     end_date = start_date + timedelta(days=end_days)
 
     from app.models.campaign_template import CampaignTemplate
+    from app.models.superap_account import SuperapAccount
+
     template_result = await db.execute(
         select(CampaignTemplate)
         .where(
@@ -478,6 +497,16 @@ async def on_assignment_confirmed(
     )
     template = template_result.scalar_one_or_none()
     template_id = template.id if template else None
+
+    # Resolve network_preset_id from the assigned account
+    network_preset_id = None
+    if item.assigned_account_id:
+        acc_result = await db.execute(
+            select(SuperapAccount).where(SuperapAccount.id == item.assigned_account_id)
+        )
+        acc = acc_result.scalar_one_or_none()
+        if acc:
+            network_preset_id = acc.network_preset_id
 
     campaign = await campaign_service.create_campaign(
         db,
@@ -492,6 +521,7 @@ async def on_assignment_confirmed(
             daily_limit=daily_limit,
             total_limit=total_limit,
             superap_account_id=item.assigned_account_id,
+            network_preset_id=network_preset_id,
             company_id=order.company_id,
             template_id=template_id,
         ),

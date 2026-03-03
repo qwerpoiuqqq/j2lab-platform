@@ -86,8 +86,10 @@ async def create_product(
         reduction_rate=data.reduction_rate,
         min_work_days=data.min_work_days,
         max_work_days=data.max_work_days,
+        min_daily_limit=data.min_daily_limit,
         daily_deadline=data.daily_deadline,
         deadline_timezone=data.deadline_timezone,
+        setup_delay_minutes=data.setup_delay_minutes,
         is_active=data.is_active,
     )
     db.add(product)

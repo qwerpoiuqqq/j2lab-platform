@@ -294,7 +294,7 @@ export default function OrderDetail({
           {items.map((item) => (
             <div key={`pipeline-${item.id}`} className="px-6">
               <p className="text-sm text-gray-600 mb-2">
-                {item.product?.name || `상품 #${item.product_id}`}{item.item_data?.place_name || item.item_data?.상호명 ? ` - ${item.item_data.place_name || item.item_data.상호명}` : ''}
+                {item.product?.name || `상품 #${item.product_id}`}{item.item_data?.place_name || item.item_data?.상호명 ? ` - ${item.item_data?.place_name || item.item_data?.상호명}` : ''}
               </p>
               <PipelineStatusWidget orderItemId={item.id} />
             </div>

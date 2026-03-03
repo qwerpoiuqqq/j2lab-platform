@@ -10,7 +10,7 @@ from app.core.deps import RoleChecker, get_current_active_user
 from app.models.user import User, UserRole
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.price_policy import PricePolicyCreate, PricePolicyResponse, PricePolicyUpdate
-from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
+from app.schemas.product import ProductCreate, ProductResponse, ProductResponseWithWarnings, ProductUpdate
 from app.services import price_service, product_service
 from app.services.pipeline_validation import validate_schema_for_pipeline
 
@@ -47,7 +47,7 @@ async def list_products(
 
 @router.post(
     "/",
-    response_model=ProductResponse,
+    response_model=ProductResponseWithWarnings,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_product(
@@ -190,7 +190,7 @@ async def get_product(
     return product
 
 
-@router.patch("/{product_id}", response_model=ProductResponse)
+@router.patch("/{product_id}", response_model=ProductResponseWithWarnings)
 async def update_product(
     product_id: int,
     body: ProductUpdate,
@@ -219,7 +219,7 @@ async def delete_product(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(system_admin_checker),
 ):
-    """Soft-delete a product (set is_active=False). system_admin only."""
+    """Hard-delete a product. system_admin only. Use PATCH to deactivate instead."""
     product = await product_service.get_product_by_id(db, product_id)
     if product is None:
         raise HTTPException(

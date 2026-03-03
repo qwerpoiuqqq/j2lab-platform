@@ -374,7 +374,7 @@ export default function ProductsPage() {
         max_work_days: parseInt(formData.max_work_days) || undefined,
         min_daily_limit: parseInt(formData.min_daily_limit) || undefined,
         daily_deadline: formData.daily_deadline || undefined,
-        setup_delay_minutes: parseInt(formData.setup_delay_minutes) ?? undefined,
+        setup_delay_minutes: parseInt(formData.setup_delay_minutes) || undefined,
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
       };
 

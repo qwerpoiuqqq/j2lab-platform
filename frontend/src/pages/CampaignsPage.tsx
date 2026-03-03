@@ -51,8 +51,7 @@ export default function CampaignsPage() {
         size: 20,
         account_id: accountId,
         status: statusFilter || undefined,
-        agency: agencyFilter || undefined,
-        search: debouncedSearch || undefined,
+        search: debouncedSearch || agencyFilter || undefined,
       }),
   });
 

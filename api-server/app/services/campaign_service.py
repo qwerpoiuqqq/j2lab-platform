@@ -25,6 +25,8 @@ async def get_campaigns(
     place_id: int | None = None,
     campaign_type: str | None = None,
     managed_by: object | None = None,
+    account_id: int | None = None,
+    search: str | None = None,
 ) -> tuple[list[Campaign], int]:
     """Get paginated list of campaigns."""
     query = select(Campaign)
@@ -47,6 +49,13 @@ async def get_campaigns(
     if managed_by is not None:
         query = query.where(Campaign.managed_by == managed_by)
         count_query = count_query.where(Campaign.managed_by == managed_by)
+    if account_id is not None:
+        query = query.where(Campaign.superap_account_id == account_id)
+        count_query = count_query.where(Campaign.superap_account_id == account_id)
+    if search:
+        search_filter = Campaign.place_name.ilike(f"%{search}%")
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
 
     query = query.order_by(Campaign.created_at.desc()).offset(skip).limit(limit)
 
@@ -82,7 +91,7 @@ async def get_campaign_by_code(
 async def delete_campaign(db: AsyncSession, campaign: Campaign) -> None:
     """Delete a campaign."""
     await db.delete(campaign)
-    await db.commit()
+    await db.flush()
 
 
 async def create_campaign(
@@ -95,6 +104,7 @@ async def create_campaign(
         place_url=data.place_url,
         place_name=data.place_name,
         campaign_type=data.campaign_type,
+        campaign_code=data.campaign_code,
         start_date=data.start_date,
         end_date=data.end_date,
         daily_limit=data.daily_limit,
