@@ -439,7 +439,7 @@ function RowWithSuggestion({
                   : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
-              저장
+              저장하기
             </button>
           </div>
         </td>
@@ -552,7 +552,7 @@ function SuggestionCard({
           <span className="font-medium text-blue-700">{placeStatus}</span>
           입니다.{' '}
           <span className={`font-semibold ${recType === 'traffic' ? 'text-blue-600' : 'text-purple-600'}`}>
-            {recType === 'traffic' ? '트래픽' : '저장'}
+            {recType === 'traffic' ? '트래픽' : '저장하기'}
           </span>
           {recTypeRec.recommended_network && (
             <>
@@ -582,13 +582,13 @@ function SuggestionCard({
 
           {/* 남은 네트워크 수 */}
           <span className="text-[10px] text-gray-400">
-            남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장 {rec.save.available_networks}개
+            남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장하기 {rec.save.available_networks}개
           </span>
 
           {/* 현재 선택이 AI 추천과 다를 경우 알림 */}
           {currentType !== recType && (
             <span className="text-[10px] text-amber-600 font-medium">
-              (AI 추천: {recType === 'traffic' ? '트래픽' : '저장'})
+              (AI 추천: {recType === 'traffic' ? '트래픽' : '저장하기'})
             </span>
           )}
         </div>
@@ -596,8 +596,8 @@ function SuggestionCard({
         {/* 현재 타입의 네트워크 정보 */}
         {typeRec.available_networks === 0 && (
           <div className="text-[10px] text-red-500 mt-1">
-            {currentType === 'traffic' ? '트래픽' : '저장'} 네트워크가 모두 소진되었습니다.
-            {currentType !== recType && ` ${recType === 'traffic' ? '트래픽' : '저장'}으로 변경을 권장합니다.`}
+            {currentType === 'traffic' ? '트래픽' : '저장하기'} 네트워크가 모두 소진되었습니다.
+            {currentType !== recType && ` ${recType === 'traffic' ? '트래픽' : '저장하기'}으로 변경을 권장합니다.`}
           </div>
         )}
       </div>

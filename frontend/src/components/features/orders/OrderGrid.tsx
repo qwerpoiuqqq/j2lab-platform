@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Product, FormFieldExtended, CalcFormula, DateCalcFormula, CombinedProductConfig } from '@/types';
-import { formatCurrency, formatNumber } from '@/utils/format';
+import { formatCurrency, formatNumber, getCampaignTypeLabel } from '@/utils/format';
 import { getCalcFormula, getDateCalcFormula, getDateDiffFormula } from '@/utils/schema';
 import { placesApi, type PlaceRecommendationV2 } from '@/api/places';
 import { useAuthStore } from '@/store/auth';
@@ -305,7 +305,7 @@ export default function OrderGrid({
     for (let i = 0; i < rows.length; i++) {
       if (mode === 'combined') {
         if (!rows[i].traffic_enabled && !rows[i].save_enabled) {
-          alert(`${i + 1}행: 트래픽 또는 저장 중 최소 1개를 선택해야 합니다.`);
+          alert(`${i + 1}행: 트래픽 또는 저장하기 중 최소 1개를 선택해야 합니다.`);
           return;
         }
         if (rows[i].traffic_enabled) {
@@ -517,7 +517,7 @@ export default function OrderGrid({
               <span className="font-medium text-gray-900">{formatCurrency(trafficSubtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">저장 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
+              <span className="text-gray-600">저장하기 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
               <span className="font-medium text-gray-900">{formatCurrency(saveSubtotal)}</span>
             </div>
             <div className="border-t border-gray-200 pt-2" />
@@ -612,7 +612,7 @@ function SuggestionCard({
         <div className="text-xs text-gray-700 leading-relaxed">
           <span className="font-medium text-blue-700">{placeLabel}</span>입니다.{' '}
           <span className={`font-semibold ${recType === 'traffic' ? 'text-blue-600' : 'text-purple-600'}`}>
-            {recType === 'traffic' ? '트래픽' : '저장'}
+            {recType === 'traffic' ? '트래픽' : '저장하기'}
           </span>
           {recTypeRec.recommended_network && (
             <> <span className="font-medium text-gray-800">{recTypeRec.recommended_network}</span></>
@@ -627,10 +627,10 @@ function SuggestionCard({
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-700">연장 가능</span>
           )}
           <span className="text-[10px] text-gray-400">
-            남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장 {rec.save.available_networks}개
+            남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장하기 {rec.save.available_networks}개
           </span>
           {currentType !== recType && (
-            <span className="text-[10px] text-amber-600 font-medium">(AI 추천: {recType === 'traffic' ? '트래픽' : '저장'})</span>
+            <span className="text-[10px] text-amber-600 font-medium">(AI 추천: {recType === 'traffic' ? '트래픽' : '저장하기'})</span>
           )}
         </div>
       </div>
@@ -704,7 +704,7 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled 
         <select value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} className={baseClass} disabled={disabled} {...dataAttrs}>
           <option value="">선택...</option>
           {(field.options ?? []).map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>{field.name === 'campaign_type' ? getCampaignTypeLabel(opt) : opt}</option>
           ))}
         </select>
       );
