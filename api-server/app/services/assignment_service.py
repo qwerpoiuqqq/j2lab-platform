@@ -33,6 +33,7 @@ from app.models.superap_account import SuperapAccount
 from app.schemas.assignment import (
     AssignmentResult,
     CampaignBrief,
+    NetworkOption,
     PlaceRecommendation,
     PlaceRecommendationV2,
     TypeRecommendation,
@@ -554,13 +555,16 @@ async def get_place_network_history(
 # ---- Bidirectional recommendation (V2) ----
 
 
-async def _count_available_networks(
+async def _get_available_networks(
     db: AsyncSession,
     place_id: int,
     campaign_type: str,
     company_id: int,
-) -> int:
-    """Count remaining unused network presets for a place+campaign_type."""
+) -> tuple[int, list[NetworkOption]]:
+    """Get remaining unused network presets for a place+campaign_type.
+
+    Returns (count, list_of_network_options).
+    """
     used_presets_result = await db.execute(
         select(Campaign.network_preset_id)
         .where(
@@ -584,12 +588,18 @@ async def _count_available_networks(
                 NetworkPreset.is_active == True,  # noqa: E712
             )
         )
+        .order_by(NetworkPreset.tier_order.asc())
     )
     if used_preset_ids:
         query = query.where(NetworkPreset.id.notin_(used_preset_ids))
 
     result = await db.execute(query)
-    return len(result.scalars().all())
+    presets = list(result.scalars().all())
+    network_options = [
+        NetworkOption(id=p.id, name=p.name, tier_order=p.tier_order)
+        for p in presets
+    ]
+    return len(presets), network_options
 
 
 async def _build_type_recommendation(
@@ -642,7 +652,9 @@ async def _build_type_recommendation(
         db, place_id=place_id, campaign_type=campaign_type, company_id=company_id,
     )
     network_name = network.name if network else None
-    available = await _count_available_networks(db, place_id, campaign_type, company_id)
+    available_count, network_options = await _get_available_networks(
+        db, place_id, campaign_type, company_id
+    )
 
     return TypeRecommendation(
         campaign_type=campaign_type,
@@ -650,7 +662,8 @@ async def _build_type_recommendation(
         existing_campaigns=existing_campaigns,
         recommended_network=network_name,
         recommended_action=recommended_action,
-        available_networks=available,
+        available_networks=available_count,
+        available_network_list=network_options,
     )
 
 

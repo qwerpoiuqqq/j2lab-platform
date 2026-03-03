@@ -81,6 +81,14 @@ class BulkConfirmRequest(BaseModel):
     item_ids: list[int] = Field(..., min_length=1)
 
 
+class NetworkOption(BaseModel):
+    """Available network option for selection."""
+
+    id: int
+    name: str
+    tier_order: int
+
+
 class TypeRecommendation(BaseModel):
     """Per-type (traffic/save) recommendation detail."""
 
@@ -90,6 +98,7 @@ class TypeRecommendation(BaseModel):
     recommended_network: str | None = None
     recommended_action: str  # "new" | "extend"
     available_networks: int = 0
+    available_network_list: list[NetworkOption] = []
 
 
 class PlaceRecommendationV2(BaseModel):

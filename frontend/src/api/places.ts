@@ -17,6 +17,12 @@ export interface PlaceRecommendation {
   recommended_action: 'new' | 'extend';
 }
 
+export interface NetworkOption {
+  id: number;
+  name: string;
+  tier_order: number;
+}
+
 export interface TypeRecommendation {
   campaign_type: string;
   is_existing: boolean;
@@ -24,6 +30,7 @@ export interface TypeRecommendation {
   recommended_network: string | null;
   recommended_action: 'new' | 'extend';
   available_networks: number;
+  available_network_list: NetworkOption[];
 }
 
 export interface PlaceRecommendationV2 {
