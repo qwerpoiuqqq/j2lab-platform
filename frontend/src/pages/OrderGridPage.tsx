@@ -93,7 +93,6 @@ export default function OrderGridPage() {
     try {
       await ordersApi.create({
         notes: notes || undefined,
-        source: 'web',
         items: items.map((row) => ({
           product_id: selectedProduct.id,
           quantity: getQuantityFromRow(row, selectedProduct),
