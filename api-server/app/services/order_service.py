@@ -29,7 +29,7 @@ from app.models.order import (
 from app.models.product import Product
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreate
-from app.services import balance_service, price_service
+from app.services import price_service
 
 
 def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
@@ -463,27 +463,12 @@ async def confirm_payment(
     order: Order,
     confirmed_by: User,
 ) -> Order:
-    """Confirm payment: submitted -> payment_confirmed.
-
-    Deducts balance from the order's user.
-    """
+    """Confirm payment: submitted -> payment_confirmed."""
     current_status = OrderStatus(order.status)
     if not _can_transition(current_status, OrderStatus.PAYMENT_CONFIRMED):
         raise ValueError(
             f"Cannot confirm payment for order in '{order.status}' status. "
             "Only submitted orders can have payment confirmed."
-        )
-
-    total = int(order.total_amount) if order.total_amount else 0
-
-    # Deduct balance from the order's user
-    if total > 0:
-        await balance_service.charge_for_order(
-            db,
-            user_id=order.user_id,
-            order_id=order.id,
-            amount=total,
-            created_by=confirmed_by.id,
         )
 
     order.status = OrderStatus.PAYMENT_CONFIRMED.value

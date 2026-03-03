@@ -6,7 +6,6 @@ import Modal from '@/components/common/Modal';
 import {
   ArrowLeftIcon,
   ArrowDownTrayIcon,
-  CheckCircleIcon,
   CalendarIcon,
   ArrowPathIcon,
   TrashIcon,
@@ -223,17 +222,6 @@ export default function OrderDetailPage() {
 
         {/* Top action buttons */}
         <div className="flex gap-2">
-          {isAdmin && ['submitted', 'payment_hold'].includes(order.status) && (
-            <Button
-              variant="success"
-              size="sm"
-              onClick={() => handleAction('approve')}
-              loading={actionLoading}
-              icon={<CheckCircleIcon className="h-4 w-4" />}
-            >
-              승인
-            </Button>
-          )}
           {isAdmin && (
             <Button
               variant="secondary"
