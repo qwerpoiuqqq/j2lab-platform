@@ -16,11 +16,13 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -46,6 +48,15 @@ class NetworkPreset(Base):
     media_config: Mapped[Optional[Any]] = mapped_column(
         JSON, nullable=False, default={}
     )
+    handler_user_id: Mapped[Optional[Any]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+        comment="전용 담당자 ID (NULL=일반, 값 있음=해당 담당자 전용)",
+    )
+    cost_price: Mapped[Optional[int]] = mapped_column(
+        Numeric(12, 0), default=0, comment="네트워크 원가 (타당)"
+    )
     description: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -69,7 +80,9 @@ class NetworkPreset(Base):
             "company_id",
             "campaign_type",
             "tier_order",
-            name="uq_network_presets_company_type_tier",
+            "handler_user_id",
+            name="uq_network_presets_company_type_tier_handler",
         ),
         Index("idx_network_presets_company_id", "company_id"),
+        Index("idx_network_presets_handler", "handler_user_id"),
     )

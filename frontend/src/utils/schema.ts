@@ -1,4 +1,4 @@
-import type { FormFieldExtended, CalcFormula, DateCalcFormula } from '@/types';
+import type { FormFieldExtended, CalcFormula, DateCalcFormula, DateDiffFormula } from '@/types';
 
 /**
  * Normalize schema from various formats to the standard array format.
@@ -88,6 +88,14 @@ export function getDateCalcFormula(field: FormFieldExtended): DateCalcFormula | 
   if (field.type !== 'date_calc' || !field.formula) return null;
   if (typeof field.formula === 'object' && 'dateField' in field.formula) {
     return field.formula as DateCalcFormula;
+  }
+  return null;
+}
+
+export function getDateDiffFormula(field: FormFieldExtended): DateDiffFormula | null {
+  if (field.type !== 'date_diff' || !field.formula) return null;
+  if (typeof field.formula === 'object' && 'startField' in field.formula) {
+    return field.formula as DateDiffFormula;
   }
   return null;
 }

@@ -137,6 +137,23 @@ export const ordersApi = {
     return response.data;
   },
 
+  // Simplified order
+  createSimplified: async (data: {
+    items: {
+      place_url: string;
+      start_date: string;
+      daily_limit: number;
+      duration_days: number;
+      target_keyword?: string;
+      campaign_type?: string;
+    }[];
+    notes?: string;
+    source?: string;
+  }): Promise<Order> => {
+    const response = await apiClient.post<Order>('/orders/simplified', data);
+    return response.data;
+  },
+
   // Distributor order selection
   getSubAccountPending: async (params?: {
     skip?: number;

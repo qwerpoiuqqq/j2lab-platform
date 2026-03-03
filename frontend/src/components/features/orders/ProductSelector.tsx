@@ -5,9 +5,10 @@ interface ProductSelectorProps {
   products: Product[];
   category: string;
   onSelect: (product: Product) => void;
+  effectivePrices?: Record<number, number>;
 }
 
-export default function ProductSelector({ products, category, onSelect }: ProductSelectorProps) {
+export default function ProductSelector({ products, category, onSelect, effectivePrices }: ProductSelectorProps) {
   const filtered = products.filter((p) => (p.category || '기타') === category);
 
   if (filtered.length === 0) {
@@ -30,7 +31,7 @@ export default function ProductSelector({ products, category, onSelect }: Produc
             {product.name}
           </h3>
           <p className="mt-1 text-sm font-medium text-primary-600">
-            {formatCurrency(product.base_price)}
+            {formatCurrency(effectivePrices?.[product.id] ?? product.base_price)}
           </p>
           {product.description && (
             <p className="mt-2 text-sm text-gray-500 line-clamp-2">

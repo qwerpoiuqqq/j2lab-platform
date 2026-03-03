@@ -92,7 +92,7 @@ async def get_price_matrix(
         for role_info in pricing_roles:
             try:
                 price = await price_service.get_effective_price(
-                    db, product=product, user_id=_current_user.id, user_role=role_info["id"],
+                    db, product=product, user_id=None, user_role=role_info["id"],
                 )
             except ValueError:
                 price = 0

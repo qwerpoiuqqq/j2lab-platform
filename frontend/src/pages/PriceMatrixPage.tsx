@@ -104,7 +104,7 @@ export default function PriceMatrixPage() {
 
     Promise.all([
       pricesApi.getUserMatrix(),
-      categoriesApi.list({ size: 200 }),
+      categoriesApi.list({ size: 100 }),
     ])
       .then(([matrixRes, categoriesRes]) => {
         if (cancelled) return;

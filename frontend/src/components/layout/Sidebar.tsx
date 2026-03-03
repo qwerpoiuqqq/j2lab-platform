@@ -24,6 +24,7 @@ import {
   ChartBarIcon,
   LockClosedIcon,
   QueueListIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/auth';
 import type { UserRole } from '@/types';
@@ -119,7 +120,7 @@ const navItems: NavItem[] = [
         allowedRoles: ['system_admin', 'company_admin'],
       },
       {
-        name: '가격 매트릭스',
+        name: '단가 설정',
         path: '/products/prices/matrix',
         icon: CurrencyDollarIcon,
         allowedRoles: ['system_admin', 'company_admin'],
@@ -128,6 +129,12 @@ const navItems: NavItem[] = [
         name: '카테고리',
         path: '/products/categories',
         icon: TagIcon,
+        allowedRoles: ['system_admin', 'company_admin'],
+      },
+      {
+        name: '일류 리워드 설정',
+        path: '/products/reward-settings',
+        icon: SignalIcon,
         allowedRoles: ['system_admin', 'company_admin'],
       },
     ],

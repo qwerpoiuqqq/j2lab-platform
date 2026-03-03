@@ -66,6 +66,8 @@ async def create_preset(
         tier_order=data.tier_order,
         name=data.name,
         media_config=data.media_config,
+        handler_user_id=data.handler_user_id,
+        cost_price=data.cost_price,
         description=data.description,
         is_active=data.is_active,
     )

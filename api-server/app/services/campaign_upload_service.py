@@ -20,11 +20,18 @@ logger = logging.getLogger(__name__)
 EXPECTED_HEADERS = ["대행사", "계정ID", "플레이스URL", "상호명", "캠페인타입", "시작일", "종료일", "일일한도", "키워드"]
 
 CAMPAIGN_TYPE_MAP = {
-    "저장하기": "save",
+    # 기본 영문 키
     "traffic": "traffic",
     "save": "save",
     "landmark": "landmark",
-    "트래픽": "traffic",
+    # 한글 → 영문 매핑 (QCA 6개 타입)
+    "트래픽": "트래픽",
+    "트래픽1": "트래픽1",
+    "저장하기": "저장하기",
+    "저장하기1": "저장하기1",
+    "명소": "명소",
+    "공유+길찾기+트래픽": "공유+길찾기+트래픽",
+    # 레거시 매핑
     "랜드마크": "landmark",
 }
 

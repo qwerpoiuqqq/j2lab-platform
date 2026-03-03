@@ -10,6 +10,8 @@ export const campaignAccountsApi = {
   list: async (params?: {
     page?: number;
     size?: number;
+    company_id?: number;
+    network_preset_id?: number;
     is_active?: boolean;
   }): Promise<PaginatedResponse<SuperapAccount>> => {
     const response = await apiClient.get('/superap-accounts', { params });

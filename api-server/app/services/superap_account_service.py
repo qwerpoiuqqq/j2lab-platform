@@ -5,6 +5,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.campaign import Campaign
+from app.models.company import Company
 from app.models.superap_account import SuperapAccount
 from app.schemas.superap_account import SuperapAccountCreate, SuperapAccountUpdate
 from app.utils.crypto import encrypt_password
@@ -17,9 +19,21 @@ async def get_accounts(
     is_active: bool | None = None,
     skip: int = 0,
     limit: int = 50,
-) -> tuple[list[SuperapAccount], int]:
-    """Get paginated list of superap accounts."""
-    query = select(SuperapAccount)
+) -> tuple[list[dict], int]:
+    """Get paginated list of superap accounts with campaign_count."""
+    # Subquery for campaign count per account
+    campaign_count_sq = (
+        select(func.count())
+        .where(Campaign.superap_account_id == SuperapAccount.id)
+        .correlate(SuperapAccount)
+        .scalar_subquery()
+        .label("campaign_count")
+    )
+
+    query = (
+        select(SuperapAccount, campaign_count_sq, Company.name.label("company_name"))
+        .outerjoin(Company, SuperapAccount.company_id == Company.id)
+    )
     count_query = select(func.count()).select_from(SuperapAccount)
 
     if company_id is not None:
@@ -41,7 +55,18 @@ async def get_accounts(
     ).offset(skip).limit(limit)
 
     result = await db.execute(query)
-    accounts = list(result.scalars().all())
+    rows = result.all()
+
+    # Build dicts with campaign_count attached
+    accounts = []
+    for row in rows:
+        account = row[0]
+        campaign_count = row[1] or 0
+        company_name = row[2]
+        # Create a dict-like object that from_attributes can read
+        account.campaign_count = campaign_count  # type: ignore[attr-defined]
+        account.company_name = company_name  # type: ignore[attr-defined]
+        accounts.append(account)
 
     count_result = await db.execute(count_query)
     total = count_result.scalar_one()
@@ -81,7 +106,8 @@ async def create_account(
         agency_name=data.agency_name,
         company_id=data.company_id,
         network_preset_id=data.network_preset_id,
-        unit_cost=data.unit_cost,
+        unit_cost_traffic=data.unit_cost_traffic,
+        unit_cost_save=data.unit_cost_save,
         assignment_order=data.assignment_order,
         is_active=data.is_active,
     )

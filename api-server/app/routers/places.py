@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.models.user import User
-from app.schemas.assignment import PlaceRecommendation
+from app.schemas.assignment import PlaceRecommendation, PlaceRecommendationV2
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.keyword import KeywordResponse
 from app.schemas.place import PlaceResponse
@@ -28,18 +28,18 @@ def _parse_place_id_from_url(url: str) -> int | None:
     return None
 
 
-@router.get("/recommend", response_model=PlaceRecommendation)
+@router.get("/recommend")
 async def get_recommendation(
     place_url: str = Query(..., description="Naver Place URL"),
     company_id: int = Query(..., description="Company ID for network lookup"),
-    campaign_type: str = Query(default="traffic", description="traffic or save"),
+    campaign_type: str | None = Query(default=None, description="traffic or save (None for both)"),
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_active_user),
-):
+) -> PlaceRecommendation | PlaceRecommendationV2:
     """Get AI recommendation for a place URL at order time.
 
-    Returns whether the place is existing, previous campaign history,
-    and recommended network/action (new vs extend).
+    If campaign_type is specified, returns PlaceRecommendation (V1, backward compat).
+    If campaign_type is None, returns PlaceRecommendationV2 (both traffic and save).
     """
     place_id = _parse_place_id_from_url(place_url)
     if place_id is None:
@@ -48,13 +48,23 @@ async def get_recommendation(
             detail="URL에서 플레이스 ID를 추출할 수 없습니다.",
         )
 
-    recommendation = await assignment_service.get_recommendation(
+    if campaign_type is not None:
+        # V1: single type recommendation (backward compatible)
+        recommendation = await assignment_service.get_recommendation(
+            db,
+            place_id=place_id,
+            campaign_type=campaign_type,
+            company_id=company_id,
+        )
+        return recommendation
+
+    # V2: bidirectional recommendation (both traffic and save)
+    recommendation_v2 = await assignment_service.get_recommendation_both(
         db,
         place_id=place_id,
-        campaign_type=campaign_type,
         company_id=company_id,
     )
-    return recommendation
+    return recommendation_v2
 
 
 @router.get("/", response_model=PaginatedResponse[PlaceResponse])

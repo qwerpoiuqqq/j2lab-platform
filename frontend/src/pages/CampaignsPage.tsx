@@ -61,11 +61,11 @@ export default function CampaignsPage() {
   const totalItems = campaignsData?.total ?? 0;
 
   // Account tabs
-  const tabs = [
+  const tabs: { key: string; label: string; count?: number }[] = [
     { key: 'all', label: '전체', count: stats?.total },
     ...accounts.map((a) => ({
       key: String(a.id),
-      label: a.user_id,
+      label: a.user_id_superap,
       count: a.campaign_count,
     })),
   ];

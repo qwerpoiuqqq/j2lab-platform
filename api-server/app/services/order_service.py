@@ -25,7 +25,7 @@ from app.models.order import (
 )
 from app.models.product import Product
 from app.models.user import User, UserRole
-from app.schemas.order import OrderCreate, OrderItemCreate
+from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreate
 from app.services import balance_service, price_service
 
 
@@ -544,6 +544,150 @@ async def set_selection_status(
     order.selection_status = status
     order.selected_by = actor.id
     order.selected_at = datetime.now(timezone.utc)
+
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
+async def _find_default_product(
+    db: AsyncSession,
+    campaign_type: str,
+) -> Product:
+    """Find the default active product for a campaign type.
+
+    Maps campaign_type to category name:
+      "traffic" → "트래픽"
+      "save" → "저장"
+    Falls back to any active product in the matching category.
+    """
+    type_to_category = {
+        "traffic": "트래픽",
+        "save": "저장",
+    }
+    category_name = type_to_category.get(campaign_type)
+
+    if category_name:
+        result = await db.execute(
+            select(Product).where(
+                Product.category == category_name,
+                Product.is_active == True,  # noqa: E712
+            ).order_by(Product.id.asc()).limit(1)
+        )
+        product = result.scalar_one_or_none()
+        if product:
+            return product
+
+    # Fallback: find by form_schema campaign_type default
+    result = await db.execute(
+        select(Product).where(
+            Product.is_active == True,  # noqa: E712
+        ).order_by(Product.id.asc())
+    )
+    products = list(result.scalars().all())
+    for p in products:
+        if p.form_schema and isinstance(p.form_schema, list):
+            for field in p.form_schema:
+                if isinstance(field, dict) and field.get("name") == "campaign_type":
+                    if field.get("default") == campaign_type:
+                        return p
+
+    raise ValueError(
+        f"'{campaign_type}' 타입에 해당하는 활성 상품을 찾을 수 없습니다."
+    )
+
+
+async def create_simplified_order(
+    db: AsyncSession,
+    data: SimplifiedOrderCreate,
+    current_user: User,
+) -> Order:
+    """Create an order from simplified input (5 fields per item).
+
+    Automatically matches product by campaign_type, calculates quantity,
+    and builds item_data for pipeline compatibility.
+    """
+    from app.core.config import settings
+
+    if len(data.items) > settings.ORDER_MAX_ITEMS:
+        raise ValueError(f"최대 {settings.ORDER_MAX_ITEMS}건까지 접수 가능합니다.")
+
+    # Determine selection_status: sub_account orders start as pending
+    user_role = UserRole(current_user.role)
+    initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
+
+    order = Order(
+        order_number=_generate_order_number(),
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        status=OrderStatus.DRAFT.value,
+        payment_status=PaymentStatus.UNPAID.value,
+        notes=data.notes,
+        source=data.source,
+        selection_status=initial_selection,
+    )
+    db.add(order)
+    await db.flush()
+
+    total_amount = 0
+    product_cache: dict[str, Product] = {}
+
+    for idx, item in enumerate(data.items, start=1):
+        # Auto-match product by campaign_type
+        if item.campaign_type not in product_cache:
+            product_cache[item.campaign_type] = await _find_default_product(
+                db, item.campaign_type
+            )
+        product = product_cache[item.campaign_type]
+
+        total_limit = item.daily_limit * item.duration_days
+
+        # Calculate end_date
+        from datetime import timedelta
+        try:
+            start_dt = date.fromisoformat(item.start_date)
+            end_dt = start_dt + timedelta(days=item.duration_days)
+            end_date = end_dt.isoformat()
+        except (ValueError, TypeError):
+            end_date = ""
+
+        # Build item_data compatible with pipeline_orchestrator
+        item_data = {
+            "place_url": item.place_url,
+            "campaign_type": item.campaign_type,
+            "daily_limit": item.daily_limit,
+            "duration_days": item.duration_days,
+            "total_limit": total_limit,
+            "start_date": item.start_date,
+            "end_date": end_date,
+            "target_keyword": item.target_keyword,
+        }
+
+        # Resolve price
+        unit_price = await price_service.get_effective_price(
+            db,
+            product=product,
+            user_id=current_user.id,
+            user_role=current_user.role,
+        )
+        subtotal = price_service.apply_reduction(unit_price, total_limit, product)
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product.id,
+            row_number=idx,
+            quantity=total_limit,
+            unit_price=unit_price,
+            subtotal=subtotal,
+            item_data=item_data,
+        )
+        db.add(order_item)
+        total_amount += subtotal
+
+    # Calculate VAT (10%)
+    vat_amount = int(total_amount * 0.1)
+    order.total_amount = total_amount
+    order.vat_amount = vat_amount
 
     await db.flush()
     await db.refresh(order)

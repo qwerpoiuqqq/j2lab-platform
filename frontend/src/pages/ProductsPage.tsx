@@ -8,12 +8,14 @@ import {
   PlusIcon,
   PencilSquareIcon,
   TrashIcon,
+  NoSymbolIcon,
+  CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import { normalizeSchema, labelToName } from '@/utils/schema';
-import type { Product, FormField, CalcFormula, DateCalcFormula } from '@/types';
+import type { Product, FormField, CalcFormula, DateCalcFormula, DateDiffFormula } from '@/types';
 import { productsApi } from '@/api/products';
 import { categoriesApi } from '@/api/categories';
 import { useAuthStore } from '@/store/auth';
@@ -26,7 +28,7 @@ interface SchemaField extends FormField {
   color?: string;
   sample?: string;
   options?: string[];
-  formula?: CalcFormula | DateCalcFormula;
+  formula?: CalcFormula | DateCalcFormula | DateDiffFormula;
   is_quantity?: boolean;
   description?: string;
 }
@@ -34,7 +36,7 @@ interface SchemaField extends FormField {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const fieldTypes = ['text', 'url', 'number', 'date', 'select', 'calc', 'date_calc', 'readonly'] as const;
+const fieldTypes = ['text', 'url', 'number', 'date', 'select', 'calc', 'date_calc', 'date_diff', 'readonly'] as const;
 
 const fieldTypeLabels: Record<string, string> = {
   text: '텍스트',
@@ -44,6 +46,7 @@ const fieldTypeLabels: Record<string, string> = {
   select: '선택',
   calc: '자동계산',
   date_calc: '날짜계산',
+  date_diff: '일수계산',
   readonly: '설명',
 };
 
@@ -72,6 +75,13 @@ function getDateCalcParts(field: SchemaField): DateCalcFormula {
   return { dateField: '', daysField: '' };
 }
 
+/** Get DateDiffFormula parts for display */
+function getDateDiffParts(field: SchemaField): DateDiffFormula {
+  const f = field.formula;
+  if (f && typeof f === 'object' && 'startField' in f) return f as DateDiffFormula;
+  return { startField: '', endField: '' };
+}
+
 /** Generate sample cell text for a given field type */
 function sampleText(field: SchemaField, allFields: SchemaField[]): string {
   if (field.sample) return field.sample;
@@ -93,6 +103,12 @@ function sampleText(field: SchemaField, allFields: SchemaField[]): string {
       const dateLabel = allFields.find(f => f.name === p.dateField)?.label || '?';
       const daysLabel = allFields.find(f => f.name === p.daysField)?.label || '?';
       return `= ${dateLabel} + ${daysLabel} − 1`;
+    }
+    case 'date_diff': {
+      const p = getDateDiffParts(field);
+      const startLabel = allFields.find(f => f.name === p.startField)?.label || '?';
+      const endLabel = allFields.find(f => f.name === p.endField)?.label || '?';
+      return `= ${endLabel} − ${startLabel} + 1`;
     }
     case 'readonly': return field.description || '자동입력';
     default: return '';
@@ -292,16 +308,38 @@ export default function ProductsPage() {
     updateSchemaField(index, 'formula', updated);
   };
 
+  // Update date_diff formula
+  const updateDateDiffFormula = (index: number, partial: Partial<DateDiffFormula>) => {
+    const current = getDateDiffParts(schemaFields[index]);
+    const updated = { ...current, ...partial } as DateDiffFormula;
+    updateSchemaField(index, 'formula', updated);
+  };
+
   // -----------------------------------------------------------------------
-  // Delete product
+  // Delete product (hard delete)
   // -----------------------------------------------------------------------
   const handleDelete = async (product: Product) => {
-    if (!confirm(`'${product.name}' 상품을 비활성화하시겠습니까?`)) return;
+    if (!confirm(`'${product.name}' 상품을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
     try {
       await productsApi.delete(product.id);
       setRefreshKey((k) => k + 1);
     } catch (err: any) {
-      alert(err?.response?.data?.detail || '비활성화에 실패했습니다.');
+      alert(err?.response?.data?.detail || '삭제에 실패했습니다.');
+    }
+  };
+
+  // -----------------------------------------------------------------------
+  // Toggle active (deactivate / activate)
+  // -----------------------------------------------------------------------
+  const handleToggleActive = async (product: Product) => {
+    const next = !product.is_active;
+    const label = next ? '활성화' : '비활성화';
+    if (!confirm(`'${product.name}' 상품을 ${label}하시겠습니까?`)) return;
+    try {
+      await productsApi.update(product.id, { is_active: next });
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || `${label}에 실패했습니다.`);
     }
   };
 
@@ -372,7 +410,7 @@ export default function ProductsPage() {
     },
     {
       key: 'cost_price',
-      header: '원가',
+      header: '참고 원가',
       render: (p) => <span className="text-gray-600">{p.cost_price ? formatCurrency(p.cost_price) : '-'}</span>,
     },
     {
@@ -406,13 +444,25 @@ export default function ProductsPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                   className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                  title="편집"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
                 </button>
                 <button
+                  onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }}
+                  className={`p-1.5 rounded transition-colors ${
+                    p.is_active
+                      ? 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'
+                      : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                  }`}
+                  title={p.is_active ? '비활성화' : '활성화'}
+                >
+                  {p.is_active ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />}
+                </button>
+                <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
                   className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="비활성화"
+                  title="삭제"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -432,7 +482,7 @@ export default function ProductsPage() {
       : null;
 
   const numberFields = schemaFields.filter(
-    (f, i) => i !== selectedFieldIndex && f.type === 'number',
+    (f, i) => i !== selectedFieldIndex && (f.type === 'number' || f.type === 'date_diff'),
   );
 
   const dateFields = schemaFields.filter(
@@ -440,7 +490,7 @@ export default function ProductsPage() {
   );
 
   const numberOrCalcFields = schemaFields.filter(
-    (f) => f.type === 'number' || f.type === 'calc',
+    (f) => f.type === 'number' || f.type === 'calc' || f.type === 'date_diff',
   );
 
   const quantityFieldIndex = schemaFields.findIndex((f) => f.is_quantity);
@@ -544,12 +594,15 @@ export default function ProductsPage() {
                   value={formData.base_price}
                   onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
                 />
-                <Input
-                  label="원가"
-                  type="number"
-                  value={formData.cost_price}
-                  onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                />
+                <div>
+                  <Input
+                    label="참고 원가"
+                    type="number"
+                    value={formData.cost_price}
+                    onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                  />
+                  <p className="text-[11px] text-gray-400 mt-0.5">실제 원가는 네트워크 배정 계정 기준</p>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <Input
@@ -705,7 +758,7 @@ export default function ProductsPage() {
                             {rowNum}
                           </td>
                           {schemaFields.map((field, idx) => {
-                            const isAutoCalc = field.type === 'calc' || field.type === 'date_calc';
+                            const isAutoCalc = field.type === 'calc' || field.type === 'date_calc' || field.type === 'date_diff';
                             const isReadonly = field.type === 'readonly';
                             return (
                               <td
@@ -817,7 +870,8 @@ export default function ProductsPage() {
                     {/* Required */}
                     {selectedField.type !== 'readonly' &&
                       selectedField.type !== 'calc' &&
-                      selectedField.type !== 'date_calc' && (
+                      selectedField.type !== 'date_calc' &&
+                      selectedField.type !== 'date_diff' && (
                       <div className="col-span-3">
                         <label className="block text-xs font-medium text-gray-600 mb-1">필수 여부</label>
                         <select
@@ -849,13 +903,23 @@ export default function ProductsPage() {
                             style={{ backgroundColor: color }}
                           />
                         ))}
+                        <label className="relative w-5 h-5 rounded border-2 border-dashed border-gray-300 hover:border-gray-500 cursor-pointer overflow-hidden transition-all" title="자유 색상 선택">
+                          <input
+                            type="color"
+                            value={selectedField.color || DEFAULT_COLOR}
+                            onChange={(e) => updateSchemaField(selectedFieldIndex, 'color', e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <span className="flex items-center justify-center w-full h-full text-[10px] text-gray-400">+</span>
+                        </label>
                       </div>
                     </div>
 
                     {/* Sample text - hidden for auto fields */}
                     {selectedField.type !== 'readonly' &&
                       selectedField.type !== 'calc' &&
-                      selectedField.type !== 'date_calc' && (
+                      selectedField.type !== 'date_calc' &&
+                      selectedField.type !== 'date_diff' && (
                       <div className="col-span-6">
                         <label className="block text-xs font-medium text-gray-600 mb-1">샘플 텍스트</label>
                         <input
@@ -976,6 +1040,43 @@ export default function ProductsPage() {
                           </div>
                           <p className="text-[11px] text-gray-400 mt-1">
                             시작일 + 작업일 수 − 1 = 마감일 (시작일 포함)
+                          </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* date_diff -> formula builder */}
+                    {selectedField.type === 'date_diff' && (() => {
+                      const parts = getDateDiffParts(selectedField);
+                      return (
+                        <div className="col-span-12">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">일수 계산 설정</label>
+                          <div className="flex items-center gap-2 text-sm">
+                            <select
+                              value={parts.endField}
+                              onChange={(e) => updateDateDiffFormula(selectedFieldIndex, { endField: e.target.value })}
+                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            >
+                              <option value="">마감일 필드</option>
+                              {dateFields.map((f) => (
+                                <option key={f.name} value={f.name}>{f.label || f.name}</option>
+                              ))}
+                            </select>
+                            <span className="text-gray-500 font-medium whitespace-nowrap">−</span>
+                            <select
+                              value={parts.startField}
+                              onChange={(e) => updateDateDiffFormula(selectedFieldIndex, { startField: e.target.value })}
+                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            >
+                              <option value="">시작일 필드</option>
+                              {dateFields.map((f) => (
+                                <option key={f.name} value={f.name}>{f.label || f.name}</option>
+                              ))}
+                            </select>
+                            <span className="text-gray-500 font-medium whitespace-nowrap">+ 1</span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            (마감일 − 시작일 + 1) = 작업 일수. 주문 시 시작일과 마감일을 입력하면 자동 계산됩니다.
                           </p>
                         </div>
                       );

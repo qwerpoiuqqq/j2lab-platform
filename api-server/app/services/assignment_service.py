@@ -30,7 +30,13 @@ from app.models.campaign import Campaign
 from app.models.network_preset import NetworkPreset
 from app.models.order import OrderItem, AssignmentStatus
 from app.models.superap_account import SuperapAccount
-from app.schemas.assignment import AssignmentResult, PlaceRecommendation, CampaignBrief
+from app.schemas.assignment import (
+    AssignmentResult,
+    CampaignBrief,
+    PlaceRecommendation,
+    PlaceRecommendationV2,
+    TypeRecommendation,
+)
 
 
 async def auto_assign(
@@ -40,6 +46,7 @@ async def auto_assign(
     place_id: int,
     company_id: int,
     total_limit: int | None = None,
+    handler_user_id: uuid.UUID | None = None,
 ) -> AssignmentResult:
     """Run the auto-assignment algorithm for a single order item."""
     result = AssignmentResult(order_item_id=order_item.id)
@@ -84,12 +91,13 @@ async def auto_assign(
             return result
         # else: not extendable (total >= 10,000), fall through to new setup
 
-    # Step 2: Network Selection
+    # Step 2: Network Selection (담당자 전용 프리셋 우선)
     network_preset = await _select_network(
         db,
         place_id=place_id,
         campaign_type=campaign_type,
         company_id=company_id,
+        handler_user_id=handler_user_id,
     )
 
     if network_preset is None:
@@ -232,8 +240,13 @@ async def _select_network(
     place_id: int,
     campaign_type: str,
     company_id: int,
+    handler_user_id: uuid.UUID | None = None,
 ) -> NetworkPreset | None:
     """Step 2: Select unused network preset with lowest tier_order.
+
+    Priority:
+    1. handler_user_id 전용 프리셋이 있으면 우선 사용
+    2. 없으면 일반 프리셋 (handler_user_id IS NULL) 사용
 
     Only counts successful campaigns (not cancelled/failed) as "used".
     """
@@ -252,12 +265,37 @@ async def _select_network(
     )
     used_preset_ids = [row[0] for row in used_presets_result.all()]
 
+    # 담당자 전용 프리셋 우선 탐색
+    if handler_user_id is not None:
+        handler_query = (
+            select(NetworkPreset)
+            .where(
+                and_(
+                    NetworkPreset.company_id == company_id,
+                    NetworkPreset.campaign_type == campaign_type,
+                    NetworkPreset.handler_user_id == handler_user_id,
+                    NetworkPreset.is_active == True,  # noqa: E712
+                )
+            )
+            .order_by(NetworkPreset.tier_order.asc())
+        )
+        if used_preset_ids:
+            handler_query = handler_query.where(
+                NetworkPreset.id.notin_(used_preset_ids)
+            )
+        result = await db.execute(handler_query.limit(1))
+        preset = result.scalar_one_or_none()
+        if preset is not None:
+            return preset
+
+    # 일반 프리셋 (handler_user_id IS NULL)
     query = (
         select(NetworkPreset)
         .where(
             and_(
                 NetworkPreset.company_id == company_id,
                 NetworkPreset.campaign_type == campaign_type,
+                NetworkPreset.handler_user_id.is_(None),
                 NetworkPreset.is_active == True,  # noqa: E712
             )
         )
@@ -322,8 +360,8 @@ async def _apply_assignment(
             )
         )
         acc = account.scalar_one_or_none()
-        if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
-            order_item.cost_unit_price = acc.unit_cost
+        if acc:
+            order_item.cost_unit_price = acc.unit_cost_traffic
 
         await db.flush()
 
@@ -350,8 +388,8 @@ async def confirm_assignment(
             )
         )
         acc = account.scalar_one_or_none()
-        if acc and hasattr(acc, "unit_cost") and acc.unit_cost is not None:
-            order_item.cost_unit_price = acc.unit_cost
+        if acc:
+            order_item.cost_unit_price = acc.unit_cost_traffic
 
     await db.flush()
     await db.refresh(order_item)
@@ -511,3 +549,158 @@ async def get_place_network_history(
         .limit(limit)
     )
     return list(result.scalars().all())
+
+
+# ---- Bidirectional recommendation (V2) ----
+
+
+async def _count_available_networks(
+    db: AsyncSession,
+    place_id: int,
+    campaign_type: str,
+    company_id: int,
+) -> int:
+    """Count remaining unused network presets for a place+campaign_type."""
+    used_presets_result = await db.execute(
+        select(Campaign.network_preset_id)
+        .where(
+            and_(
+                Campaign.place_id == place_id,
+                Campaign.campaign_type == campaign_type,
+                Campaign.network_preset_id.isnot(None),
+                Campaign.status.in_(["active", "completed", "paused", "expired"]),
+            )
+        )
+        .distinct()
+    )
+    used_preset_ids = [row[0] for row in used_presets_result.all()]
+
+    query = (
+        select(NetworkPreset)
+        .where(
+            and_(
+                NetworkPreset.company_id == company_id,
+                NetworkPreset.campaign_type == campaign_type,
+                NetworkPreset.is_active == True,  # noqa: E712
+            )
+        )
+    )
+    if used_preset_ids:
+        query = query.where(NetworkPreset.id.notin_(used_preset_ids))
+
+    result = await db.execute(query)
+    return len(result.scalars().all())
+
+
+async def _build_type_recommendation(
+    db: AsyncSession,
+    place_id: int,
+    campaign_type: str,
+    company_id: int,
+) -> TypeRecommendation:
+    """Build a TypeRecommendation for one campaign type."""
+    extension = await _check_extension(
+        db, place_id=place_id, campaign_type=campaign_type, new_total=None
+    )
+
+    existing_campaigns: list[CampaignBrief] = []
+    is_existing = False
+    recommended_action = "new"
+
+    if extension is not None:
+        existing_campaign, is_extend = extension
+        is_existing = True
+        recommended_action = "extend" if is_extend else "new"
+
+    # Fetch campaign history for this type
+    history_result = await db.execute(
+        select(Campaign)
+        .where(
+            and_(
+                Campaign.place_id == place_id,
+                Campaign.campaign_type == campaign_type,
+                Campaign.network_preset_id.isnot(None),
+            )
+        )
+        .order_by(Campaign.created_at.desc())
+        .limit(5)
+    )
+    history = list(history_result.scalars().all())
+    if history:
+        is_existing = True
+        for c in history:
+            existing_campaigns.append(CampaignBrief(
+                campaign_id=c.id,
+                campaign_type=c.campaign_type,
+                status=c.status,
+                total_limit=c.total_limit,
+                start_date=str(c.start_date) if c.start_date else "",
+                end_date=str(c.end_date) if c.end_date else "",
+            ))
+
+    network = await _select_network(
+        db, place_id=place_id, campaign_type=campaign_type, company_id=company_id,
+    )
+    network_name = network.name if network else None
+    available = await _count_available_networks(db, place_id, campaign_type, company_id)
+
+    return TypeRecommendation(
+        campaign_type=campaign_type,
+        is_existing=is_existing,
+        existing_campaigns=existing_campaigns,
+        recommended_network=network_name,
+        recommended_action=recommended_action,
+        available_networks=available,
+    )
+
+
+def _determine_recommended_type(
+    traffic_rec: TypeRecommendation,
+    save_rec: TypeRecommendation,
+) -> tuple[str, str]:
+    """Determine which campaign type to recommend and why.
+
+    Returns (recommended_type, reason).
+    """
+    # 1. If one type can extend, prefer that
+    if traffic_rec.recommended_action == "extend" and save_rec.recommended_action != "extend":
+        return "traffic", "기존 트래픽 캠페인 연장 가능"
+    if save_rec.recommended_action == "extend" and traffic_rec.recommended_action != "extend":
+        return "save", "기존 저장 캠페인 연장 가능"
+    if traffic_rec.recommended_action == "extend" and save_rec.recommended_action == "extend":
+        return "traffic", "트래픽/저장 모두 연장 가능, 트래픽 우선"
+
+    # 2. If one type has networks exhausted, recommend the other
+    if traffic_rec.available_networks == 0 and save_rec.available_networks > 0:
+        return "save", "트래픽 네트워크 소진, 저장 추천"
+    if save_rec.available_networks == 0 and traffic_rec.available_networks > 0:
+        return "traffic", "저장 네트워크 소진, 트래픽 추천"
+
+    # 3. New place: default to traffic (lower tier_order priority)
+    if not traffic_rec.is_existing and not save_rec.is_existing:
+        return "traffic", "신규 플레이스, 트래픽 우선 추천"
+
+    # 4. Default: traffic
+    return "traffic", "트래픽 기본 추천"
+
+
+async def get_recommendation_both(
+    db: AsyncSession,
+    place_id: int,
+    company_id: int,
+) -> PlaceRecommendationV2:
+    """Get bidirectional AI recommendation for a place (both traffic and save)."""
+    traffic_rec = await _build_type_recommendation(db, place_id, "traffic", company_id)
+    save_rec = await _build_type_recommendation(db, place_id, "save", company_id)
+
+    is_existing = traffic_rec.is_existing or save_rec.is_existing
+    recommended_type, reason = _determine_recommended_type(traffic_rec, save_rec)
+
+    return PlaceRecommendationV2(
+        place_id=place_id,
+        is_existing=is_existing,
+        recommended_campaign_type=recommended_type,
+        recommendation_reason=reason,
+        traffic=traffic_rec,
+        save=save_rec,
+    )

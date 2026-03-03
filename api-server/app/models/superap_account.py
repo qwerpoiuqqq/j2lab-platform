@@ -51,7 +51,8 @@ class SuperapAccount(Base):
         ForeignKey("network_presets.id"),
     )
 
-    unit_cost: Mapped[int] = mapped_column(Integer, nullable=False, default=21)
+    unit_cost_traffic: Mapped[int] = mapped_column(Integer, nullable=False, default=21)
+    unit_cost_save: Mapped[int] = mapped_column(Integer, nullable=False, default=31)
     assignment_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )

@@ -18,6 +18,7 @@ import CompaniesPage from '@/pages/CompaniesPage';
 import ProductsPage from '@/pages/ProductsPage';
 import PriceMatrixPage from '@/pages/PriceMatrixPage';
 import CategoriesPage from '@/pages/CategoriesPage';
+import RewardSettingsPage from '@/pages/RewardSettingsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import SettlementPage from '@/pages/SettlementPage';
 import SettlementSecretPage from '@/pages/SettlementSecretPage';
@@ -118,6 +119,10 @@ export const router = createBrowserRouter([
               {
                 path: '/products/categories',
                 element: <CategoriesPage />,
+              },
+              {
+                path: '/products/reward-settings',
+                element: <RewardSettingsPage />,
               },
               {
                 path: '/settlements',

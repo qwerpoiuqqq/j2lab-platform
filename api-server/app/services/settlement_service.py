@@ -1,6 +1,6 @@
 """Settlement service: revenue/profit analysis from orders + order_items.
 
-PHASE 0: Cost calculation uses SuperapAccount.unit_cost (via cost_unit_price snapshot)
+PHASE 0: Cost calculation uses SuperapAccount.unit_cost_traffic/unit_cost_save (via cost_unit_price snapshot)
          instead of Product.base_price.
 PHASE 6: Added by-handler, by-company, by-date aggregation views.
 """

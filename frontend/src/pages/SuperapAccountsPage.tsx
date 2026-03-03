@@ -81,7 +81,10 @@ export default function SuperapAccountsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">아이디</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">회사</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">대행사명</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">트래픽 단가</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">저장 단가</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">캠페인 수</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">등록일</th>
@@ -91,8 +94,11 @@ export default function SuperapAccountsPage() {
               <tbody className="divide-y divide-gray-100">
                 {accounts.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{a.user_id}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{a.user_id_superap}</td>
+                    <td className="px-6 py-4 text-gray-600">{a.company_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{a.agency_name || '-'}</td>
+                    <td className="px-6 py-4 text-right text-gray-600">{a.unit_cost_traffic}원</td>
+                    <td className="px-6 py-4 text-right text-gray-600">{a.unit_cost_save}원</td>
                     <td className="px-6 py-4 text-gray-600">{a.campaign_count}</td>
                     <td className="px-6 py-4">
                       <span
@@ -119,7 +125,7 @@ export default function SuperapAccountsPage() {
                           편집
                         </button>
                         <button
-                          onClick={() => handleDelete(a.id, a.user_id)}
+                          onClick={() => handleDelete(a.id, a.user_id_superap)}
                           disabled={deleteMutation.isPending}
                           className="text-sm text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
                         >
@@ -183,7 +189,7 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
   if (!isCreate && accountsData && !loaded) {
     const acc = accountsData.items.find((a: SuperapAccount) => a.id === accountId);
     if (acc) {
-      setUserId(acc.user_id);
+      setUserId(acc.user_id_superap);
       setAgencyName(acc.agency_name || '');
       setLoaded(true);
     }
@@ -204,7 +210,7 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
     try {
       if (isCreate) {
         await campaignAccountsApi.create({
-          user_id: userId.trim(),
+          user_id_superap: userId.trim(),
           password,
           agency_name: agencyName.trim() || undefined,
         });

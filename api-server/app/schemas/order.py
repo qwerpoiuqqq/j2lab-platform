@@ -142,6 +142,25 @@ class ExcelUploadConfirmRequest(BaseModel):
     notes: str | None = None
 
 
+class SimplifiedOrderItemCreate(BaseModel):
+    """Single item for simplified order (5 fields only)."""
+
+    place_url: str
+    start_date: str  # YYYY-MM-DD
+    daily_limit: int = Field(..., ge=1)
+    duration_days: int = Field(..., ge=1)
+    target_keyword: str = ""
+    campaign_type: str = "traffic"  # AI recommended, user overridable
+
+
+class SimplifiedOrderCreate(BaseModel):
+    """Simplified order creation: no product/category selection needed."""
+
+    items: list[SimplifiedOrderItemCreate] = Field(..., min_length=1)
+    notes: str | None = None
+    source: str = "web"
+
+
 class OrderBriefResponse(BaseModel):
     """Brief order info for list responses (without items)."""
 

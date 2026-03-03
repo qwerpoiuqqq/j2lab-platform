@@ -81,6 +81,28 @@ class BulkConfirmRequest(BaseModel):
     item_ids: list[int] = Field(..., min_length=1)
 
 
+class TypeRecommendation(BaseModel):
+    """Per-type (traffic/save) recommendation detail."""
+
+    campaign_type: str  # "traffic" or "save"
+    is_existing: bool
+    existing_campaigns: list[CampaignBrief] = []
+    recommended_network: str | None = None
+    recommended_action: str  # "new" | "extend"
+    available_networks: int = 0
+
+
+class PlaceRecommendationV2(BaseModel):
+    """Bidirectional AI recommendation for a place (both traffic and save)."""
+
+    place_id: int
+    is_existing: bool
+    recommended_campaign_type: str  # "traffic" or "save"
+    recommendation_reason: str
+    traffic: TypeRecommendation
+    save: TypeRecommendation
+
+
 class PlaceNetworkHistoryResponse(BaseModel):
     """Network usage history for a place."""
 

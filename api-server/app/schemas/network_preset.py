@@ -12,10 +12,12 @@ class NetworkPresetCreate(BaseModel):
     """Schema for creating a network preset."""
 
     company_id: int
-    campaign_type: str = Field(..., pattern="^(traffic|save)$")
+    campaign_type: str = Field(..., min_length=1, max_length=50)
     tier_order: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=100)
     media_config: dict[str, Any] = Field(default_factory=dict)
+    handler_user_id: str | None = None
+    cost_price: int = 0
     description: str | None = None
     is_active: bool = True
 
@@ -24,7 +26,10 @@ class NetworkPresetUpdate(BaseModel):
     """Schema for updating a network preset."""
 
     name: str | None = Field(None, min_length=1, max_length=100)
+    tier_order: int | None = Field(None, ge=1)
     media_config: dict[str, Any] | None = None
+    handler_user_id: str | None = None
+    cost_price: int | None = None
     description: str | None = None
     is_active: bool | None = None
 
@@ -38,6 +43,8 @@ class NetworkPresetResponse(BaseModel):
     tier_order: int
     name: str
     media_config: dict[str, Any] | None = None
+    handler_user_id: str | None = None
+    cost_price: int | None = 0
     description: str | None = None
     is_active: bool
     created_at: datetime

@@ -111,6 +111,6 @@ async def update_product(
 
 
 async def delete_product(db: AsyncSession, product: Product) -> None:
-    """Soft-delete a product by setting is_active=False."""
-    product.is_active = False
+    """Hard-delete a product from the database."""
+    await db.delete(product)
     await db.flush()

@@ -191,7 +191,11 @@ export type CampaignStatus =
   | 'queued'
   | 'registering'
   | 'active'
+  | 'daily_exhausted'
+  | 'campaign_exhausted'
   | 'paused'
+  | 'deactivated'
+  | 'pending_extend'
   | 'completed'
   | 'failed'
   | 'expired';
@@ -548,7 +552,7 @@ export interface SettlementSecretItem {
 // Product Schema (extended)
 // ============================================================
 
-export type FieldType = 'text' | 'url' | 'number' | 'date' | 'select' | 'calc' | 'date_calc' | 'readonly';
+export type FieldType = 'text' | 'url' | 'number' | 'date' | 'select' | 'calc' | 'date_calc' | 'date_diff' | 'readonly' | 'checkbox';
 
 export interface CalcFormula {
   fieldA: string;
@@ -561,14 +565,20 @@ export interface DateCalcFormula {
   daysField: string;
 }
 
+export interface DateDiffFormula {
+  startField: string;
+  endField: string;
+}
+
 export interface FormFieldExtended extends FormField {
   type: FieldType;
   options?: string[];
-  formula?: CalcFormula | DateCalcFormula | string;  // object (new) or string (legacy)
+  formula?: CalcFormula | DateCalcFormula | DateDiffFormula | string;  // object (new) or string (legacy)
   color?: string;
   sample?: string;
   is_quantity?: boolean;
   description?: string;
+  group?: string;  // checkbox field name that controls this field's enabled state
 }
 
 export interface ProductSchema {
@@ -577,6 +587,13 @@ export interface ProductSchema {
   form_schema: FormFieldExtended[];
   base_price: number | null;
   effective_price: number;
+}
+
+export interface CombinedProductConfig {
+  trafficProduct: Product;
+  saveProduct: Product;
+  trafficPrice: number;
+  savePrice: number;
 }
 
 export interface PricePolicy {
@@ -697,22 +714,79 @@ export interface RegistrationProgressItem {
 
 export interface SuperapAccount {
   id: number;
-  user_id: string;
+  user_id_superap: string;
   agency_name?: string;
+  company_id?: number;
+  company_name?: string;
+  network_preset_id?: number;
+  unit_cost_traffic: number;
+  unit_cost_save: number;
+  assignment_order: number;
   is_active: boolean;
   campaign_count: number;
   created_at?: string;
 }
 
 export interface CreateSuperapAccountRequest {
-  user_id: string;
+  user_id_superap: string;
   password: string;
   agency_name?: string;
+  company_id?: number;
+  network_preset_id?: number;
+  unit_cost_traffic?: number;
+  unit_cost_save?: number;
+  assignment_order?: number;
 }
 
 export interface UpdateSuperapAccountRequest {
   password?: string;
   agency_name?: string;
+  network_preset_id?: number | null;
+  unit_cost_traffic?: number;
+  unit_cost_save?: number;
+  assignment_order?: number;
+  is_active?: boolean;
+}
+
+// ============================================================
+// Network Preset
+// ============================================================
+
+export type CampaignType = 'traffic' | 'save' | 'landmark' | 'directions';
+
+export interface NetworkPreset {
+  id: number;
+  company_id: number;
+  campaign_type: CampaignType;
+  tier_order: number;
+  name: string;
+  media_config?: Record<string, any>;
+  handler_user_id?: string | null;
+  cost_price?: number;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateNetworkPresetRequest {
+  company_id: number;
+  campaign_type: CampaignType;
+  tier_order: number;
+  name: string;
+  media_config?: Record<string, any>;
+  handler_user_id?: string | null;
+  cost_price?: number;
+  description?: string;
+}
+
+export interface UpdateNetworkPresetRequest {
+  name?: string;
+  tier_order?: number;
+  media_config?: Record<string, any>;
+  handler_user_id?: string | null;
+  cost_price?: number;
+  description?: string;
   is_active?: boolean;
 }
 

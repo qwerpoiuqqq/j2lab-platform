@@ -15,7 +15,8 @@ class SuperapAccountCreate(BaseModel):
     agency_name: str | None = Field(None, max_length=100)
     company_id: int | None = None
     network_preset_id: int | None = None
-    unit_cost: int = 21
+    unit_cost_traffic: int = 21
+    unit_cost_save: int = 31
     assignment_order: int = 0
     is_active: bool = True
 
@@ -26,7 +27,8 @@ class SuperapAccountUpdate(BaseModel):
     password: str | None = Field(None, min_length=1, description="New password (will be encrypted)")
     agency_name: str | None = None
     network_preset_id: int | None = None
-    unit_cost: int | None = None
+    unit_cost_traffic: int | None = None
+    unit_cost_save: int | None = None
     assignment_order: int | None = None
     is_active: bool | None = None
 
@@ -38,10 +40,13 @@ class SuperapAccountResponse(BaseModel):
     user_id_superap: str
     agency_name: str | None = None
     company_id: int | None = None
+    company_name: str | None = None
     network_preset_id: int | None = None
-    unit_cost: int
+    unit_cost_traffic: int
+    unit_cost_save: int
     assignment_order: int
     is_active: bool
+    campaign_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

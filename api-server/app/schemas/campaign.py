@@ -18,7 +18,7 @@ class CampaignCreate(BaseModel):
     place_id: int | None = None
     place_url: str = Field(..., min_length=1)
     place_name: str = ""
-    campaign_type: str = Field(..., pattern="^(traffic|save|landmark)$")
+    campaign_type: str = Field(..., min_length=1, max_length=50)
     start_date: date
     end_date: date
     daily_limit: int = Field(..., ge=1)

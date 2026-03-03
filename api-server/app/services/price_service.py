@@ -22,7 +22,7 @@ from app.schemas.price_policy import PricePolicyCreate, PricePolicyUpdate
 async def get_effective_price(
     db: AsyncSession,
     product: Product,
-    user_id: uuid.UUID,
+    user_id: uuid.UUID | None,
     user_role: str,
     as_of: date | None = None,
 ) -> int:
@@ -38,21 +38,22 @@ async def get_effective_price(
     if as_of is None:
         as_of = date.today()
 
-    # 1. User-specific price
-    result = await db.execute(
-        select(PricePolicy)
-        .where(
-            PricePolicy.product_id == product.id,
-            PricePolicy.user_id == user_id,
-            PricePolicy.effective_from <= as_of,
-            (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
+    # 1. User-specific price (skip if no user_id)
+    if user_id is not None:
+        result = await db.execute(
+            select(PricePolicy)
+            .where(
+                PricePolicy.product_id == product.id,
+                PricePolicy.user_id == user_id,
+                PricePolicy.effective_from <= as_of,
+                (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
+            )
+            .order_by(PricePolicy.created_at.desc())
+            .limit(1)
         )
-        .order_by(PricePolicy.created_at.desc())
-        .limit(1)
-    )
-    user_policy = result.scalar_one_or_none()
-    if user_policy is not None:
-        return int(user_policy.unit_price)
+        user_policy = result.scalar_one_or_none()
+        if user_policy is not None:
+            return int(user_policy.unit_price)
 
     # 2. Role-specific price
     result = await db.execute(

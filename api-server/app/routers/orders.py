@@ -27,6 +27,7 @@ from app.schemas.order import (
     OrderRejectRequest,
     OrderResponse,
     OrderUpdate,
+    SimplifiedOrderCreate,
 )
 from app.services import order_service
 from app.services import pipeline_orchestrator
@@ -96,6 +97,31 @@ async def create_order(
 
 
 # === Literal-path routes (must be before /{order_id} to avoid path conflicts) ===
+
+
+@router.post(
+    "/simplified",
+    response_model=OrderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_simplified_order(
+    body: SimplifiedOrderCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Create a simplified order (no product/category selection needed).
+
+    Automatically matches products by campaign_type, calculates quantities,
+    and builds pipeline-compatible item_data.
+    """
+    try:
+        order = await order_service.create_simplified_order(db, body, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return order
 
 
 @router.get("/excel-template/{product_id}")
