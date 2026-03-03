@@ -150,8 +150,8 @@ export default function OrdersPage() {
       const result = await ordersApi.bulkDelete(Array.from(selectedIds));
       setShowDeleteModal(false);
       setRefreshKey((k) => k + 1);
-      if (result.detail?.errors?.length > 0) {
-        alert(`일부 삭제 실패:\n${(result as any).detail.errors.join('\n')}`);
+      if ((result as any).errors?.length > 0) {
+        alert(`일부 삭제 실패:\n${(result as any).errors.join('\n')}`);
       }
     } catch (err: any) {
       alert(err?.response?.data?.detail || '일괄 삭제에 실패했습니다.');
