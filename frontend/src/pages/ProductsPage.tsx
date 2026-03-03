@@ -143,6 +143,8 @@ export default function ProductsPage() {
     min_work_days: '',
     max_work_days: '',
     min_daily_limit: '',
+    daily_deadline: '18:00',
+    setup_delay_minutes: '30',
   });
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [selectedFieldIndex, setSelectedFieldIndex] = useState<number | null>(null);
@@ -187,7 +189,7 @@ export default function ProductsPage() {
   // -----------------------------------------------------------------------
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '', min_daily_limit: '' });
+    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '', min_daily_limit: '', daily_deadline: '18:00', setup_delay_minutes: '30' });
     setSchemaFields([]);
     setSelectedFieldIndex(null);
     setSelectedPreset('');
@@ -206,6 +208,8 @@ export default function ProductsPage() {
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
       min_daily_limit: String(product.min_daily_limit || ''),
+      daily_deadline: (product as any).daily_deadline ? String((product as any).daily_deadline).slice(0, 5) : '18:00',
+      setup_delay_minutes: String((product as any).setup_delay_minutes ?? '30'),
     });
     // normalizeSchema handles legacy formula migration
     setSchemaFields(normalizeSchema(product.form_schema) as SchemaField[]);
@@ -369,6 +373,8 @@ export default function ProductsPage() {
         min_work_days: parseInt(formData.min_work_days) || undefined,
         max_work_days: parseInt(formData.max_work_days) || undefined,
         min_daily_limit: parseInt(formData.min_daily_limit) || undefined,
+        daily_deadline: formData.daily_deadline || undefined,
+        setup_delay_minutes: parseInt(formData.setup_delay_minutes) ?? undefined,
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
       };
 
@@ -635,6 +641,25 @@ export default function ProductsPage() {
                   type="number"
                   value={formData.min_daily_limit}
                   onChange={(e) => setFormData({ ...formData, min_daily_limit: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">일 마감시간</label>
+                  <input
+                    type="time"
+                    value={formData.daily_deadline}
+                    onChange={(e) => setFormData({ ...formData, daily_deadline: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-0.5">이 시간 이후에 세팅 진행</p>
+                </div>
+                <Input
+                  label="세팅 딜레이(분)"
+                  type="number"
+                  value={formData.setup_delay_minutes}
+                  onChange={(e) => setFormData({ ...formData, setup_delay_minutes: e.target.value })}
+                  placeholder="0=즉시, 30=마감 후 30분"
                 />
               </div>
             </div>

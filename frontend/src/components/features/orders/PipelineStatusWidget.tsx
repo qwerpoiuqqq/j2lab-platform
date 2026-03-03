@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Badge from '@/components/common/Badge';
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import Button from '@/components/common/Button';
+import { ChevronDownIcon, ChevronUpIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { pipelineApi, type PipelineLogItem } from '@/api/pipeline';
+import { useAuthStore } from '@/store/auth';
 import type { PipelineState } from '@/types';
 
 const PIPELINE_STAGES = [
@@ -117,6 +119,9 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startingExtraction, setStartingExtraction] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const canStartExtraction = user && ['system_admin', 'company_admin', 'order_handler'].includes(user.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -258,6 +263,33 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
           );
         })}
       </div>
+
+      {/* Manual extraction start button */}
+      {currentStage === 'payment_confirmed' && canStartExtraction && (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="primary"
+            loading={startingExtraction}
+            icon={<PlayIcon className="h-3.5 w-3.5" />}
+            onClick={async () => {
+              setStartingExtraction(true);
+              try {
+                await pipelineApi.startExtraction(orderItemId);
+                const updated = await pipelineApi.getState(orderItemId);
+                setPipelineState(updated);
+              } catch (err: any) {
+                alert(err?.response?.data?.detail || '세팅 시작에 실패했습니다.');
+              } finally {
+                setStartingExtraction(false);
+              }
+            }}
+          >
+            세팅 시작
+          </Button>
+          <span className="text-xs text-gray-500">마감시간 전에 수동으로 키워드 추출을 시작합니다</span>
+        </div>
+      )}
 
       {/* Error message */}
       {pipelineState.error_message && (

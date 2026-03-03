@@ -24,4 +24,11 @@ export const pipelineApi = {
     );
     return response.data;
   },
+
+  startExtraction: async (orderItemId: number): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(
+      `/pipeline/${orderItemId}/start-extraction`
+    );
+    return response.data;
+  },
 };
