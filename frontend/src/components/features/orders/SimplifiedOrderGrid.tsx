@@ -3,7 +3,6 @@ import {
   PlusIcon,
   TrashIcon,
   DocumentDuplicateIcon,
-  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 import { placesApi, type PlaceRecommendationV2 } from '@/api/places';
 import { ordersApi } from '@/api/orders';
@@ -70,7 +69,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
   const [submitting, setSubmitting] = useState(false);
   const user = useAuthStore((s) => s.user);
   const timerRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -93,7 +91,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
 
   const fetchRecommendation = useCallback(
     (rowId: string, url: string) => {
-      // Clear previous timer
       const prev = timerRefs.current.get(rowId);
       if (prev) clearTimeout(prev);
 
@@ -102,7 +99,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
         return;
       }
 
-      // Check URL has numeric ID
       if (!/\d{5,}/.test(url)) return;
 
       updateRow(rowId, { recommendLoading: true });
@@ -120,6 +116,7 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                 ...row,
                 recommendation: result,
                 recommendLoading: false,
+                // AI가 캠페인 타입 자동 배정
                 campaign_type: result.recommended_campaign_type,
               };
             })
@@ -165,55 +162,7 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
     });
   }, []);
 
-  const handleExcelUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Parse simple CSV/TSV
-        const text = reader.result as string;
-        const lines = text.split('\n').filter((l) => l.trim());
-        if (lines.length < 2) {
-          alert('헤더 + 1줄 이상의 데이터가 필요합니다.');
-          return;
-        }
-
-        const delimiter = lines[0].includes('\t') ? '\t' : ',';
-        const newRows: SimplifiedRow[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(delimiter).map((c) => c.trim().replace(/^"|"$/g, ''));
-          if (cols.length < 1 || !cols[0]) continue;
-
-          const row = createEmptyRow();
-          row.place_url = cols[0] || '';
-          row.start_date = cols[1] || row.start_date;
-          row.daily_limit = parseInt(cols[2]) || 100;
-          row.duration_days = parseInt(cols[3]) || 7;
-          row.target_keyword = cols[4] || '';
-          row.total_quantity = row.daily_limit * row.duration_days;
-          row.end_date = computeEndDate(row.start_date, row.duration_days);
-          newRows.push(row);
-        }
-
-        if (newRows.length > 0) {
-          setRows(newRows);
-          // Trigger recommendations for all rows with URLs
-          newRows.forEach((row) => {
-            if (row.place_url) fetchRecommendation(row.id, row.place_url);
-          });
-        }
-      };
-      reader.readAsText(file);
-      e.target.value = '';
-    },
-    [fetchRecommendation]
-  );
-
   const handleSubmit = async () => {
-    // Validate
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (!row.place_url) {
@@ -255,7 +204,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
     }
   };
 
-  // Price summary (approximate — actual price resolved server-side)
   const totalQuantity = rows.reduce((sum, r) => sum + r.total_quantity, 0);
 
   return (
@@ -265,24 +213,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
         <Button size="sm" onClick={addRow} icon={<PlusIcon className="h-4 w-4" />}>
           행 추가
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => fileInputRef.current?.click()}
-          icon={<ArrowUpTrayIcon className="h-4 w-4" />}
-        >
-          CSV 업로드
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.tsv,.txt"
-          onChange={handleExcelUpload}
-          className="hidden"
-        />
-        <span className="ml-auto text-xs text-gray-400 self-center">
-          CSV 컬럼: 플레이스URL, 시작일, 일작업량, 작업기간, 키워드
-        </span>
       </div>
 
       {/* Grid table */}
@@ -304,8 +234,7 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                 작업기간(일) <span className="text-red-500">*</span>
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-36">목표 키워드</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-48">AI 추천</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">캠페인 타입</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[280px]">AI 추천</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">총 수량</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">마감일</th>
               <th className="px-3 py-3 w-16" />
@@ -313,8 +242,7 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
           </thead>
           <tbody className="divide-y divide-gray-200">
             {rows.map((row, rowIdx) => (
-              <tr key={row.id} className="hover:bg-gray-50">
-                {/* Row number */}
+              <tr key={row.id} className="hover:bg-gray-50 align-top">
                 <td className="px-3 py-2 text-sm text-gray-500">{rowIdx + 1}</td>
 
                 {/* Place URL */}
@@ -378,53 +306,42 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                   />
                 </td>
 
-                {/* AI Recommendation badges */}
+                {/* AI Recommendation — 자동 배정 결과 (캠페인타입 + 네트워크 + 사유) */}
                 <td className="px-2 py-1">
-                  <RecommendationBadges
+                  <RecommendationInfo
                     recommendation={row.recommendation}
                     loading={row.recommendLoading}
+                    campaignType={row.campaign_type}
                   />
                 </td>
 
-                {/* Campaign type dropdown */}
-                <td className="px-1 py-1">
-                  <select
-                    value={row.campaign_type}
-                    onChange={(e) =>
-                      updateRow(row.id, { campaign_type: e.target.value as 'traffic' | 'save' })
-                    }
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  >
-                    <option value="traffic">트래픽</option>
-                    <option value="save">저장</option>
-                  </select>
-                </td>
-
                 {/* Total quantity (readonly) */}
-                <td className="px-2 py-1.5 text-sm text-gray-600 text-right bg-gray-50">
+                <td className="px-2 py-2 text-sm text-gray-600 text-right bg-gray-50">
                   {formatNumber(row.total_quantity)}
                 </td>
 
                 {/* End date (readonly) */}
-                <td className="px-2 py-1.5 text-sm text-gray-600 bg-gray-50">{row.end_date}</td>
+                <td className="px-2 py-2 text-sm text-gray-600 bg-gray-50">{row.end_date}</td>
 
                 {/* Actions */}
-                <td className="px-2 py-1 flex items-center gap-0.5">
-                  <button
-                    onClick={() => copyRow(row.id)}
-                    className="p-1 text-gray-400 hover:text-primary-500 transition-colors"
-                    title="행 복사"
-                  >
-                    <DocumentDuplicateIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => deleteRow(row.id)}
-                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    title="행 삭제"
-                    disabled={rows.length <= 1}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                <td className="px-2 py-1">
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => copyRow(row.id)}
+                      className="p-1 text-gray-400 hover:text-primary-500 transition-colors"
+                      title="행 복사"
+                    >
+                      <DocumentDuplicateIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteRow(row.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      title="행 삭제"
+                      disabled={rows.length <= 1}
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -471,20 +388,30 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
   );
 }
 
-// ─── Recommendation Badges ───────────────────────────────────────────
+// ─── AI 추천 정보 표시 ───────────────────────────────────────────
 
-function RecommendationBadges({
+function RecommendationInfo({
   recommendation,
   loading,
+  campaignType,
 }: {
   recommendation: PlaceRecommendationV2 | null;
   loading: boolean;
+  campaignType: 'traffic' | 'save';
 }) {
   if (loading) {
-    return <span className="text-xs text-gray-400">조회 중...</span>;
+    return (
+      <div className="flex items-center gap-1.5">
+        <svg className="animate-spin h-3.5 w-3.5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <span className="text-xs text-gray-400">AI 분석 중...</span>
+      </div>
+    );
   }
   if (!recommendation) {
-    return <span className="text-xs text-gray-300">-</span>;
+    return <span className="text-xs text-gray-300">URL 입력 시 자동 추천</span>;
   }
 
   const rec = recommendation;
@@ -492,40 +419,55 @@ function RecommendationBadges({
   const typeRec = recType === 'traffic' ? rec.traffic : rec.save;
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {/* Existing / New */}
-      <span
-        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-          rec.is_existing
-            ? 'bg-orange-100 text-orange-700'
-            : 'bg-green-100 text-green-700'
-        }`}
-      >
-        {rec.is_existing ? '기존' : '신규'}
-      </span>
-
-      {/* Recommended type */}
-      <span
-        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-          recType === 'traffic'
-            ? 'bg-blue-100 text-blue-700'
-            : 'bg-purple-100 text-purple-700'
-        }`}
-      >
-        {recType === 'traffic' ? '트래픽' : '저장'}
-      </span>
-
-      {/* Extend badge */}
-      {typeRec.recommended_action === 'extend' && (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
-          연장
+    <div className="space-y-1">
+      {/* 배지 라인 */}
+      <div className="flex flex-wrap items-center gap-1">
+        {/* 신규/기존 */}
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+            rec.is_existing
+              ? 'bg-orange-100 text-orange-700'
+              : 'bg-green-100 text-green-700'
+          }`}
+        >
+          {rec.is_existing ? '기존' : '신규'}
         </span>
-      )}
 
-      {/* Reason tooltip */}
-      <span className="text-[10px] text-gray-400 truncate max-w-[100px]" title={rec.recommendation_reason}>
+        {/* 캠페인 타입 (AI 자동 배정) */}
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+            recType === 'traffic'
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-purple-100 text-purple-700'
+          }`}
+        >
+          {recType === 'traffic' ? '트래픽' : '저장'}
+        </span>
+
+        {/* 연장 배지 */}
+        {typeRec.recommended_action === 'extend' && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-700">
+            연장
+          </span>
+        )}
+
+        {/* 네트워크 */}
+        {typeRec.recommended_network && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700">
+            {typeRec.recommended_network}
+          </span>
+        )}
+      </div>
+
+      {/* 추천 사유 (전체 표시, 잘리지 않음) */}
+      <div className="text-[11px] text-gray-500 leading-tight">
         {rec.recommendation_reason}
-      </span>
+      </div>
+
+      {/* 남은 네트워크 수 */}
+      <div className="text-[10px] text-gray-400">
+        남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장 {rec.save.available_networks}개
+      </div>
     </div>
   );
 }
