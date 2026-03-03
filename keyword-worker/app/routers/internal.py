@@ -291,8 +291,8 @@ async def get_place_name(place_id: int):
                     '() => document.querySelector(\'meta[property="og:title"]\')?.content || null'
                 )
                 if og_title:
-                    # Remove " : 네이버" suffix
-                    name = re.sub(r"\s*:\s*네이버$", "", og_title).strip()
+                    # Remove " : 네이버" suffix (handles both regular and fullwidth colons)
+                    name = re.sub(r"\s*[:：]\s*네이버\s*$", "", og_title.strip()).strip()
                     if name and name != "네이버 플레이스":
                         await page.close()
                         await context.close()
