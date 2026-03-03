@@ -23,6 +23,7 @@ from app.models.order import (
     Order,
     OrderItem,
     OrderStatus,
+    OrderType,
     PaymentStatus,
     VALID_ORDER_TRANSITIONS,
 )
@@ -155,6 +156,7 @@ async def get_orders(
     status: str | None = None,
     search: str | None = None,
     current_user: User | None = None,
+    order_type: str | None = None,
 ) -> tuple[list[Order], int]:
     """Get paginated list of orders with role-based filtering.
 
@@ -196,6 +198,11 @@ async def get_orders(
     if status is not None:
         query = query.where(Order.status == status)
         count_query = count_query.where(Order.status == status)
+
+    if order_type is not None:
+        types = [t.strip() for t in order_type.split(",")]
+        query = query.where(Order.order_type.in_(types))
+        count_query = count_query.where(Order.order_type.in_(types))
 
     if search:
         search_pattern = f"%{search}%"
@@ -268,12 +275,16 @@ async def create_order(
     user_role = UserRole(current_user.role)
     initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
 
+    # Determine if this is a no-revenue order type
+    is_no_revenue = data.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value)
+
     order = Order(
         order_number=await _generate_order_number(db),
         user_id=current_user.id,
         company_id=current_user.company_id,
         status=OrderStatus.DRAFT.value,
         payment_status=PaymentStatus.UNPAID.value,
+        order_type=data.order_type,
         notes=data.notes,
         source=data.source,
         selection_status=initial_selection,
@@ -301,14 +312,18 @@ async def create_order(
                 f"Item {idx} validation failed: {'; '.join(validation_errors)}"
             )
 
-        # Resolve price
-        unit_price = await price_service.get_effective_price(
-            db,
-            product=product,
-            user_id=current_user.id,
-            user_role=current_user.role,
-        )
-        subtotal = price_service.apply_reduction(unit_price, item_data.quantity, product)
+        # Resolve price — no-revenue types get unit_price=0
+        if is_no_revenue:
+            unit_price = 0
+            subtotal = 0
+        else:
+            unit_price = await price_service.get_effective_price(
+                db,
+                product=product,
+                user_id=current_user.id,
+                user_role=current_user.role,
+            )
+            subtotal = price_service.apply_reduction(unit_price, item_data.quantity, product)
 
         order_item = OrderItem(
             order_id=order.id,
@@ -322,7 +337,7 @@ async def create_order(
         db.add(order_item)
         total_amount += subtotal
 
-    # Calculate VAT (10%)
+    # Calculate VAT (10%) — no-revenue types stay 0
     vat_amount = int(total_amount * 0.1)
     order.total_amount = total_amount
     order.vat_amount = vat_amount

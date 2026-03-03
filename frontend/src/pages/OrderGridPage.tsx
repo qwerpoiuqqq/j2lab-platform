@@ -5,15 +5,25 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { productsApi } from '@/api/products';
 import { ordersApi } from '@/api/orders';
 import { pricesApi } from '@/api/prices';
-import type { Product } from '@/types';
+import type { Product, OrderType } from '@/types';
 import { normalizeSchema } from '@/utils/schema';
 import OrderGrid, { type OrderGridRow } from '@/components/features/orders/OrderGrid';
 import Button from '@/components/common/Button';
+import { useAuthStore } from '@/store/auth';
+
+const orderTypeOptions: { value: OrderType; label: string }[] = [
+  { value: 'regular', label: '일반' },
+  { value: 'monthly_guarantee', label: '월보장' },
+  { value: 'managed', label: '관리형' },
+];
 
 export default function OrderGridPage() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'system_admin' || user?.role === 'company_admin';
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderType, setOrderType] = useState<OrderType>('regular');
 
   // Fetch products
   const { data: productsData, isLoading: productsLoading } = useQuery({
@@ -37,6 +47,7 @@ export default function OrderGridPage() {
     try {
       await ordersApi.create({
         notes: notes || undefined,
+        order_type: orderType,
         items: items.map((row) => ({
           product_id: selectedProduct.id,
           quantity: getQuantityFromRow(row, selectedProduct),
@@ -107,7 +118,7 @@ export default function OrderGridPage() {
       ) : (
         <>
           {/* 선택된 상품 + 뒤로가기 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Button
               size="sm"
               variant="ghost"
@@ -124,6 +135,25 @@ export default function OrderGridPage() {
                 </span>
               )}
             </div>
+            {isAdmin && (
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-sm text-gray-600">주문 유형:</label>
+                <select
+                  value={orderType}
+                  onChange={(e) => setOrderType(e.target.value as OrderType)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  {orderTypeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                {orderType !== 'regular' && (
+                  <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                    매출 0원 (매입만 발생)
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Order Grid */}

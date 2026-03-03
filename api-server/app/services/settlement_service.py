@@ -33,6 +33,7 @@ def _base_filters(
     date_to: date | None = None,
     company_id: int | None = None,
     handler_user_ids: list | None = None,
+    order_type: str | None = None,
 ) -> list:
     """Build common settlement filters with optional company/handler scope."""
     settled_statuses = [
@@ -54,6 +55,10 @@ def _base_filters(
         filters.append(Order.company_id == company_id)
     if handler_user_ids is not None:
         filters.append(Order.user_id.in_(handler_user_ids))
+
+    if order_type is not None:
+        types = [t.strip() for t in order_type.split(",")]
+        filters.append(Order.order_type.in_(types))
 
     return filters
 
@@ -79,9 +84,10 @@ async def get_settlement_data(
     limit: int = 50,
     company_id: int | None = None,
     handler_user_ids: list | None = None,
+    order_type: str | None = None,
 ) -> tuple[list[SettlementRow], SettlementSummary, int]:
     """Get settlement data with corrected cost calculation."""
-    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
     # Count
     count_stmt = (
@@ -197,6 +203,7 @@ async def get_settlement_by_handler(
     date_to: date | None = None,
     company_id: int | None = None,
     handler_user_ids: list | None = None,
+    order_type: str | None = None,
 ) -> list[SettlementByHandlerRow]:
     """Aggregate settlements by responsible order_handler.
 
@@ -207,7 +214,7 @@ async def get_settlement_by_handler(
     """
     from sqlalchemy.orm import aliased
 
-    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
     cost_expr = case(
         (
@@ -284,11 +291,12 @@ async def get_settlement_by_company(
     date_to: date | None = None,
     company_id: int | None = None,
     handler_user_ids: list | None = None,
+    order_type: str | None = None,
 ) -> list[SettlementByCompanyRow]:
     """Aggregate settlements by company."""
     from app.models.company import Company
 
-    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
     cost_expr = case(
         (
@@ -342,9 +350,10 @@ async def get_settlement_by_date(
     date_to: date | None = None,
     company_id: int | None = None,
     handler_user_ids: list | None = None,
+    order_type: str | None = None,
 ) -> list[SettlementByDateRow]:
     """Aggregate settlements by date (for chart data)."""
-    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids)
+    filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
     cost_expr = case(
         (

@@ -126,6 +126,8 @@ export type OrderStatus =
 
 export type PaymentStatus = 'unpaid' | 'confirmed' | 'settled';
 
+export type OrderType = 'regular' | 'monthly_guarantee' | 'managed';
+
 export interface Order {
   id: number;
   order_number: string;
@@ -135,6 +137,7 @@ export interface Order {
   company?: Company;
   status: OrderStatus;
   payment_status: PaymentStatus;
+  order_type?: OrderType;
   total_amount: number;
   vat_amount: number;
   notes?: string;
@@ -185,6 +188,7 @@ export interface CreateOrderRequest {
     item_data?: any;
   }[];
   notes?: string;
+  order_type?: OrderType;
 }
 
 // ============================================================

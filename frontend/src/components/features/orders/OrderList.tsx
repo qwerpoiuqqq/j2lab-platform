@@ -45,6 +45,24 @@ function getStatusIcon(status: string): string {
   return icons[status] || '';
 }
 
+function getOrderTypeLabel(orderType?: string): string {
+  const map: Record<string, string> = {
+    regular: '일반',
+    monthly_guarantee: '월보장',
+    managed: '관리형',
+  };
+  return map[orderType || 'regular'] || orderType || '일반';
+}
+
+function getOrderTypeBadgeClass(orderType?: string): string {
+  const map: Record<string, string> = {
+    regular: 'bg-gray-100 text-gray-600',
+    monthly_guarantee: 'bg-blue-100 text-blue-700',
+    managed: 'bg-purple-100 text-purple-700',
+  };
+  return map[orderType || 'regular'] || 'bg-gray-100 text-gray-600';
+}
+
 export default function OrderList({ orders, loading, selectable, selectedIds, onToggleSelect }: OrderListProps) {
   const navigate = useNavigate();
 
@@ -130,6 +148,18 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
           </span>
         </div>
       ),
+    },
+    {
+      key: 'order_type',
+      header: '유형',
+      render: (order) => {
+        if (!order.order_type || order.order_type === 'regular') return null;
+        return (
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getOrderTypeBadgeClass(order.order_type)}`}>
+            {getOrderTypeLabel(order.order_type)}
+          </span>
+        );
+      },
     },
     {
       key: 'status',

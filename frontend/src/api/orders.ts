@@ -19,6 +19,7 @@ export const ordersApi = {
     status?: string;
     company_id?: number;
     search?: string;
+    order_type?: string;
   }): Promise<PaginatedResponse<Order>> => {
     const response = await apiClient.get<PaginatedResponse<Order>>('/orders', { params });
     return response.data;

@@ -32,7 +32,7 @@ import type {
   OrderBrief,
 } from '@/types';
 
-type TabKey = 'all' | 'handler' | 'company' | 'date' | 'daily-check';
+type TabKey = 'all' | 'handler' | 'company' | 'date' | 'daily-check' | 'managed';
 
 export default function SettlementPage() {
   const { user } = useAuthStore();
@@ -43,7 +43,10 @@ export default function SettlementPage() {
     { key: 'handler', label: '담당자별' },
     { key: 'company', label: '회사별' },
     { key: 'date', label: '일자별' },
-    ...(isAdmin ? [{ key: 'daily-check' as TabKey, label: '정산 체크' }] : []),
+    ...(isAdmin ? [
+      { key: 'managed' as TabKey, label: '월보장/관리형' },
+      { key: 'daily-check' as TabKey, label: '정산 체크' },
+    ] : []),
   ];
 
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -89,6 +92,15 @@ export default function SettlementPage() {
   const [holdReason, setHoldReason] = useState('');
   const [holdAction, setHoldAction] = useState<'single' | 'bulk'>('bulk');
   const [holdTargetId, setHoldTargetId] = useState<number | null>(null);
+
+  // Managed tab state
+  const [managedRows, setManagedRows] = useState<Settlement[]>([]);
+  const [managedSummary, setManagedSummary] = useState<SettlementSummary | null>(null);
+  const [managedLoading, setManagedLoading] = useState(false);
+  const [managedError, setManagedError] = useState<string | null>(null);
+  const [managedPage, setManagedPage] = useState(1);
+  const [managedTotalPages, setManagedTotalPages] = useState(1);
+  const [managedTotalItems, setManagedTotalItems] = useState(0);
 
   // Fetch "All" tab data
   useEffect(() => {
@@ -206,6 +218,40 @@ export default function SettlementPage() {
 
     return () => { cancelled = true; };
   }, [activeTab, startDate, endDate]);
+
+  // Fetch "Managed" tab data
+  useEffect(() => {
+    if (activeTab !== 'managed') return;
+    let cancelled = false;
+    setManagedLoading(true);
+    setManagedError(null);
+
+    settlementsApi
+      .list({
+        page: managedPage,
+        size: 20,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        order_type: 'monthly_guarantee,managed',
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setManagedRows(data.items);
+          setManagedSummary(data.summary);
+          setManagedTotalPages(data.pages);
+          setManagedTotalItems(data.total);
+          setManagedLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setManagedError(err?.response?.data?.detail || '월보장/관리형 정산을 불러오지 못했습니다.');
+          setManagedLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab, managedPage, startDate, endDate]);
 
   // Fetch "Daily Check" tab data
   const fetchDailyCheck = useCallback(async () => {
@@ -647,6 +693,91 @@ export default function SettlementPage() {
     </>
   );
 
+  const managedColumns: Column<Settlement>[] = [
+    {
+      key: 'order_number',
+      header: '주문번호',
+      render: (s) => <span className="font-mono text-sm">{s.order_number}</span>,
+    },
+    {
+      key: 'product_name',
+      header: '상품',
+      render: (s) => <span className="text-gray-900">{s.product_name}</span>,
+    },
+    {
+      key: 'user_name',
+      header: '주문자',
+      render: (s) => <span className="text-gray-700">{s.user_name}</span>,
+    },
+    {
+      key: 'quantity',
+      header: '수량',
+      render: (s) => <span className="text-gray-700">{formatNumber(s.quantity)}</span>,
+    },
+    {
+      key: 'cost',
+      header: '매입단가',
+      render: (s) => {
+        const costPerUnit = s.quantity > 0 ? Math.round(s.cost / s.quantity) : 0;
+        return <span className="text-gray-600">{formatCurrency(costPerUnit)}</span>;
+      },
+    },
+    {
+      key: 'cost_total',
+      header: '매입합계',
+      render: (s) => <span className="font-medium text-red-600">{formatCurrency(s.cost)}</span>,
+    },
+    {
+      key: 'created_at',
+      header: '일자',
+      render: (s) => <span className="text-gray-500 text-xs">{formatDate(s.created_at)}</span>,
+    },
+  ];
+
+  const renderManagedTab = () => (
+    <>
+      {managedSummary && (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <SummaryCard
+            label="총 건수"
+            value={`${formatNumber(managedSummary.item_count)}건`}
+            subtitle={`주문 ${formatNumber(managedSummary.order_count)}건`}
+            color="blue"
+          />
+          <SummaryCard
+            label="총 매입 비용"
+            value={formatCurrency(managedSummary.total_cost)}
+            color="red"
+          />
+          <SummaryCard
+            label="매출"
+            value={formatCurrency(managedSummary.total_revenue)}
+            subtitle="월보장/관리형은 매출 0원"
+            color="yellow"
+          />
+        </div>
+      )}
+
+      {renderError(managedError)}
+
+      <Table<Settlement>
+        columns={managedColumns}
+        data={managedRows}
+        keyExtractor={(s) => `${s.order_id}-${s.order_number}`}
+        loading={managedLoading}
+        emptyMessage="월보장/관리형 정산 내역이 없습니다."
+      />
+
+      <Pagination
+        page={managedPage}
+        totalPages={managedTotalPages}
+        onPageChange={setManagedPage}
+        totalItems={managedTotalItems}
+        pageSize={20}
+      />
+    </>
+  );
+
   const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: 'warning' | 'info' | 'success' | 'danger' | 'default'; label: string }> = {
       submitted: { variant: 'info', label: '제출됨' },
@@ -978,6 +1109,7 @@ export default function SettlementPage() {
       {activeTab === 'handler' && renderHandlerTab()}
       {activeTab === 'company' && renderCompanyTab()}
       {activeTab === 'date' && renderDateTab()}
+      {activeTab === 'managed' && renderManagedTab()}
       {activeTab === 'daily-check' && renderDailyCheckTab()}
     </div>
   );

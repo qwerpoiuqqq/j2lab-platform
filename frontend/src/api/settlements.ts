@@ -59,6 +59,7 @@ export const settlementsApi = {
     start_date?: string;
     end_date?: string;
     status?: string;
+    order_type?: string;
   }): Promise<SettlementListResponse> => {
     const { start_date, end_date, ...rest } = params ?? {};
     const response = await apiClient.get('/settlements', {
@@ -74,10 +75,11 @@ export const settlementsApi = {
   byHandler: async (params?: {
     start_date?: string;
     end_date?: string;
+    order_type?: string;
   }): Promise<SettlementByHandlerRow[]> => {
-    const { start_date, end_date } = params ?? {};
+    const { start_date, end_date, order_type } = params ?? {};
     const response = await apiClient.get('/settlements/by-handler', {
-      params: { date_from: start_date, date_to: end_date },
+      params: { date_from: start_date, date_to: end_date, order_type },
     });
     return response.data;
   },
@@ -85,10 +87,11 @@ export const settlementsApi = {
   byCompany: async (params?: {
     start_date?: string;
     end_date?: string;
+    order_type?: string;
   }): Promise<SettlementByCompanyRow[]> => {
-    const { start_date, end_date } = params ?? {};
+    const { start_date, end_date, order_type } = params ?? {};
     const response = await apiClient.get('/settlements/by-company', {
-      params: { date_from: start_date, date_to: end_date },
+      params: { date_from: start_date, date_to: end_date, order_type },
     });
     return response.data;
   },
@@ -96,10 +99,11 @@ export const settlementsApi = {
   byDate: async (params?: {
     start_date?: string;
     end_date?: string;
+    order_type?: string;
   }): Promise<SettlementByDateRow[]> => {
-    const { start_date, end_date } = params ?? {};
+    const { start_date, end_date, order_type } = params ?? {};
     const response = await apiClient.get('/settlements/by-date', {
-      params: { date_from: start_date, date_to: end_date },
+      params: { date_from: start_date, date_to: end_date, order_type },
     });
     return response.data;
   },

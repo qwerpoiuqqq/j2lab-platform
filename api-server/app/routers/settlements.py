@@ -55,6 +55,7 @@ async def list_settlements(
     size: int = Query(default=50, ge=1, le=200),
     date_from: date | None = None,
     date_to: date | None = None,
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
@@ -64,6 +65,7 @@ async def list_settlements(
     rows, summary, total = await settlement_service.get_settlement_data(
         db, date_from=date_from, date_to=date_to, skip=offset, limit=size,
         company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
+        order_type=order_type,
     )
     pages = (total + size - 1) // size if size > 0 else 0
     return SettlementResponse(
@@ -111,6 +113,7 @@ async def daily_settlement_check(
 async def settlement_by_handler(
     date_from: date | None = None,
     date_to: date | None = None,
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
@@ -119,6 +122,7 @@ async def settlement_by_handler(
     return await settlement_service.get_settlement_by_handler(
         db, date_from=date_from, date_to=date_to,
         company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
+        order_type=order_type,
     )
 
 
@@ -126,6 +130,7 @@ async def settlement_by_handler(
 async def settlement_by_company(
     date_from: date | None = None,
     date_to: date | None = None,
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
@@ -134,6 +139,7 @@ async def settlement_by_company(
     return await settlement_service.get_settlement_by_company(
         db, date_from=date_from, date_to=date_to,
         company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
+        order_type=order_type,
     )
 
 
@@ -141,6 +147,7 @@ async def settlement_by_company(
 async def settlement_by_date(
     date_from: date | None = None,
     date_to: date | None = None,
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
@@ -149,6 +156,7 @@ async def settlement_by_date(
     return await settlement_service.get_settlement_by_date(
         db, date_from=date_from, date_to=date_to,
         company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
+        order_type=order_type,
     )
 
 
@@ -175,6 +183,7 @@ async def settlement_secret(
 async def export_settlements(
     date_from: date | None = None,
     date_to: date | None = None,
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(admin_checker),
 ):
@@ -185,6 +194,7 @@ async def export_settlements(
     rows, summary, _ = await settlement_service.get_settlement_data(
         db, date_from=date_from, date_to=date_to, skip=0, limit=50000,
         company_id=scope["company_id"], handler_user_ids=scope["handler_user_ids"],
+        order_type=order_type,
     )
 
     wb = Workbook()

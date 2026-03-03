@@ -48,6 +48,7 @@ async def list_orders(
     size: int = Query(default=20, ge=1, le=100),
     status_filter: str | None = Query(None, alias="status"),
     search: str | None = Query(None),
+    order_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -66,6 +67,7 @@ async def list_orders(
         status=status_filter,
         search=search,
         current_user=current_user,
+        order_type=order_type,
     )
     return PaginatedResponse.create(
         items=[OrderBriefResponse.model_validate(o) for o in orders],

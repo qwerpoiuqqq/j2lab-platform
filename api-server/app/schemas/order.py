@@ -67,6 +67,7 @@ class OrderCreate(BaseModel):
 
     notes: str | None = None
     source: str = "web"
+    order_type: str = "regular"
     items: list[OrderItemCreate] = Field(..., min_length=1)
 
 
@@ -112,6 +113,7 @@ class OrderResponse(BaseModel):
     company: _CompanyBrief | None = None
     status: str
     payment_status: str
+    order_type: str = "regular"
     total_amount: int
     vat_amount: int
     notes: str | None = None
@@ -233,6 +235,7 @@ class OrderBriefResponse(BaseModel):
     company: _CompanyBrief | None = None
     status: str
     payment_status: str
+    order_type: str = "regular"
     total_amount: int
     vat_amount: int
     notes: str | None = None

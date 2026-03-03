@@ -29,6 +29,14 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+class OrderType(str, Enum):
+    """Order type for billing differentiation."""
+
+    REGULAR = "regular"
+    MONTHLY_GUARANTEE = "monthly_guarantee"
+    MANAGED = "managed"
+
+
 class OrderStatus(str, Enum):
     """Order status state machine."""
 
@@ -127,6 +135,11 @@ class Order(Base):
         default=0,
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    order_type: Mapped[str] = mapped_column(
+        String(30),
+        default=OrderType.REGULAR.value,
+        server_default="regular",
+    )
     source: Mapped[str] = mapped_column(
         String(20),
         default="web",
@@ -205,6 +218,7 @@ class Order(Base):
         Index("idx_orders_company_id", "company_id"),
         Index("idx_orders_status", "status"),
         Index("idx_orders_created_at", "created_at"),
+        Index("idx_orders_order_type", "order_type"),
     )
 
 

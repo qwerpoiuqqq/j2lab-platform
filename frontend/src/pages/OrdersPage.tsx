@@ -28,6 +28,13 @@ const statusOptions: { value: string; label: string }[] = [
   { value: 'rejected', label: '반려' },
 ];
 
+const orderTypeOptions: { value: string; label: string }[] = [
+  { value: '', label: '전체 유형' },
+  { value: 'regular', label: '일반' },
+  { value: 'monthly_guarantee', label: '월보장' },
+  { value: 'managed', label: '관리형' },
+];
+
 const bulkStatusOptions: { value: string; label: string }[] = [
   { value: 'submitted', label: '접수완료' },
   { value: 'payment_confirmed', label: '입금확인' },
@@ -50,6 +57,7 @@ export default function OrdersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+  const [orderTypeFilter, setOrderTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -86,6 +94,7 @@ export default function OrdersPage() {
         size: 20,
         status: statusFilter || undefined,
         search: debouncedSearch || undefined,
+        order_type: orderTypeFilter || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -106,7 +115,7 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter, page, refreshKey, debouncedSearch]);
+  }, [statusFilter, orderTypeFilter, page, refreshKey, debouncedSearch]);
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -280,6 +289,20 @@ export default function OrdersPage() {
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={orderTypeFilter}
+              onChange={(e) => {
+                setOrderTypeFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              {orderTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
