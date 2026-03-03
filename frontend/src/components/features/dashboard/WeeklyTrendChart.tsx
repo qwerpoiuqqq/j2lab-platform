@@ -69,7 +69,7 @@ export default function WeeklyTrendChart({ data }: Props) {
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                   fontSize: '12px',
                 }}
-                formatter={(value: number) => [`${value}건`, '접수']}
+                formatter={(value: unknown) => [`${value}건`, '접수']}
               />
               <Area
                 type="monotone"
