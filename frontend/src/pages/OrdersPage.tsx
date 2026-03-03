@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import OrderList from '@/components/features/orders/OrderList';
-import OrderForm from '@/components/features/orders/OrderForm';
 import Pagination from '@/components/common/Pagination';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
@@ -10,10 +10,9 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
-import type { Order, OrderStatus, Product } from '@/types';
+import type { Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi } from '@/api/orders';
-import { productsApi } from '@/api/products';
 import { downloadBlob } from '@/utils/format';
 
 const statusOptions: { value: string; label: string }[] = [
@@ -36,9 +35,9 @@ const bulkStatusOptions: { value: string; label: string }[] = [
 ];
 
 export default function OrdersPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -46,7 +45,6 @@ export default function OrdersPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
   const [search, setSearch] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Bulk selection state
@@ -101,23 +99,6 @@ export default function OrdersPage() {
       cancelled = true;
     };
   }, [statusFilter, page, refreshKey, debouncedSearch]);
-
-  useEffect(() => {
-    productsApi
-      .list({ size: 100, is_active: true })
-      .then((data) => setProducts(data.items))
-      .catch(() => {});
-  }, []);
-
-  const handleCreateOrder = async (data: any) => {
-    try {
-      await ordersApi.create(data);
-      setShowCreateModal(false);
-      setRefreshKey((k) => k + 1);
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || '주문 생성에 실패했습니다.');
-    }
-  };
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -191,10 +172,10 @@ export default function OrdersPage() {
           )}
           {canCreate && (
             <Button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => navigate('/orders/grid')}
               icon={<PlusIcon className="h-4 w-4" />}
             >
-              주문 생성
+              주문 접수
             </Button>
           )}
         </div>
@@ -276,19 +257,6 @@ export default function OrdersPage() {
         totalItems={totalItems}
         pageSize={20}
       />
-
-      {/* Create Modal */}
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="주문 생성"
-        size="lg"
-      >
-        <OrderForm
-          products={products}
-          onSubmit={handleCreateOrder}
-        />
-      </Modal>
 
       {/* Bulk Status Modal */}
       <Modal

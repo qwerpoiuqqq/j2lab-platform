@@ -116,7 +116,6 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                 ...row,
                 recommendation: result,
                 recommendLoading: false,
-                // AI가 캠페인 타입 자동 배정
                 campaign_type: result.recommended_campaign_type,
               };
             })
@@ -216,36 +215,43 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
       </div>
 
       {/* Grid table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">#</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[250px]">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-10">#</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 min-w-[220px]">
                 플레이스 URL <span className="text-red-500">*</span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-36">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-32">
                 작업 시작일 <span className="text-red-500">*</span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">
-                일 작업량 <span className="text-red-500">*</span>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+                일 작업량(타수) <span className="text-red-500">*</span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">
-                작업기간(일) <span className="text-red-500">*</span>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+                작업 기간(일) <span className="text-red-500">*</span>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-36">목표 키워드</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[280px]">AI 추천</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-24">총 수량</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">마감일</th>
-              <th className="px-3 py-3 w-16" />
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-32">
+                목표 노출 키워드
+              </th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+                캠페인 타입
+              </th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 min-w-[240px]">
+                AI 추천
+              </th>
+              <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 w-20">총 수량</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-28">마감일</th>
+              <th className="px-2 py-3 w-16" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-100 bg-white">
             {rows.map((row, rowIdx) => (
-              <tr key={row.id} className="hover:bg-gray-50 align-top">
-                <td className="px-3 py-2 text-sm text-gray-500">{rowIdx + 1}</td>
+              <tr key={row.id} className="hover:bg-gray-50/50 align-top">
+                <td className="px-2 py-2 text-gray-400 font-medium">{rowIdx + 1}</td>
 
-                {/* Place URL */}
+                {/* 플레이스 URL */}
                 <td className="px-1 py-1">
                   <input
                     type="url"
@@ -255,21 +261,21 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                       fetchRecommendation(row.id, e.target.value);
                     }}
                     placeholder="https://m.place.naver.com/..."
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </td>
 
-                {/* Start date */}
+                {/* 작업 시작일 */}
                 <td className="px-1 py-1">
                   <input
                     type="date"
                     value={row.start_date}
                     onChange={(e) => updateRow(row.id, { start_date: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </td>
 
-                {/* Daily limit */}
+                {/* 일 작업량(타수) */}
                 <td className="px-1 py-1">
                   <input
                     type="number"
@@ -278,11 +284,11 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                     onChange={(e) =>
                       updateRow(row.id, { daily_limit: Math.max(1, parseInt(e.target.value) || 1) })
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </td>
 
-                {/* Duration days */}
+                {/* 작업 기간(일) */}
                 <td className="px-1 py-1">
                   <input
                     type="number"
@@ -291,44 +297,51 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
                     onChange={(e) =>
                       updateRow(row.id, { duration_days: Math.max(1, parseInt(e.target.value) || 1) })
                     }
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </td>
 
-                {/* Target keyword */}
+                {/* 목표 노출 키워드 */}
                 <td className="px-1 py-1">
                   <input
                     type="text"
                     value={row.target_keyword}
                     onChange={(e) => updateRow(row.id, { target_keyword: e.target.value })}
-                    placeholder="선택사항"
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    placeholder="키워드 입력"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </td>
 
-                {/* AI Recommendation — 자동 배정 결과 (캠페인타입 + 네트워크 + 사유) */}
+                {/* 캠페인 타입 (AI 자동 배정, 사용자 변경 가능) */}
+                <td className="px-1 py-1">
+                  <CampaignTypeToggle
+                    value={row.campaign_type}
+                    onChange={(val) => updateRow(row.id, { campaign_type: val })}
+                  />
+                </td>
+
+                {/* AI 추천 */}
                 <td className="px-2 py-1">
                   <RecommendationInfo
                     recommendation={row.recommendation}
                     loading={row.recommendLoading}
-                    campaignType={row.campaign_type}
                   />
                 </td>
 
-                {/* Total quantity (readonly) */}
-                <td className="px-2 py-2 text-sm text-gray-600 text-right bg-gray-50">
+                {/* 총 수량 (readonly) */}
+                <td className="px-2 py-2 text-sm text-gray-700 text-center font-medium bg-gray-50/50">
                   {formatNumber(row.total_quantity)}
                 </td>
 
-                {/* End date (readonly) */}
-                <td className="px-2 py-2 text-sm text-gray-600 bg-gray-50">{row.end_date}</td>
+                {/* 마감일 (readonly) */}
+                <td className="px-2 py-2 text-sm text-gray-600 bg-gray-50/50">{row.end_date}</td>
 
                 {/* Actions */}
-                <td className="px-2 py-1">
+                <td className="px-1 py-1">
                   <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => copyRow(row.id)}
-                      className="p-1 text-gray-400 hover:text-primary-500 transition-colors"
+                      className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
                       title="행 복사"
                     >
                       <DocumentDuplicateIcon className="h-4 w-4" />
@@ -388,6 +401,43 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
   );
 }
 
+// ─── 캠페인 타입 토글 (AI 추천 기본값, 사용자 변경 가능) ──────────
+
+function CampaignTypeToggle({
+  value,
+  onChange,
+}: {
+  value: 'traffic' | 'save';
+  onChange: (v: 'traffic' | 'save') => void;
+}) {
+  return (
+    <div className="flex rounded-md border border-gray-300 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onChange('traffic')}
+        className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${
+          value === 'traffic'
+            ? 'bg-blue-600 text-white'
+            : 'bg-white text-gray-500 hover:bg-gray-50'
+        }`}
+      >
+        트래픽
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('save')}
+        className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${
+          value === 'save'
+            ? 'bg-purple-600 text-white'
+            : 'bg-white text-gray-500 hover:bg-gray-50'
+        }`}
+      >
+        저장
+      </button>
+    </div>
+  );
+}
+
 // ─── AI 추천 정보 표시 ───────────────────────────────────────────
 
 function RecommendationInfo({
@@ -396,7 +446,6 @@ function RecommendationInfo({
 }: {
   recommendation: PlaceRecommendationV2 | null;
   loading: boolean;
-  campaignType?: 'traffic' | 'save';
 }) {
   if (loading) {
     return (
@@ -432,7 +481,7 @@ function RecommendationInfo({
           {rec.is_existing ? '기존' : '신규'}
         </span>
 
-        {/* 캠페인 타입 (AI 자동 배정) */}
+        {/* 추천 캠페인 타입 */}
         <span
           className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
             recType === 'traffic'
@@ -458,7 +507,7 @@ function RecommendationInfo({
         )}
       </div>
 
-      {/* 추천 사유 (전체 표시, 잘리지 않음) */}
+      {/* 추천 사유 */}
       <div className="text-[11px] text-gray-500 leading-tight">
         {rec.recommendation_reason}
       </div>
