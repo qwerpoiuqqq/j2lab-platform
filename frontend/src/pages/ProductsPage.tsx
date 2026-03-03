@@ -13,7 +13,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
-import { formatCurrency, formatDateTime } from '@/utils/format';
+import { formatCurrency, formatDateTime, getCampaignTypeLabel } from '@/utils/format';
 import { normalizeSchema, labelToName } from '@/utils/schema';
 import type { Product, FormField, CalcFormula, DateCalcFormula, DateDiffFormula } from '@/types';
 import { productsApi } from '@/api/products';
@@ -90,7 +90,10 @@ function sampleText(field: SchemaField, allFields: SchemaField[]): string {
     case 'url': return 'https://...';
     case 'number': return '100';
     case 'date': return '2026-01-01';
-    case 'select': return field.options?.[0] || '옵션 선택';
+    case 'select': {
+      const first = field.options?.[0] || '옵션 선택';
+      return field.name === 'campaign_type' ? getCampaignTypeLabel(first) : first;
+    }
     case 'calc': {
       const p = getCalcParts(field);
       const aLabel = allFields.find(f => f.name === p.fieldA)?.label || '?';
