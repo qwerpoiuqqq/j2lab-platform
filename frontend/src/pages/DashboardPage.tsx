@@ -115,7 +115,7 @@ export default function DashboardPage() {
       )}
 
       {/* Distributor: Sub-account order management */}
-      {(isDistributor || isAdmin) && (
+      {(isDistributor || role === 'system_admin') && (
         <SubAccountOrders />
       )}
 
