@@ -739,13 +739,13 @@ async def submit_order(
             )
 
     try:
-        submitted = await order_service.submit_order(db, order, current_user)
+        await order_service.submit_order(db, order, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return submitted
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/confirm-payment", response_model=OrderResponse)
@@ -777,12 +777,15 @@ async def confirm_payment(
             )
 
     try:
-        confirmed = await order_service.confirm_payment(db, order, current_user)
+        await order_service.confirm_payment(db, order, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
+    # Re-fetch to ensure all nested relationships are loaded
+    confirmed = await order_service.get_order_by_id(db, order_id)
 
     # Validate item_data for pipeline (non-blocking warnings)
     pipeline_warnings: list[str] = []
@@ -798,8 +801,8 @@ async def confirm_payment(
     except Exception as e:
         logger.error("Pipeline start failed for order %s: %s", order_id, e)
 
-    # Refresh to ensure all attributes are loaded for serialization
-    await db.refresh(confirmed)
+    # Re-fetch again after pipeline may have modified state
+    confirmed = await order_service.get_order_by_id(db, order_id)
     result = OrderResponse.model_validate(confirmed).model_dump()
     result["pipeline_warnings"] = pipeline_warnings
     return result
@@ -832,13 +835,13 @@ async def reject_order(
             )
 
     try:
-        rejected = await order_service.reject_order(db, order, body.reason)
+        await order_service.reject_order(db, order, body.reason)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return rejected
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/hold", response_model=OrderResponse)
@@ -868,13 +871,13 @@ async def hold_order(
             )
 
     try:
-        held = await order_service.hold_order(db, order, body.reason, current_user)
+        await order_service.hold_order(db, order, body.reason, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return held
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/release-hold", response_model=OrderResponse)
@@ -903,13 +906,13 @@ async def release_hold(
             )
 
     try:
-        released = await order_service.release_hold(db, order, current_user)
+        await order_service.release_hold(db, order, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return released
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/cancel", response_model=OrderResponse)
@@ -929,13 +932,13 @@ async def cancel_order(
         )
 
     try:
-        cancelled = await order_service.cancel_order(db, order, current_user)
+        await order_service.cancel_order(db, order, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return cancelled
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/approve", response_model=OrderResponse)
@@ -963,20 +966,20 @@ async def approve_order(
             )
 
     try:
-        confirmed = await order_service.confirm_payment(db, order, current_user)
+        await order_service.confirm_payment(db, order, current_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
 
+    confirmed = await order_service.get_order_by_id(db, order_id)
     try:
         await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
     except Exception as e:
         logger.error("Pipeline start failed for order %s: %s", order_id, e)
 
-    await db.refresh(confirmed)
-    return confirmed
+    return await order_service.get_order_by_id(db, order_id)
 
 
 @router.get("/{order_id}/items/export")

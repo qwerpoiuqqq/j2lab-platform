@@ -184,9 +184,10 @@ class ExcelUploadConfirmRequest(BaseModel):
 
 
 class SimplifiedOrderItemCreate(BaseModel):
-    """Single item for simplified order (5 fields only)."""
+    """Single item for simplified order."""
 
     place_url: str
+    place_name: str = ""
     start_date: str  # YYYY-MM-DD
     daily_limit: int = Field(..., ge=1)
     duration_days: int = Field(..., ge=1)

@@ -787,6 +787,7 @@ async def create_simplified_order(
         # Build item_data compatible with pipeline_orchestrator
         item_data = {
             "place_url": item.place_url,
+            "place_name": item.place_name or "",
             "campaign_type": item.campaign_type,
             "daily_limit": item.daily_limit,
             "duration_days": item.duration_days,
