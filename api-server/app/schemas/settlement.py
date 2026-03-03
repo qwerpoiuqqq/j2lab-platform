@@ -124,3 +124,50 @@ class SettlementByDateRow(BaseModel):
     total_revenue: int
     total_cost: int
     total_profit: int
+
+
+# ---- Daily settlement check (정산 체크) ----
+
+
+class OrderBrief(BaseModel):
+    """Brief order info for daily settlement check."""
+
+    id: int
+    place_name: str
+    total_amount: int
+    status: str
+    created_at: datetime
+
+    @field_validator("total_amount", mode="before")
+    @classmethod
+    def coerce_numeric(cls, v):
+        if isinstance(v, Decimal):
+            return int(v)
+        return v
+
+    model_config = {"from_attributes": True}
+
+
+class DailyCheckDistributorRow(BaseModel):
+    """Settlement check grouped by distributor."""
+
+    distributor_id: str
+    distributor_name: str
+    order_count: int
+    total_amount: int
+    orders: list[OrderBrief]
+
+    @field_validator("total_amount", mode="before")
+    @classmethod
+    def coerce_numeric(cls, v):
+        if isinstance(v, Decimal):
+            return int(v)
+        return v
+
+
+class DailyCheckResponse(BaseModel):
+    """Daily settlement check response."""
+
+    date: str
+    distributors: list[DailyCheckDistributorRow]
+    summary: dict

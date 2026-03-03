@@ -180,4 +180,29 @@ export const ordersApi = {
     });
     return response.data;
   },
+
+  holdOrder: async (orderId: number, reason: string): Promise<Order> => {
+    const response = await apiClient.post<Order>(`/orders/${orderId}/hold`, { reason });
+    return response.data;
+  },
+
+  releaseHold: async (orderId: number): Promise<Order> => {
+    const response = await apiClient.post<Order>(`/orders/${orderId}/release-hold`);
+    return response.data;
+  },
+
+  bulkPaymentConfirm: async (orderIds: number[]): Promise<{ message: string }> => {
+    const response = await apiClient.post('/orders/bulk-payment-confirm', {
+      order_ids: orderIds,
+    });
+    return response.data;
+  },
+
+  bulkHold: async (orderIds: number[], reason: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/orders/bulk-hold', {
+      order_ids: orderIds,
+      reason,
+    });
+    return response.data;
+  },
 };

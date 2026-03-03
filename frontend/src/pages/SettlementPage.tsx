@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Table, { type Column } from '@/components/common/Table';
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
@@ -6,6 +6,8 @@ import Pagination from '@/components/common/Pagination';
 import {
   ArrowDownTrayIcon,
   CalendarIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import {
   formatCurrency,
@@ -20,18 +22,30 @@ import {
   type SettlementByCompanyRow,
   type SettlementByDateRow,
 } from '@/api/settlements';
-import type { Settlement, SettlementSummary } from '@/types';
+import { ordersApi } from '@/api/orders';
+import { useAuthStore } from '@/store/auth';
+import type {
+  Settlement,
+  SettlementSummary,
+  DailyCheckResponse,
+  DailyCheckDistributor,
+  OrderBrief,
+} from '@/types';
 
-type TabKey = 'all' | 'handler' | 'company' | 'date';
-
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'handler', label: '담당자별' },
-  { key: 'company', label: '회사별' },
-  { key: 'date', label: '일자별' },
-];
+type TabKey = 'all' | 'handler' | 'company' | 'date' | 'daily-check';
 
 export default function SettlementPage() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'system_admin' || user?.role === 'company_admin';
+
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: 'all', label: '전체' },
+    { key: 'handler', label: '담당자별' },
+    { key: 'company', label: '회사별' },
+    { key: 'date', label: '일자별' },
+    ...(isAdmin ? [{ key: 'daily-check' as TabKey, label: '정산 체크' }] : []),
+  ];
+
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
   // Shared date filters
@@ -62,6 +76,19 @@ export default function SettlementPage() {
   const [dateRows, setDateRows] = useState<SettlementByDateRow[]>([]);
   const [dateLoading, setDateLoading] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
+
+  // Daily check tab state
+  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dailyCheckData, setDailyCheckData] = useState<DailyCheckResponse | null>(null);
+  const [dailyCheckLoading, setDailyCheckLoading] = useState(false);
+  const [dailyCheckError, setDailyCheckError] = useState<string | null>(null);
+  const [expandedDistributors, setExpandedDistributors] = useState<Set<string>>(new Set());
+  const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
+  const [actionProcessing, setActionProcessing] = useState(false);
+  const [holdModalOpen, setHoldModalOpen] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
+  const [holdAction, setHoldAction] = useState<'single' | 'bulk'>('bulk');
+  const [holdTargetId, setHoldTargetId] = useState<number | null>(null);
 
   // Fetch "All" tab data
   useEffect(() => {
@@ -180,6 +207,25 @@ export default function SettlementPage() {
     return () => { cancelled = true; };
   }, [activeTab, startDate, endDate]);
 
+  // Fetch "Daily Check" tab data
+  const fetchDailyCheck = useCallback(async () => {
+    setDailyCheckLoading(true);
+    setDailyCheckError(null);
+    try {
+      const data = await settlementsApi.dailyCheck({ date: checkDate });
+      setDailyCheckData(data);
+    } catch (err: any) {
+      setDailyCheckError(err?.response?.data?.detail || '정산 체크 데이터를 불러오지 못했습니다.');
+    } finally {
+      setDailyCheckLoading(false);
+    }
+  }, [checkDate]);
+
+  useEffect(() => {
+    if (activeTab !== 'daily-check') return;
+    fetchDailyCheck();
+  }, [activeTab, fetchDailyCheck]);
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -192,6 +238,123 @@ export default function SettlementPage() {
       alert('내보내기에 실패했습니다.');
     } finally {
       setExporting(false);
+    }
+  };
+
+  // ─── Daily check actions ─────────────────────────────────────
+  const toggleDistributor = (distributorId: string) => {
+    setExpandedDistributors((prev) => {
+      const next = new Set(prev);
+      if (next.has(distributorId)) next.delete(distributorId);
+      else next.add(distributorId);
+      return next;
+    });
+  };
+
+  const toggleOrderSelect = (orderId: number) => {
+    setSelectedOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const toggleAllInDistributor = (orders: OrderBrief[]) => {
+    const ids = orders.map((o) => o.id);
+    setSelectedOrders((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        ids.forEach((id) => next.delete(id));
+      } else {
+        ids.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedOrders.size === 0) return;
+    setActionProcessing(true);
+    try {
+      await ordersApi.bulkPaymentConfirm(Array.from(selectedOrders));
+      setSelectedOrders(new Set());
+      await fetchDailyCheck();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '승인 처리에 실패했습니다.');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedOrders.size === 0) return;
+    const reason = prompt('반려 사유를 입력하세요:');
+    if (!reason) return;
+    setActionProcessing(true);
+    try {
+      for (const orderId of selectedOrders) {
+        await ordersApi.reject(orderId, reason);
+      }
+      setSelectedOrders(new Set());
+      await fetchDailyCheck();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '반려 처리에 실패했습니다.');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const openHoldModal = (action: 'single' | 'bulk', orderId?: number) => {
+    setHoldAction(action);
+    setHoldTargetId(orderId ?? null);
+    setHoldReason('');
+    setHoldModalOpen(true);
+  };
+
+  const handleHoldConfirm = async () => {
+    if (!holdReason.trim()) return;
+    setActionProcessing(true);
+    try {
+      if (holdAction === 'single' && holdTargetId) {
+        await ordersApi.holdOrder(holdTargetId, holdReason);
+      } else {
+        await ordersApi.bulkHold(Array.from(selectedOrders), holdReason);
+      }
+      setSelectedOrders(new Set());
+      setHoldModalOpen(false);
+      await fetchDailyCheck();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '보류 처리에 실패했습니다.');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleSingleApprove = async (orderId: number) => {
+    setActionProcessing(true);
+    try {
+      await ordersApi.confirmPayment(orderId);
+      await fetchDailyCheck();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '승인 처리에 실패했습니다.');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleSingleReject = async (orderId: number) => {
+    const reason = prompt('반려 사유를 입력하세요:');
+    if (!reason) return;
+    setActionProcessing(true);
+    try {
+      await ordersApi.reject(orderId, reason);
+      await fetchDailyCheck();
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '반려 처리에 실패했습니다.');
+    } finally {
+      setActionProcessing(false);
     }
   };
 
@@ -484,6 +647,270 @@ export default function SettlementPage() {
     </>
   );
 
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, { variant: 'warning' | 'info' | 'success' | 'danger' | 'default'; label: string }> = {
+      submitted: { variant: 'info', label: '제출됨' },
+      payment_hold: { variant: 'warning', label: '보류' },
+      payment_confirmed: { variant: 'success', label: '승인됨' },
+      rejected: { variant: 'danger', label: '반려됨' },
+    };
+    const info = map[status] || { variant: 'default' as const, label: status };
+    return <Badge variant={info.variant}>{info.label}</Badge>;
+  };
+
+  const renderDailyCheckTab = () => {
+    if (dailyCheckLoading) {
+      return (
+        <div className="bg-white rounded-xl border border-gray-200 p-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/3" />
+            <div className="h-4 bg-gray-200 rounded w-1/2" />
+            <div className="h-4 bg-gray-200 rounded w-2/3" />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Date picker for daily check */}
+        <div className="flex items-center gap-3">
+          <CalendarIcon className="h-4 w-4 text-gray-400" />
+          <input
+            type="date"
+            value={checkDate}
+            onChange={(e) => setCheckDate(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
+
+        {renderError(dailyCheckError)}
+
+        {/* Summary cards */}
+        {dailyCheckData && (
+          <div className="grid grid-cols-3 gap-4">
+            <SummaryCard
+              label="총 접수건"
+              value={formatNumber(dailyCheckData.summary.total_orders)}
+              color="blue"
+            />
+            <SummaryCard
+              label="총 금액"
+              value={formatCurrency(dailyCheckData.summary.total_amount)}
+              color="green"
+            />
+            <SummaryCard
+              label="총판 수"
+              value={String(dailyCheckData.summary.distributor_count)}
+              color="purple"
+            />
+          </div>
+        )}
+
+        {/* Bulk action bar */}
+        {selectedOrders.size > 0 && (
+          <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-sm text-primary-700 font-medium">
+              {selectedOrders.size}건 선택됨
+            </span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="success"
+                onClick={handleBulkApprove}
+                loading={actionProcessing}
+              >
+                일괄 승인
+              </Button>
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={() => openHoldModal('bulk')}
+                loading={actionProcessing}
+              >
+                일괄 보류
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={handleBulkReject}
+                loading={actionProcessing}
+              >
+                일괄 반려
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Distributor groups */}
+        {dailyCheckData?.distributors.length === 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+            해당 날짜에 정산 체크 대상 접수건이 없습니다.
+          </div>
+        )}
+
+        {dailyCheckData?.distributors.map((dist: DailyCheckDistributor) => {
+          const isExpanded = expandedDistributors.has(dist.distributor_id);
+          const allSelected = dist.orders.every((o) => selectedOrders.has(o.id));
+
+          return (
+            <div key={dist.distributor_id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              {/* Distributor header row */}
+              <button
+                onClick={() => toggleDistributor(dist.distributor_id)}
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {isExpanded ? (
+                    <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                  )}
+                  <div className="text-left">
+                    <span className="font-semibold text-gray-900">{dist.distributor_name}</span>
+                    <span className="ml-2 text-sm text-gray-500">
+                      ({formatNumber(dist.order_count)}건)
+                    </span>
+                  </div>
+                </div>
+                <span className="font-medium text-gray-700">
+                  {formatCurrency(dist.total_amount)}
+                </span>
+              </button>
+
+              {/* Expanded order list */}
+              {isExpanded && (
+                <div className="border-t border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            checked={allSelected && dist.orders.length > 0}
+                            onChange={() => toggleAllInDistributor(dist.orders)}
+                            className="rounded border-gray-300 text-primary-600"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          주문 ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          업체명
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          금액
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          상태
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          접수일
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          작업
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {dist.orders.map((order: OrderBrief) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedOrders.has(order.id)}
+                              onChange={() => toggleOrderSelect(order.id)}
+                              className="rounded border-gray-300 text-primary-600"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm font-mono text-primary-600">
+                            #{order.id}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {order.place_name || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                            {formatCurrency(order.total_amount)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {getStatusBadge(order.status)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {order.created_at ? formatDate(order.created_at) : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="success"
+                                onClick={() => handleSingleApprove(order.id)}
+                                disabled={actionProcessing}
+                              >
+                                승인
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="warning"
+                                onClick={() => openHoldModal('single', order.id)}
+                                disabled={actionProcessing}
+                              >
+                                보류
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleSingleReject(order.id)}
+                                disabled={actionProcessing}
+                              >
+                                반려
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Hold reason modal */}
+        {holdModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">보류 사유 입력</h3>
+              <textarea
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder="보류 사유를 입력하세요..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px]"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => setHoldModalOpen(false)}
+                  disabled={actionProcessing}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleHoldConfirm}
+                  loading={actionProcessing}
+                  disabled={!holdReason.trim()}
+                >
+                  보류 처리
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   // ─── Main render ────────────────────────────────────────────────
 
   return (
@@ -524,31 +951,34 @@ export default function SettlementPage() {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-end">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <span className="text-gray-400">~</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+      {/* Filters (not shown for daily-check tab which has its own date picker) */}
+      {activeTab !== 'daily-check' && (
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <span className="text-gray-400">~</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tab content */}
       {activeTab === 'all' && renderAllTab()}
       {activeTab === 'handler' && renderHandlerTab()}
       {activeTab === 'company' && renderCompanyTab()}
       {activeTab === 'date' && renderDateTab()}
+      {activeTab === 'daily-check' && renderDailyCheckTab()}
     </div>
   );
 }

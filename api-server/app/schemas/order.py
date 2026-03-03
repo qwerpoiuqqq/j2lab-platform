@@ -71,6 +71,25 @@ class OrderRejectRequest(BaseModel):
     reason: str = Field(..., min_length=1, max_length=500)
 
 
+class OrderHoldRequest(BaseModel):
+    """Schema for holding an order (payment_hold)."""
+
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class BulkPaymentConfirmRequest(BaseModel):
+    """Schema for bulk payment confirmation."""
+
+    order_ids: list[int] = Field(..., min_length=1)
+
+
+class BulkHoldRequest(BaseModel):
+    """Schema for bulk hold."""
+
+    order_ids: list[int] = Field(..., min_length=1)
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
 class OrderResponse(BaseModel):
     """Order response model."""
 
@@ -88,6 +107,9 @@ class OrderResponse(BaseModel):
     submitted_at: datetime | None = None
     payment_confirmed_by: uuid.UUID | None = None
     payment_confirmed_at: datetime | None = None
+    hold_reason: str | None = None
+    payment_checked_by: uuid.UUID | None = None
+    payment_checked_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
     completed_at: datetime | None = None

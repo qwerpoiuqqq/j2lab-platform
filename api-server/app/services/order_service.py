@@ -3,7 +3,10 @@
 State machine:
   draft -> submitted (distributor confirms sub_account order)
   submitted -> payment_confirmed (company_admin confirms payment)
+  submitted -> payment_hold (company_admin holds for review)
   submitted -> rejected (company_admin rejects)
+  payment_hold -> submitted (company_admin releases hold)
+  payment_hold -> payment_confirmed (company_admin confirms after hold)
   payment_confirmed -> processing (auto, pipeline starts)
   draft, submitted -> cancelled
 """
@@ -474,6 +477,14 @@ async def confirm_payment(
 
     await db.flush()
     await db.refresh(order)
+
+    # Send notification (best-effort)
+    try:
+        from app.services import notification_service
+        await notification_service.notify_payment_confirmed(db, order, confirmed_by)
+    except Exception:
+        pass
+
     return order
 
 
@@ -495,6 +506,14 @@ async def reject_order(
 
     await db.flush()
     await db.refresh(order)
+
+    # Send notification (best-effort)
+    try:
+        from app.services import notification_service
+        await notification_service.notify_payment_rejected(db, order, reason)
+    except Exception:
+        pass
+
     return order
 
 
@@ -562,6 +581,68 @@ async def cancel_order(
         item.status = "cancelled"
         item.assignment_status = None
         item.assigned_account_id = None
+
+    await db.flush()
+    await db.refresh(order)
+    return order
+
+
+# ---- Payment hold ----
+
+
+async def hold_order(
+    db: AsyncSession,
+    order: Order,
+    reason: str,
+    actor: User,
+) -> Order:
+    """Hold an order: submitted/payment_hold -> payment_hold.
+
+    Sets hold_reason and tracks who checked it.
+    """
+    current_status = OrderStatus(order.status)
+    if not _can_transition(current_status, OrderStatus.PAYMENT_HOLD):
+        raise ValueError(
+            f"Cannot hold order in '{order.status}' status. "
+            "Only submitted or payment_hold orders can be held."
+        )
+
+    order.status = OrderStatus.PAYMENT_HOLD.value
+    order.hold_reason = reason
+    order.payment_checked_by = actor.id
+    order.payment_checked_at = datetime.now(timezone.utc)
+
+    await db.flush()
+    await db.refresh(order)
+
+    # Send notification (best-effort)
+    try:
+        from app.services import notification_service
+        await notification_service.notify_payment_held(db, order, reason)
+    except Exception:
+        pass
+
+    return order
+
+
+async def release_hold(
+    db: AsyncSession,
+    order: Order,
+    actor: User,
+) -> Order:
+    """Release hold: payment_hold -> submitted.
+
+    Clears hold_reason and resets to submitted.
+    """
+    current_status = OrderStatus(order.status)
+    if current_status != OrderStatus.PAYMENT_HOLD:
+        raise ValueError(
+            f"Cannot release hold for order in '{order.status}' status. "
+            "Only payment_hold orders can be released."
+        )
+
+    order.status = OrderStatus.SUBMITTED.value
+    order.hold_reason = None
 
     await db.flush()
     await db.refresh(order)

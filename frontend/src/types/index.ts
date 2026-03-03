@@ -118,6 +118,7 @@ export type OrderStatus =
   | 'draft'
   | 'submitted'
   | 'payment_confirmed'
+  | 'payment_hold'
   | 'processing'
   | 'completed'
   | 'cancelled'
@@ -142,6 +143,9 @@ export interface Order {
   submitted_at?: string;
   payment_confirmed_by?: string;
   payment_confirmed_at?: string;
+  hold_reason?: string;
+  payment_checked_by?: string;
+  payment_checked_at?: string;
   completed_at?: string;
   selection_status?: string;
   selected_by?: string;
@@ -907,4 +911,34 @@ export interface ExcelUploadConfirmRequest {
   row_indices: number[];
   rows: Record<string, any>[];
   notes?: string;
+}
+
+// ============================================================
+// Daily Settlement Check
+// ============================================================
+
+export interface OrderBrief {
+  id: number;
+  place_name: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface DailyCheckDistributor {
+  distributor_id: string;
+  distributor_name: string;
+  order_count: number;
+  total_amount: number;
+  orders: OrderBrief[];
+}
+
+export interface DailyCheckResponse {
+  date: string;
+  distributors: DailyCheckDistributor[];
+  summary: {
+    total_orders: number;
+    total_amount: number;
+    distributor_count: number;
+  };
 }

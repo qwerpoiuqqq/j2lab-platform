@@ -12,7 +12,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -242,8 +242,14 @@ class RankChecker:
         max_rank: Optional[int] = None,
         max_concurrent: int = 5,
         map_type: str = "",
+        on_result: Optional[Callable[[RankCheckResult], None]] = None,
     ) -> tuple:
         """Check ranks for multiple keywords in parallel.
+
+        Args:
+            on_result: Optional callback invoked with each RankCheckResult as it
+                       completes.  Used by ExtractionService to accumulate partial
+                       results that survive a timeout cancellation.
 
         Returns:
             Tuple of (List[RankCheckResult], PlaceInfo or None)
@@ -257,6 +263,8 @@ class RankChecker:
                 result, pinfo = await self.check_rank(kw, place_id, max_rank, map_type)
                 if pinfo and not found_place_info:
                     found_place_info = pinfo
+                if on_result is not None:
+                    on_result(result)
                 return result
 
         tasks = [check_one(kw) for kw in keywords]

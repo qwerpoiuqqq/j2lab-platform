@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +23,7 @@ from app.schemas.campaign import CampaignCallbackRequest
 from app.schemas.extraction_job import ExtractionCallbackRequest
 from app.services import campaign_service, extraction_service, pipeline_service
 from app.services import pipeline_orchestrator
+from app.services import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +142,20 @@ async def campaign_callback(
         registration_step=body.registration_step,
     )
 
+    # Send campaign notifications (best-effort)
+    if body.status == "active":
+        try:
+            await notification_service.notify_campaign_activated(db, updated_campaign)
+        except Exception as e:
+            logger.error("notify_campaign_activated failed for campaign %s: %s", campaign_id, e)
+    elif body.status == "failed":
+        try:
+            await notification_service.notify_campaign_failed(
+                db, updated_campaign, body.error_message or "Unknown error"
+            )
+        except Exception as e:
+            logger.error("notify_campaign_failed failed for campaign %s: %s", campaign_id, e)
+
     # Update pipeline state if linked to an order item
     if updated_campaign.order_item_id:
         pipeline_state = await pipeline_service.get_pipeline_state(
@@ -202,4 +219,86 @@ async def campaign_callback(
     return {
         "message": f"Campaign callback processed: {body.status}",
         "campaign_id": campaign_id,
+    }
+
+
+# ============================================================
+# Conversion threshold callback
+# ============================================================
+
+
+class ConversionThresholdCallbackRequest(BaseModel):
+    """Request body for conversion threshold callback."""
+
+    event_type: str  # "switched", "exhausted", "error"
+    message: str
+    new_campaign_id: Optional[int] = None
+
+
+@router.post("/conversion-threshold/{campaign_id}")
+async def conversion_threshold_callback(
+    campaign_id: int,
+    body: ConversionThresholdCallbackRequest,
+    db: AsyncSession = Depends(get_db),
+    _auth: None = Depends(verify_internal_secret),
+):
+    """Callback from campaign-worker when a campaign exceeds conversion threshold.
+
+    Creates a notification for system admins about the network switch event.
+    """
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+
+    # Determine notification type and title based on event
+    if body.event_type == "switched":
+        title = f"[네트워크 자동 전환] {campaign.place_name}"
+        notif_type = "campaign"
+    elif body.event_type == "exhausted":
+        title = f"[네트워크 소진 경고] {campaign.place_name}"
+        notif_type = "campaign"
+    else:
+        title = f"[전환수 초과 오류] {campaign.place_name}"
+        notif_type = "system"
+
+    # Find system_admin users to notify
+    from app.models.user import User
+    admin_result = await db.execute(
+        select(User).where(User.role == "system_admin", User.is_active.is_(True))
+    )
+    admins = list(admin_result.scalars().all())
+
+    # Also notify the campaign's handler if set
+    handler_ids = set()
+    if campaign.managed_by:
+        handler_ids.add(campaign.managed_by)
+    for admin in admins:
+        handler_ids.add(admin.id)
+
+    for user_id in handler_ids:
+        await notification_service.create_notification(
+            db,
+            user_id=user_id,
+            type=notif_type,
+            title=title,
+            message=body.message,
+            related_id=campaign_id,
+        )
+
+    await db.flush()
+
+    logger.info(
+        "Conversion threshold callback processed: campaign=%s, event=%s, notified=%d users",
+        campaign_id,
+        body.event_type,
+        len(handler_ids),
+    )
+
+    return {
+        "message": f"Conversion threshold callback processed: {body.event_type}",
+        "campaign_id": campaign_id,
+        "notified_users": len(handler_ids),
     }

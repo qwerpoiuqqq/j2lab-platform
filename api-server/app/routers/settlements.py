@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.deps import RoleChecker
 from app.models.user import User, UserRole
 from app.schemas.settlement import (
+    DailyCheckResponse,
     SettlementByCompanyRow,
     SettlementByDateRow,
     SettlementByHandlerRow,
@@ -72,6 +73,33 @@ async def list_settlements(
         page=page,
         size=size,
         pages=pages,
+    )
+
+
+@router.get("/daily-check", response_model=DailyCheckResponse)
+async def daily_settlement_check(
+    check_date: date | None = Query(None, alias="date"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Daily settlement check view: submitted + payment_hold orders grouped by distributor.
+
+    If no date is provided, defaults to today.
+    company_admin sees only their company's orders.
+    """
+    if check_date is None:
+        check_date = date.today()
+
+    # company_admin: filter by company
+    company_id = None
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.COMPANY_ADMIN:
+        company_id = current_user.company_id
+
+    return await settlement_service.get_daily_settlement_check(
+        db, check_date=check_date, company_id=company_id,
     )
 
 

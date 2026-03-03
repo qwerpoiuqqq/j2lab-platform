@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -45,14 +46,17 @@ class ExtractionService:
 
     def __init__(self):
         self._running_jobs: Dict[int, bool] = {}  # job_id -> is_running
+        self._partial_rank_results: Dict[int, List[RankCheckResult]] = {}  # job_id -> partial results
 
-    async def execute_job(self, job_id: int) -> None:
+    async def execute_job(self, job_id: int, timeout_seconds: int = 600) -> None:
         """Execute a single extraction job end-to-end.
 
         Args:
             job_id: ExtractionJob.id to execute.
+            timeout_seconds: Max execution time in seconds (default 600 = 10 min).
         """
         self._running_jobs[job_id] = True
+        self._partial_rank_results[job_id] = []
         db_place_id = 0  # Track place_id for failure callback
 
         try:
@@ -82,6 +86,8 @@ class ExtractionService:
                 job.started_at = datetime.now(timezone.utc)
                 job.worker_id = f"kw-worker-{settings.WORKER_PORT}"
                 await db.commit()
+
+            start_time = time.time()
 
             # Phase 0: Parse URL
             parsed = parse_place_url(job_naver_url)
@@ -144,23 +150,44 @@ class ExtractionService:
                 len(keyword_pool),
             )
 
-            # Phase 3: Rank check
+            # Phase 3: Rank check with timeout
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
                 return
 
             all_keywords = [item["keyword"] for item in keyword_pool]
-            rank_results, final_keywords = await self._check_ranks(
-                keywords=all_keywords,
-                place_id=place_id_str,
-                max_rank=job_max_rank,
-                target_count=job_target_count,
-            )
+            elapsed = time.time() - start_time
+            remaining = max(0, timeout_seconds - elapsed)
 
+            timed_out = False
+            try:
+                rank_results, final_keywords = await asyncio.wait_for(
+                    self._check_ranks(
+                        keywords=all_keywords,
+                        place_id=place_id_str,
+                        max_rank=job_max_rank,
+                        target_count=job_target_count,
+                        job_id=job_id,
+                    ),
+                    timeout=remaining,
+                )
+            except asyncio.TimeoutError:
+                timed_out = True
+                rank_results = list(self._partial_rank_results.get(job_id, []))
+                final_keywords = all_keywords
+                logger.warning(
+                    "Job %d: Timeout after %ds, using %d partial rank results",
+                    job_id,
+                    timeout_seconds,
+                    len(rank_results),
+                )
+
+            ranked_count = len([r for r in rank_results if r.rank is not None])
             logger.info(
-                "Job %d: Rank check complete. %d ranked keywords found",
+                "Job %d: Rank check %s. %d ranked keywords found",
                 job_id,
-                len([r for r in rank_results if r.rank is not None]),
+                "timed out (partial)" if timed_out else "complete",
+                ranked_count,
             )
 
             # Phase 4: Save results
@@ -193,6 +220,7 @@ class ExtractionService:
             )
         finally:
             self._running_jobs.pop(job_id, None)
+            self._partial_rank_results.pop(job_id, None)
 
     def cancel_job(self, job_id: int) -> None:
         """Request cancellation of a running job."""
@@ -223,13 +251,23 @@ class ExtractionService:
         place_id: str,
         max_rank: int,
         target_count: int,
+        job_id: Optional[int] = None,
     ) -> tuple:
         """Check ranks for keywords and generate final list.
+
+        Args:
+            job_id: If provided, intermediate results are accumulated in
+                    _partial_rank_results[job_id] so they survive a timeout.
 
         Returns:
             Tuple of (rank_results, final_keywords_list)
         """
         rank_results: List[RankCheckResult] = []
+
+        def _on_result(result: RankCheckResult) -> None:
+            """Callback to accumulate partial results for timeout recovery."""
+            if job_id is not None and job_id in self._partial_rank_results:
+                self._partial_rank_results[job_id].append(result)
 
         try:
             async with RankChecker(
@@ -240,13 +278,14 @@ class ExtractionService:
                 if keywords:
                     map_type = await checker.check_map_type(keywords[0])
 
-                # Batch rank check
+                # Batch rank check with progress callback
                 results, place_info = await checker.batch_check_ranks(
                     keywords=keywords,
                     place_id=place_id,
                     max_rank=max_rank,
                     max_concurrent=5,
                     map_type=map_type,
+                    on_result=_on_result,
                 )
                 rank_results = results
 

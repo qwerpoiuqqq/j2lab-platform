@@ -3,6 +3,7 @@ import type {
   Settlement,
   SettlementSummary,
   SettlementSecretItem,
+  DailyCheckResponse,
 } from '@/types';
 
 interface SettlementListResponse {
@@ -108,6 +109,13 @@ export const settlementsApi = {
       password: data.password,
       date_from: data.start_date,
       date_to: data.end_date,
+    });
+    return response.data;
+  },
+
+  dailyCheck: async (params?: { date?: string }): Promise<DailyCheckResponse> => {
+    const response = await apiClient.get('/settlements/daily-check', {
+      params: params?.date ? { date: params.date } : undefined,
     });
     return response.data;
   },

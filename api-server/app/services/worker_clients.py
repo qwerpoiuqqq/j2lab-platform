@@ -26,7 +26,7 @@ class WorkerDispatchError(Exception):
 def _client() -> httpx.AsyncClient:
     """Create a one-shot async client with standard timeouts."""
     return httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
+        timeout=httpx.Timeout(connect=5.0, read=660.0, write=10.0, pool=5.0),
     )
 
 
@@ -37,8 +37,8 @@ def _client() -> httpx.AsyncClient:
 async def dispatch_extraction_job(
     job_id: int,
     naver_url: str,
-    target_count: int = 100,
-    max_rank: int = 50,
+    target_count: int = 200,
+    max_rank: int = 20,
     min_rank: int = 1,
     name_keyword_ratio: float = 0.30,
     order_item_id: int | None = None,

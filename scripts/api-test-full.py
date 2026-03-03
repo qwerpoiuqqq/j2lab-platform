@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comprehensive API test for J2LAB platform — 124 endpoints, session reset, E2E flows."""
+"""Comprehensive API test for J2LAB platform — 133+ endpoints, session reset, E2E flows."""
 import urllib.request, json, sys, time, os
 
 BASE = os.environ.get("API_BASE", "http://localhost:8000") + "/api/v1"
@@ -400,6 +400,35 @@ if tp_id:
     code, d = api("POST", "/orders/bulk-status", {"order_ids": [99999], "status": "submitted"}, token=TOKEN)
     test("Bulk status (nonexistent)", code, 200)
 
+    # --- Wave 1: Settlement check endpoints ---
+
+    # Hold order (needs a submitted order — create one)
+    code, d = api("POST", "/orders/", {
+        "items": [{"product_id": tp_id, "quantity": 1, "item_data": {"naver_url": "https://naver.me/hold-test", "qty": 1}}],
+    }, token=TOKEN)
+    hold_order_id = d.get("id") if code == 201 else None
+    if hold_order_id:
+        api("POST", f"/orders/{hold_order_id}/submit", token=TOKEN)
+
+        code, d = api("POST", f"/orders/{hold_order_id}/hold", {"reason": "Test hold"}, token=TOKEN)
+        test("Hold order (submitted -> payment_hold)", code, 200, f"status={d.get('status')}" if isinstance(d, dict) else detail_of(d))
+
+        if code == 200:
+            code, d = api("POST", f"/orders/{hold_order_id}/release-hold", token=TOKEN)
+            test("Release hold (payment_hold -> submitted)", code, 200, f"status={d.get('status')}" if isinstance(d, dict) else detail_of(d))
+        else:
+            skip("Release hold", "hold failed")
+    else:
+        skip("Hold / Release hold", "could not create order for hold test")
+
+    # Bulk hold (nonexistent orders)
+    code, d = api("POST", "/orders/bulk-hold", {"order_ids": [99999], "reason": "Bulk test"}, token=TOKEN)
+    test("Bulk hold (nonexistent)", code, 200, detail_of(d))
+
+    # Bulk payment confirm (nonexistent orders)
+    code, d = api("POST", "/orders/bulk-payment-confirm", {"order_ids": [99999]}, token=TOKEN)
+    test("Bulk payment confirm (nonexistent)", code, 200, detail_of(d))
+
     # Clean up test product
     api("DELETE", f"/products/{tp_id}", token=TOKEN)
     test("Delete test product (cleanup)", 204, 204)
@@ -441,6 +470,13 @@ test("Settlement export (Excel)", code, 200)
 
 code, d = api("GET", "/settlements/export?date_from=2026-01-01&date_to=2026-03-01", token=TOKEN, raw_response=True)
 test("Settlement export with dates", code, 200)
+
+# Daily settlement check (Wave 1)
+code, d = api("GET", "/settlements/daily-check", token=TOKEN)
+test("Daily settlement check", code, 200, detail_of(d))
+
+code, d = api("GET", "/settlements/daily-check?date=2026-03-01", token=TOKEN)
+test("Daily check with date param", code, 200, detail_of(d))
 
 # ── SESSION RESET ──
 print("\n  --- Session Reset ---")

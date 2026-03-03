@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -65,6 +66,9 @@ class Campaign(Base):
     # Extension
     extend_target_id = Column(BigInteger)
     extension_history = Column(JSONB)
+
+    # Conversion threshold
+    conversion_threshold_handled = Column(Boolean, default=False, server_default="false")
 
     # Keyword rotation
     last_keyword_change = Column(DateTime(timezone=True))

@@ -17,6 +17,8 @@ from app.models.order import Order
 from app.models.user import User, UserRole
 from app.schemas.common import MessageResponse, PaginatedResponse, PaginationParams
 from app.schemas.order import (
+    BulkHoldRequest,
+    BulkPaymentConfirmRequest,
     BulkStatusRequest,
     DeadlineUpdateRequest,
     ExcelUploadConfirmRequest,
@@ -24,6 +26,7 @@ from app.schemas.order import (
     ExcelUploadPreviewResponse,
     OrderBriefResponse,
     OrderCreate,
+    OrderHoldRequest,
     OrderRejectRequest,
     OrderResponse,
     OrderUpdate,
@@ -496,6 +499,85 @@ async def get_order_deadlines(
     }
 
 
+@router.post("/bulk-payment-confirm", response_model=MessageResponse)
+async def bulk_payment_confirm(
+    body: BulkPaymentConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Bulk payment confirmation for multiple orders (submitted -> payment_confirmed)."""
+    success_count = 0
+    errors = []
+
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+
+        # company_admin can only confirm orders in their company
+        user_role = UserRole(current_user.role)
+        if user_role == UserRole.COMPANY_ADMIN:
+            if order.company_id != current_user.company_id:
+                errors.append(f"Order {oid}: not in your company")
+                continue
+
+        try:
+            confirmed = await order_service.confirm_payment(db, order, current_user)
+            # Start pipeline (best-effort)
+            try:
+                await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
+            except Exception as e:
+                logger.error("Pipeline start failed for order %s: %s", oid, e)
+            success_count += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+
+    return MessageResponse(
+        message=f"Confirmed {success_count}/{len(body.order_ids)} orders",
+        detail={"errors": errors} if errors else None,
+    )
+
+
+@router.post("/bulk-hold", response_model=MessageResponse)
+async def bulk_hold(
+    body: BulkHoldRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Bulk hold for multiple orders."""
+    success_count = 0
+    errors = []
+
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+
+        # company_admin can only hold orders in their company
+        user_role = UserRole(current_user.role)
+        if user_role == UserRole.COMPANY_ADMIN:
+            if order.company_id != current_user.company_id:
+                errors.append(f"Order {oid}: not in your company")
+                continue
+
+        try:
+            await order_service.hold_order(db, order, body.reason, current_user)
+            success_count += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+
+    return MessageResponse(
+        message=f"Held {success_count}/{len(body.order_ids)} orders",
+        detail={"errors": errors} if errors else None,
+    )
+
+
 # === Parameterized /{order_id} routes ===
 
 
@@ -680,6 +762,77 @@ async def reject_order(
             detail=str(e),
         )
     return rejected
+
+
+@router.post("/{order_id}/hold", response_model=OrderResponse)
+async def hold_order(
+    order_id: int,
+    body: OrderHoldRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Hold an order: submitted/payment_hold -> payment_hold. company_admin or system_admin only."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    # company_admin can only hold orders in their company
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.COMPANY_ADMIN:
+        if order.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Company admin can only hold orders in their own company",
+            )
+
+    try:
+        held = await order_service.hold_order(db, order, body.reason, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return held
+
+
+@router.post("/{order_id}/release-hold", response_model=OrderResponse)
+async def release_hold(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Release hold: payment_hold -> submitted. company_admin or system_admin only."""
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    # company_admin can only release orders in their company
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.COMPANY_ADMIN:
+        if order.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Company admin can only release orders in their own company",
+            )
+
+    try:
+        released = await order_service.release_hold(db, order, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return released
 
 
 @router.post("/{order_id}/cancel", response_model=OrderResponse)

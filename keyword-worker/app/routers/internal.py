@@ -43,8 +43,9 @@ class CreateJobRequest(BaseModel):
         description="Pre-assigned job ID from api-server (if not provided, uses DB auto-increment)",
     )
     naver_url: str = Field(..., description="Naver Place URL to extract keywords from")
-    target_count: int = Field(100, ge=10, le=500, description="Target keyword count")
-    max_rank: int = Field(50, ge=5, le=100, description="Maximum rank to check")
+    target_count: int = Field(200, ge=10, le=500, description="Target keyword count")
+    max_rank: int = Field(20, ge=5, le=100, description="Maximum rank to check")
+    timeout_seconds: int = Field(600, ge=60, le=1800, description="Max execution time in seconds")
     min_rank: int = Field(1, ge=1, description="Minimum rank filter")
     name_keyword_ratio: float = Field(
         0.30,
@@ -139,7 +140,7 @@ async def create_job(
             if existing.status == ExtractionJobStatus.QUEUED.value:
                 # Re-queue existing job
                 background_tasks.add_task(
-                    extraction_service.execute_job, existing.id
+                    extraction_service.execute_job, existing.id, request.timeout_seconds
                 )
                 return CreateJobResponse(
                     job_id=existing.id,
@@ -177,7 +178,7 @@ async def create_job(
     await db.commit()
 
     # Start job in background
-    background_tasks.add_task(extraction_service.execute_job, job_id)
+    background_tasks.add_task(extraction_service.execute_job, job_id, request.timeout_seconds)
 
     logger.info("Job %d created for URL: %s", job_id, request.naver_url)
 

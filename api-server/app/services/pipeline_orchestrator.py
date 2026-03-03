@@ -115,8 +115,8 @@ async def _advance_to_extraction(
         return
 
     item_data = item.item_data or {}
-    target_count = item_data.get("target_count", 100)
-    max_rank = item_data.get("max_rank", 50)
+    target_count = item_data.get("target_count", 200)
+    max_rank = item_data.get("max_rank", 20)
     min_rank = item_data.get("min_rank", 1)
     name_keyword_ratio = item_data.get("name_keyword_ratio", 0.30)
 

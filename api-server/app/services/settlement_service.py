@@ -22,6 +22,9 @@ from app.schemas.settlement import (
     SettlementByHandlerRow,
     SettlementByCompanyRow,
     SettlementByDateRow,
+    OrderBrief,
+    DailyCheckDistributorRow,
+    DailyCheckResponse,
 )
 
 
@@ -384,3 +387,121 @@ async def get_settlement_by_date(
             total_profit=profit,
         ))
     return rows
+
+
+# ---- Daily settlement check (정산 체크) ----
+
+
+async def get_daily_settlement_check(
+    db: AsyncSession,
+    check_date: date,
+    company_id: int | None = None,
+) -> DailyCheckResponse:
+    """Get daily settlement check view: submitted + payment_hold orders grouped by distributor.
+
+    Returns orders that need payment checking for the given date,
+    grouped by the distributor (parent of the order's user).
+    """
+    from datetime import datetime, time, timezone as tz
+    from sqlalchemy.orm import aliased
+
+    start_of_day = datetime.combine(check_date, time.min, tzinfo=tz.utc)
+    end_of_day = datetime.combine(check_date, time.max, tzinfo=tz.utc)
+
+    check_statuses = [
+        OrderStatus.SUBMITTED.value,
+        OrderStatus.PAYMENT_HOLD.value,
+    ]
+
+    filters = [
+        Order.status.in_(check_statuses),
+        Order.created_at >= start_of_day,
+        Order.created_at <= end_of_day,
+    ]
+    if company_id is not None:
+        filters.append(Order.company_id == company_id)
+
+    # Fetch orders with their user info
+    OrderUser = aliased(User, name="order_user")
+    ParentUser = aliased(User, name="parent_user")
+
+    stmt = (
+        select(Order, OrderUser, ParentUser)
+        .join(OrderUser, Order.user_id == OrderUser.id)
+        .outerjoin(ParentUser, OrderUser.parent_id == ParentUser.id)
+        .where(*filters)
+        .order_by(Order.created_at.asc())
+    )
+
+    result = await db.execute(stmt)
+    rows_raw = result.all()
+
+    # Group by distributor
+    distributor_map: dict[str, dict] = {}
+    total_amount = 0
+    total_orders = 0
+
+    for order, order_user, parent_user in rows_raw:
+        # Determine distributor: if user is sub_account, distributor is parent
+        # If user is distributor, distributor is self
+        # Otherwise, use the user themselves
+        if order_user.role == "sub_account" and parent_user:
+            dist_id = str(parent_user.id)
+            dist_name = parent_user.name
+        elif order_user.role == "distributor":
+            dist_id = str(order_user.id)
+            dist_name = order_user.name
+        else:
+            dist_id = str(order_user.id)
+            dist_name = order_user.name
+
+        if dist_id not in distributor_map:
+            distributor_map[dist_id] = {
+                "distributor_id": dist_id,
+                "distributor_name": dist_name,
+                "orders": [],
+                "total_amount": 0,
+            }
+
+        # Extract place_name from first item's item_data
+        place_name = ""
+        if order.items:
+            first_item = order.items[0]
+            if first_item.item_data and isinstance(first_item.item_data, dict):
+                place_name = first_item.item_data.get("place_url", "")
+
+        amt = int(order.total_amount) if order.total_amount else 0
+        distributor_map[dist_id]["orders"].append(
+            OrderBrief(
+                id=order.id,
+                place_name=place_name,
+                total_amount=amt,
+                status=order.status,
+                created_at=order.created_at,
+            )
+        )
+        distributor_map[dist_id]["total_amount"] += amt
+        total_amount += amt
+        total_orders += 1
+
+    distributors = []
+    for dist_data in distributor_map.values():
+        distributors.append(
+            DailyCheckDistributorRow(
+                distributor_id=dist_data["distributor_id"],
+                distributor_name=dist_data["distributor_name"],
+                order_count=len(dist_data["orders"]),
+                total_amount=dist_data["total_amount"],
+                orders=dist_data["orders"],
+            )
+        )
+
+    return DailyCheckResponse(
+        date=check_date.isoformat(),
+        distributors=distributors,
+        summary={
+            "total_orders": total_orders,
+            "total_amount": total_amount,
+            "distributor_count": len(distributors),
+        },
+    )

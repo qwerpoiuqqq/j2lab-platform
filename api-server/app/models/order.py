@@ -37,6 +37,7 @@ class OrderStatus(str, Enum):
     PAYMENT_CONFIRMED = "payment_confirmed"
     PROCESSING = "processing"
     COMPLETED = "completed"
+    PAYMENT_HOLD = "payment_hold"
     CANCELLED = "cancelled"
     REJECTED = "rejected"
 
@@ -71,6 +72,13 @@ class AssignmentStatus(str, Enum):
 VALID_ORDER_TRANSITIONS = {
     OrderStatus.DRAFT: [OrderStatus.SUBMITTED, OrderStatus.CANCELLED],
     OrderStatus.SUBMITTED: [
+        OrderStatus.PAYMENT_CONFIRMED,
+        OrderStatus.PAYMENT_HOLD,
+        OrderStatus.REJECTED,
+        OrderStatus.CANCELLED,
+    ],
+    OrderStatus.PAYMENT_HOLD: [
+        OrderStatus.SUBMITTED,
         OrderStatus.PAYMENT_CONFIRMED,
         OrderStatus.REJECTED,
         OrderStatus.CANCELLED,
@@ -148,6 +156,18 @@ class Order(Base):
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
+    )
+
+    # Payment hold fields
+    hold_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    payment_checked_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    payment_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     # Distributor order selection

@@ -13,6 +13,7 @@ from typing import Any, List, Optional, TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -23,6 +24,7 @@ from sqlalchemy import (
     Text,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -115,6 +117,11 @@ class Campaign(Base):
     # === Extension ===
     extend_target_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     extension_history: Mapped[Optional[Any]] = mapped_column(JSON)
+
+    # === Conversion Threshold ===
+    conversion_threshold_handled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false"),
+    )
 
     # === Keyword Rotation ===
     last_keyword_change: Mapped[Optional[datetime]] = mapped_column(

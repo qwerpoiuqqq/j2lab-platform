@@ -22,10 +22,11 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -279,6 +280,251 @@ async def rotate_keywords_for_campaign(
 
 
 # ============================================================
+# Conversion threshold handling
+# ============================================================
+
+CONVERSION_THRESHOLD = 10000
+
+
+async def _send_threshold_callback(
+    campaign_id: int,
+    event_type: str,
+    message: str,
+    new_campaign_id: Optional[int] = None,
+) -> None:
+    """Send conversion threshold event callback to api-server."""
+    callback_url = (
+        f"{settings.API_SERVER_URL}/internal/callback"
+        f"/conversion-threshold/{campaign_id}"
+    )
+    payload: Dict[str, Any] = {
+        "event_type": event_type,
+        "message": message,
+    }
+    if new_campaign_id is not None:
+        payload["new_campaign_id"] = new_campaign_id
+
+    headers = {"X-Internal-Secret": settings.INTERNAL_API_SECRET}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http_client:
+            resp = await http_client.post(
+                callback_url, json=payload, headers=headers
+            )
+            if resp.status_code < 300:
+                _log("INFO", f"Threshold callback sent for campaign {campaign_id}: {event_type}")
+            else:
+                _log(
+                    "WARNING",
+                    f"Threshold callback failed for campaign {campaign_id}: "
+                    f"{resp.status_code} {resp.text}",
+                )
+    except Exception as e:
+        _log("WARNING", f"Threshold callback error for campaign {campaign_id}: {e}")
+
+
+async def _handle_conversion_threshold(
+    session: AsyncSession,
+    campaign: Campaign,
+    client: SuperapClient,
+) -> None:
+    """Handle a campaign exceeding the conversion threshold.
+
+    1. Find the next tier network preset (same company_id + campaign_type, higher tier_order).
+    2. If a next network exists:
+       - Mark current campaign as completed
+       - Create a new campaign record with the next network + account
+       - Trigger registration via campaign_registrar
+       - Notify api-server
+    3. If no next network:
+       - Send warning notification (all networks exhausted)
+    4. Set conversion_threshold_handled = True
+    """
+    _log(
+        "INFO",
+        f"Campaign {campaign.campaign_code} (id={campaign.id}) reached "
+        f"{campaign.current_conversions} conversions, checking next network...",
+    )
+
+    try:
+        # Query network_presets for next tier
+        current_preset_row = await session.execute(
+            text(
+                "SELECT tier_order, company_id, campaign_type "
+                "FROM network_presets WHERE id = :preset_id"
+            ),
+            {"preset_id": campaign.network_preset_id},
+        )
+        current_preset = current_preset_row.mappings().first()
+
+        if not current_preset:
+            _log(
+                "WARNING",
+                f"Campaign {campaign.id}: network_preset_id={campaign.network_preset_id} not found",
+            )
+            campaign.conversion_threshold_handled = True
+            await _send_threshold_callback(
+                campaign.id,
+                "error",
+                f"네트워크 프리셋(id={campaign.network_preset_id})을 찾을 수 없습니다.",
+            )
+            return
+
+        current_tier = current_preset["tier_order"]
+        company_id = current_preset["company_id"]
+        c_type = current_preset["campaign_type"]
+
+        # Find next tier network
+        next_preset_row = await session.execute(
+            text(
+                "SELECT np.id as preset_id, np.name as preset_name, np.tier_order, "
+                "sa.id as account_id, sa.user_id_superap "
+                "FROM network_presets np "
+                "JOIN superap_accounts sa ON sa.network_preset_id = np.id AND sa.is_active = true "
+                "WHERE np.company_id = :company_id "
+                "AND np.campaign_type = :campaign_type "
+                "AND np.tier_order > :current_tier "
+                "AND np.is_active = true "
+                "ORDER BY np.tier_order ASC, sa.assignment_order ASC "
+                "LIMIT 1"
+            ),
+            {
+                "company_id": company_id,
+                "campaign_type": c_type,
+                "current_tier": current_tier,
+            },
+        )
+        next_preset = next_preset_row.mappings().first()
+
+        if not next_preset:
+            # No more networks available
+            _log(
+                "WARNING",
+                f"Campaign {campaign.id}: no next network after tier {current_tier} "
+                f"(company={company_id}, type={c_type})",
+            )
+            campaign.conversion_threshold_handled = True
+            await _send_threshold_callback(
+                campaign.id,
+                "exhausted",
+                f"캠페인 '{campaign.place_name}'의 전환수가 {campaign.current_conversions}건을 "
+                f"초과했으나 사용 가능한 다음 네트워크가 없습니다. (현재 tier: {current_tier})",
+            )
+            return
+
+        # Create new campaign with next network
+        _log(
+            "INFO",
+            f"Campaign {campaign.id}: switching to network '{next_preset['preset_name']}' "
+            f"(tier {next_preset['tier_order']}, account {next_preset['user_id_superap']})",
+        )
+
+        new_campaign = Campaign(
+            superap_account_id=next_preset["account_id"],
+            order_item_id=campaign.order_item_id,
+            place_id=campaign.place_id,
+            extraction_job_id=campaign.extraction_job_id,
+            agency_name=campaign.agency_name,
+            place_name=campaign.place_name,
+            place_url=campaign.place_url,
+            campaign_type=campaign.campaign_type,
+            start_date=datetime.now(KST).date(),
+            end_date=campaign.end_date,
+            daily_limit=campaign.daily_limit,
+            total_limit=campaign.total_limit,
+            current_conversions=0,
+            landmark_name=campaign.landmark_name,
+            step_count=campaign.step_count,
+            module_context=campaign.module_context,
+            original_keywords=campaign.original_keywords,
+            status="pending",
+            network_preset_id=next_preset["preset_id"],
+            company_id=campaign.company_id,
+        )
+        session.add(new_campaign)
+        await session.flush()  # get new_campaign.id
+
+        # Copy keyword pool from original campaign
+        kw_result = await session.execute(
+            select(CampaignKeywordPool).where(
+                CampaignKeywordPool.campaign_id == campaign.id
+            )
+        )
+        original_keywords = kw_result.scalars().all()
+        for kw in original_keywords:
+            new_kw = CampaignKeywordPool(
+                campaign_id=new_campaign.id,
+                keyword=kw.keyword,
+                is_used=False,
+                used_at=None,
+            )
+            session.add(new_kw)
+
+        # Mark current campaign as completed
+        campaign.status = "completed"
+        campaign.conversion_threshold_handled = True
+        campaign.registration_message = (
+            f"전환수 {campaign.current_conversions}건 초과 → "
+            f"네트워크 '{next_preset['preset_name']}' (tier {next_preset['tier_order']})로 이관"
+        )
+
+        await session.flush()
+
+        new_campaign_id = new_campaign.id
+        _log(
+            "INFO",
+            f"New campaign {new_campaign_id} created for network "
+            f"'{next_preset['preset_name']}'. Triggering registration...",
+        )
+
+        # Trigger registration for the new campaign
+        try:
+            from app.services.campaign_registrar import register_campaign
+            reg_result = await register_campaign(new_campaign_id)
+            if reg_result.get("success"):
+                _log(
+                    "INFO",
+                    f"New campaign {new_campaign_id} registered: "
+                    f"code={reg_result.get('campaign_code')}",
+                )
+            else:
+                _log(
+                    "WARNING",
+                    f"New campaign {new_campaign_id} registration failed: "
+                    f"{reg_result.get('error')}. Campaign remains in pending for retry.",
+                )
+        except Exception as reg_err:
+            _log(
+                "ERROR",
+                f"New campaign {new_campaign_id} registration error: {reg_err}. "
+                f"Campaign remains in pending for retry.",
+            )
+
+        # Send callback to api-server for notification
+        await _send_threshold_callback(
+            campaign.id,
+            "switched",
+            f"캠페인 '{campaign.place_name}'의 전환수가 {campaign.current_conversions}건을 초과하여 "
+            f"네트워크 '{next_preset['preset_name']}' (tier {next_preset['tier_order']})로 자동 이관했습니다.",
+            new_campaign_id=new_campaign_id,
+        )
+
+    except Exception as e:
+        _log(
+            "ERROR",
+            f"Conversion threshold handling failed for campaign {campaign.id}: {e}\n"
+            f"{traceback.format_exc()}",
+        )
+        # Don't set conversion_threshold_handled so it can be retried
+        # But prevent infinite error loops by setting it if it's a data issue
+        campaign.conversion_threshold_handled = True
+        await _send_threshold_callback(
+            campaign.id,
+            "error",
+            f"전환수 초과 네트워크 변경 처리 중 오류 발생: {str(e)[:200]}",
+        )
+
+
+# ============================================================
 # Campaign status sync
 # ============================================================
 
@@ -335,6 +581,22 @@ async def sync_campaign_statuses(
                 current_count = info.get("current_count", 0)
                 if current_count is not None and campaign.current_conversions != current_count:
                     campaign.current_conversions = current_count
+                    changed = True
+
+                # Check conversion threshold (10,000)
+                if (
+                    campaign.current_conversions >= CONVERSION_THRESHOLD
+                    and campaign.status == "active"
+                    and not campaign.conversion_threshold_handled
+                    and campaign.network_preset_id is not None
+                ):
+                    try:
+                        await _handle_conversion_threshold(session, campaign, client)
+                    except Exception as threshold_err:
+                        logger.error(
+                            f"Campaign {campaign.campaign_code} threshold handling error: "
+                            f"{threshold_err}"
+                        )
                     changed = True
 
                 if changed:
