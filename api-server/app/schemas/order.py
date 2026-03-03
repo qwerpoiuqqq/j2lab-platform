@@ -183,6 +183,25 @@ class SimplifiedOrderCreate(BaseModel):
     source: str = "web"
 
 
+class _UserBrief(BaseModel):
+    """Inline user brief for order list."""
+
+    id: uuid.UUID
+    name: str
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
+class _CompanyBrief(BaseModel):
+    """Inline company brief for order list."""
+
+    id: int
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 class OrderBriefResponse(BaseModel):
     """Brief order info for list responses (without items)."""
 
@@ -190,6 +209,8 @@ class OrderBriefResponse(BaseModel):
     order_number: str
     user_id: uuid.UUID
     company_id: int | None = None
+    user: _UserBrief | None = None
+    company: _CompanyBrief | None = None
     status: str
     payment_status: str
     total_amount: int

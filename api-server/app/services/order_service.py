@@ -118,13 +118,29 @@ def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
     return errors
 
 
-def _generate_order_number() -> str:
-    """Generate a unique order number: ORD-YYYYMMDD-XXXX (random suffix)."""
-    import secrets
+async def _generate_order_number(db: AsyncSession) -> str:
+    """Generate a sequential order number: ORD-YYYYMMDD-NNN."""
+    today_str = date.today().strftime("%Y%m%d")
+    prefix = f"ORD-{today_str}-"
 
-    today = date.today().strftime("%Y%m%d")
-    suffix = secrets.token_hex(2).upper()  # 4-char hex
-    return f"ORD-{today}-{suffix}"
+    # 오늘 날짜의 마지막 주문번호 조회
+    result = await db.execute(
+        select(func.max(Order.order_number)).where(
+            Order.order_number.like(f"{prefix}%")
+        )
+    )
+    last_number = result.scalar_one_or_none()
+
+    if last_number:
+        try:
+            last_seq = int(last_number.split("-")[-1])
+            next_seq = last_seq + 1
+        except (ValueError, IndexError):
+            next_seq = 1
+    else:
+        next_seq = 1
+
+    return f"{prefix}{next_seq:03d}"
 
 
 def _can_transition(current: OrderStatus, target: OrderStatus) -> bool:
@@ -253,7 +269,7 @@ async def create_order(
     initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
 
     order = Order(
-        order_number=_generate_order_number(),
+        order_number=await _generate_order_number(db),
         user_id=current_user.id,
         company_id=current_user.company_id,
         status=OrderStatus.DRAFT.value,
@@ -349,7 +365,7 @@ async def create_order_from_excel(
         raise ValueError(f"Product '{product.name}' is not active")
 
     order = Order(
-        order_number=_generate_order_number(),
+        order_number=await _generate_order_number(db),
         user_id=current_user.id,
         company_id=current_user.company_id,
         status=OrderStatus.DRAFT.value,
@@ -503,6 +519,15 @@ async def reject_order(
 
     order.status = OrderStatus.REJECTED.value
     order.notes = (order.notes or "") + f"\n[Reject reason]: {reason}"
+
+    # Cascade: cancel all related order items (배정 대기열에서 제외)
+    items_result = await db.execute(
+        select(OrderItem).where(OrderItem.order_id == order.id)
+    )
+    for item in items_result.scalars().all():
+        item.status = "cancelled"
+        item.assignment_status = None
+        item.assigned_account_id = None
 
     await db.flush()
     await db.refresh(order)
@@ -740,7 +765,7 @@ async def create_simplified_order(
     initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
 
     order = Order(
-        order_number=_generate_order_number(),
+        order_number=await _generate_order_number(db),
         user_id=current_user.id,
         company_id=current_user.company_id,
         status=OrderStatus.DRAFT.value,

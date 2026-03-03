@@ -188,6 +188,11 @@ class Order(Base):
         foreign_keys=[user_id],
         lazy="selectin",
     )
+    company: Mapped[Optional["Company"]] = relationship(
+        "Company",
+        foreign_keys=[company_id],
+        lazy="selectin",
+    )
     items: Mapped[List["OrderItem"]] = relationship(
         "OrderItem",
         back_populates="order",

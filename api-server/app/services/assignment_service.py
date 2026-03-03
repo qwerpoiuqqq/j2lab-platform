@@ -443,7 +443,12 @@ async def get_assignment_queue(
             OrderItem.assignment_status.in_([
                 AssignmentStatus.PENDING.value,
                 AssignmentStatus.AUTO_ASSIGNED.value,
-            ])
+            ]),
+            # 입금확인된 주문만 배정 대기열에 포함 (취소/반려 제외)
+            Order.status.in_([
+                "payment_confirmed",
+                "processing",
+            ]),
         )
     )
 
