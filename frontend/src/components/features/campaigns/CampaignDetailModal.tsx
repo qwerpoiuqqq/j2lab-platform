@@ -3,7 +3,7 @@ import Modal from '@/components/common/Modal';
 import Button from '@/components/common/Button';
 import { campaignsApi } from '@/api/campaigns';
 import type { Campaign, CampaignKeyword } from '@/types';
-import { getCampaignExtendedStatusLabel, getCampaignExtendedStatusColor } from '@/utils/format';
+import { getCampaignExtendedStatusLabel, getCampaignExtendedStatusColor, getCampaignTypeLabel } from '@/utils/format';
 
 interface CampaignDetailModalProps {
   campaignId: number;
@@ -66,7 +66,7 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
               <InfoItem label="상호명" value={detail.place_name} />
               <InfoItem label="캠페인코드" value={detail.campaign_code || '-'} mono />
-              <InfoItem label="캠페인 타입" value={detail.campaign_type} />
+              <InfoItem label="캠페인 타입" value={detail.campaign_type ? getCampaignTypeLabel(detail.campaign_type) : '-'} />
               <div className="text-sm">
                 <span className="text-gray-500">상태: </span>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getCampaignExtendedStatusColor(detail.status)}`}>

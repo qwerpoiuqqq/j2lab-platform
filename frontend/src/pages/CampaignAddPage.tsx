@@ -5,6 +5,7 @@ import { campaignsApi } from '@/api/campaigns';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
 import { campaignTemplatesApi } from '@/api/campaignTemplates';
 import Button from '@/components/common/Button';
+import { getCampaignTypeLabel } from '@/utils/format';
 import type { SuperapAccount, CampaignTemplate } from '@/types';
 
 interface FormData {
@@ -234,7 +235,7 @@ export default function CampaignAddPage() {
             <option value="">선택</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.type_name} {t.campaign_type_selection ? `(${t.campaign_type_selection})` : ''}
+                {t.type_name} {t.campaign_type_selection ? `(${getCampaignTypeLabel(t.campaign_type_selection)})` : ''}
               </option>
             ))}
           </select>

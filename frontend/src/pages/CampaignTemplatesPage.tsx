@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { campaignTemplatesApi } from '@/api/campaignTemplates';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
+import { getCampaignTypeLabel } from '@/utils/format';
 import type { CampaignTemplate, ModuleInfo } from '@/types';
 
 // superap.io campaign type options
@@ -136,7 +137,7 @@ export default function CampaignTemplatesPage() {
                   <tr key={t.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{t.type_name}</td>
                     <td className="px-6 py-4 text-gray-600">
-                      {t.campaign_type_selection || '-'}
+                      {t.campaign_type_selection ? getCampaignTypeLabel(t.campaign_type_selection) : '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-600 text-xs">
                       {t.modules.length > 0 ? t.modules.join(', ') : '-'}

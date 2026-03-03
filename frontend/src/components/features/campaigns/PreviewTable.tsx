@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CampaignUploadPreviewItem } from '@/types';
 import Button from '@/components/common/Button';
+import { getCampaignTypeLabel } from '@/utils/format';
 
 interface PreviewTableProps {
   previews: CampaignUploadPreviewItem[];
@@ -100,7 +101,7 @@ export default function PreviewTable({
                     <div className="text-xs text-red-500 mt-0.5">{p.errors.join(', ')}</div>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-gray-600">{p.campaign_type}</td>
+                <td className="px-3 py-2.5 text-gray-600">{getCampaignTypeLabel(p.campaign_type)}</td>
                 <td className="px-3 py-2.5 text-gray-600 text-xs">
                   {p.start_date} ~ {p.end_date}
                 </td>

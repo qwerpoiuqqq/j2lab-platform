@@ -6,6 +6,7 @@ import {
   formatDateTime,
   formatNumber,
   getCampaignStatusLabel,
+  getCampaignTypeLabel,
 } from '@/utils/format';
 
 interface CampaignDetailProps {
@@ -110,7 +111,7 @@ export default function CampaignDetail({
           <div>
             <p className="text-xs text-gray-500 uppercase">캠페인 유형</p>
             <p className="mt-1 text-sm font-medium text-primary-600">
-              {campaign.campaign_type || '-'}
+              {campaign.campaign_type ? getCampaignTypeLabel(campaign.campaign_type) : '-'}
             </p>
           </div>
           <div>

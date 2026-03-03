@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect, useCallback } from 'react';
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import { assignmentsApi, type AssignmentQueueItem } from '@/api/assignments';
+import { getCampaignTypeLabel } from '@/utils/format';
 
 type StatusTab = 'all' | 'auto_assigned' | 'pending';
 
@@ -224,7 +225,7 @@ export default function AssignmentQueuePage() {
                         {item.place_name || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {item.campaign_type || '-'}
+                        {item.campaign_type ? getCampaignTypeLabel(item.campaign_type) : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {item.assigned_account_name || '-'}
@@ -296,7 +297,7 @@ export default function AssignmentQueuePage() {
                               </Badge>
                             </span>
                             {item.extend_target_info.campaign_type && (
-                              <span>유형: {item.extend_target_info.campaign_type}</span>
+                              <span>유형: {getCampaignTypeLabel(item.extend_target_info.campaign_type)}</span>
                             )}
                             {(item.extend_target_info.start_date || item.extend_target_info.end_date) && (
                               <span>

@@ -144,6 +144,18 @@ export function getCampaignStatusColor(status: string): string {
 }
 
 /**
+ * Get Korean label for campaign type
+ */
+export function getCampaignTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    traffic: '트래픽',
+    save: '저장하기',
+    directions: '길찾기',
+  };
+  return labels[type] || type;
+}
+
+/**
  * Get pipeline stage Korean label
  */
 export function getPipelineStageLabel(stage: string): string {
