@@ -9,10 +9,15 @@ import WeeklyTrendChart from '@/components/features/dashboard/WeeklyTrendChart';
 import OrderStatusSummary from '@/components/features/dashboard/OrderStatusSummary';
 import SubAccountOrders from '@/components/features/orders/SubAccountOrders';
 import { dashboardApi } from '@/api/dashboard';
-import type { DashboardSummary, EnhancedDashboard, UserRole } from '@/types';
+import type { DashboardSummary, EnhancedDashboard } from '@/types';
 
-const CAMPAIGN_VISIBLE_ROLES: UserRole[] = ['system_admin', 'company_admin', 'order_handler'];
-const DISTRIBUTOR_ROLES: UserRole[] = ['distributor', 'system_admin'];
+const ROLE_CONFIG: Record<string, { title: string; description: string }> = {
+  system_admin: { title: '관리자 대시보드', description: '전체 운영 현황과 처리가 필요한 항목을 한눈에 확인하세요.' },
+  company_admin: { title: '관리자 대시보드', description: '전체 운영 현황과 처리가 필요한 항목을 한눈에 확인하세요.' },
+  order_handler: { title: '담당자 업무 현황', description: '처리가 필요한 주문과 진행 상태를 확인하세요.' },
+  distributor: { title: '총판 접수 현황', description: '하부계정 접수건과 매출 현황을 확인하세요.' },
+  sub_account: { title: '내 접수 현황', description: '접수한 주문의 진행 상태를 확인하세요.' },
+};
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -69,53 +74,68 @@ export default function DashboardPage() {
     );
   }
 
-  const canSeeCampaigns = CAMPAIGN_VISIBLE_ROLES.includes(summary.user_role);
+  const role = summary.user_role;
+  const config = ROLE_CONFIG[role] ?? ROLE_CONFIG.sub_account;
+  const isAdmin = role === 'system_admin' || role === 'company_admin';
+  const isHandler = role === 'order_handler';
+  const isDistributor = role === 'distributor';
+  const canSeeCampaigns = isAdmin || isHandler;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          처리가 필요한 항목과 운영 현황을 한눈에 확인하세요.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{config.title}</h1>
+        <p className="mt-1 text-sm text-gray-500">{config.description}</p>
       </div>
 
-      {/* Action-oriented stats */}
+      {/* Stats cards (role-based) */}
       <StatsCards
         ordersByStatus={summary.orders_by_status}
         pipelineOverview={summary.pipeline_overview}
-        activeCampaigns={canSeeCampaigns ? summary.active_campaigns : undefined}
+        activeCampaigns={isAdmin ? summary.active_campaigns : undefined}
         todayRevenue={summary.today_revenue}
+        totalOrders={summary.total_orders}
+        role={role}
       />
 
-      {/* Row 2: Weekly trend + Order status breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {enhanced && <WeeklyTrendChart data={enhanced.weekly_trend} />}
-        <OrderStatusSummary ordersByStatus={summary.orders_by_status} />
-      </div>
+      {/* Row 2: Weekly trend + Order status (admin only) */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {enhanced && <WeeklyTrendChart data={enhanced.weekly_trend} />}
+          <OrderStatusSummary ordersByStatus={summary.orders_by_status} />
+        </div>
+      )}
 
-      {/* Row 3: Pipeline + Recent orders */}
-      <div className={`grid grid-cols-1 ${canSeeCampaigns ? 'lg:grid-cols-2' : ''} gap-6`}>
-        {canSeeCampaigns && (
+      {/* Pipeline + Recent orders */}
+      {canSeeCampaigns && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <PipelineChart data={summary.pipeline_overview} />
-        )}
-        <RecentOrders orders={summary.recent_orders} />
-      </div>
+          <RecentOrders orders={summary.recent_orders} />
+        </div>
+      )}
 
-      {/* Distributor: Sub-account order selection */}
-      {DISTRIBUTOR_ROLES.includes(summary.user_role) && (
+      {/* Distributor: Sub-account order management */}
+      {(isDistributor || isAdmin) && (
         <SubAccountOrders />
       )}
 
-      {/* Row 4: Alerts & Warnings */}
+      {/* Distributor/sub_account: Order status + Recent */}
+      {!canSeeCampaigns && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <OrderStatusSummary ordersByStatus={summary.orders_by_status} />
+          <RecentOrders orders={summary.recent_orders} />
+        </div>
+      )}
+
+      {/* Alerts section (role-based) */}
       {enhanced && (
-        <div className={`grid grid-cols-1 ${canSeeCampaigns ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
+        <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-3' : isHandler ? 'lg:grid-cols-2' : ''} gap-6`}>
           <DeadlineAlerts deadlines={enhanced.upcoming_deadlines} />
           {canSeeCampaigns && (
-            <>
-              <KeywordWarnings warnings={enhanced.keyword_warnings} />
-              <RegistrationFunnel queue={enhanced.registration_queue} />
-            </>
+            <KeywordWarnings warnings={enhanced.keyword_warnings} />
+          )}
+          {isAdmin && (
+            <RegistrationFunnel queue={enhanced.registration_queue} />
           )}
         </div>
       )}

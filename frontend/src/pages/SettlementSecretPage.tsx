@@ -28,11 +28,7 @@ export default function SettlementSecretPage() {
     setAuthLoading(true);
     setAuthError('');
     try {
-      const result = await settlementsApi.getSecret({
-        password,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-      });
+      const result = await settlementsApi.getSecret({ password });
       setData(result.items);
       setSummary(result.summary);
       setIsAuthenticated(true);
@@ -125,23 +121,6 @@ export default function SettlementSecretPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-gray-400" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <span className="text-gray-400">~</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-
             <Input
               type="password"
               placeholder="비밀번호"
