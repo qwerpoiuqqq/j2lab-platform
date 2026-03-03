@@ -580,6 +580,8 @@ export interface FormFieldExtended extends FormField {
   is_quantity?: boolean;
   description?: string;
   group?: string;  // checkbox field name that controls this field's enabled state
+  min?: number;
+  max?: number;
 }
 
 export interface ProductSchema {
