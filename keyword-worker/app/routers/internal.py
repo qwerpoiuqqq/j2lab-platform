@@ -86,6 +86,14 @@ class JobResultsResponse(BaseModel):
     results: Optional[list] = None
 
 
+class PlaceNameResponse(BaseModel):
+    """Response for place name lookup."""
+
+    place_id: int
+    place_name: str | None = None
+    error: str | None = None
+
+
 class HealthResponse(BaseModel):
     """Health check response."""
 
@@ -247,6 +255,34 @@ async def cancel_job(
         await db.commit()
 
     return {"status": "ok", "message": f"Job {job_id} cancellation requested"}
+
+
+@router.get("/place-name/{place_id}", response_model=PlaceNameResponse)
+async def get_place_name(place_id: int):
+    """Lightweight place name lookup using Playwright.
+
+    Opens a headless browser, navigates to the Naver Place page,
+    and extracts just the business name from Apollo State.
+    """
+    from app.services.place_scraper import PlaceScraper
+
+    url = f"https://m.place.naver.com/restaurant/{place_id}/home"
+    try:
+        async with PlaceScraper(headless=True) as scraper:
+            place_data = await scraper.get_place_data_by_url(url)
+            if place_data and place_data.name:
+                return PlaceNameResponse(
+                    place_id=place_id,
+                    place_name=place_data.name,
+                )
+        return PlaceNameResponse(place_id=place_id, place_name=None)
+    except Exception as e:
+        logger.warning("Place name lookup failed for %d: %s", place_id, e)
+        return PlaceNameResponse(
+            place_id=place_id,
+            place_name=None,
+            error=str(e),
+        )
 
 
 @router.get("/health", response_model=HealthResponse)

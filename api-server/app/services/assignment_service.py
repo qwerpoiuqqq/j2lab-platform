@@ -700,15 +700,16 @@ def _determine_recommended_type(
 
 
 async def _fetch_place_name_lightweight(place_id: int) -> str | None:
-    """Fetch place name from Naver mobile page (lightweight, no DB)."""
+    """Fetch place name via keyword-worker's Playwright-based scraper."""
+    from app.core.config import settings
+
     try:
-        url = f"https://m.place.naver.com/restaurant/{place_id}/home"
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(url, follow_redirects=True)
+        url = f"{settings.KEYWORD_WORKER_URL}/internal/place-name/{place_id}"
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url)
         if resp.status_code == 200:
-            match = re.search(r"<title>(.+?)(?:\s*:\s*네이버)?</title>", resp.text)
-            if match:
-                return match.group(1).strip()
+            data = resp.json()
+            return data.get("place_name")
     except Exception:
         pass
     return None
