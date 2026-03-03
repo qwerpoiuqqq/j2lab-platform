@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-import re
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.utils.text import slugify
 
 
 def _generate_code(name: str) -> str:
     """Generate a URL-safe code from product name."""
-    # Replace whitespace with underscore, remove special chars, lowercase
-    code = re.sub(r"\s+", "_", name.strip())
-    code = re.sub(r"[^a-zA-Z0-9가-힣_]", "", code)
-    return code[:50].lower() or "product"
+    return slugify(name, fallback="product")
 
 
 async def get_products(

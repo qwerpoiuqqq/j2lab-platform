@@ -44,7 +44,7 @@ export default function CampaignsPage() {
     isLoading: campaignsLoading,
     refetch,
   } = useQuery({
-    queryKey: ['campaigns', page, accountId, statusFilter, agencyFilter, debouncedSearch],
+    queryKey: ['campaigns', page, accountId, statusFilter, debouncedSearch || agencyFilter],
     queryFn: () =>
       campaignsApi.list({
         page,

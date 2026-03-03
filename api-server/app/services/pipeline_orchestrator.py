@@ -29,6 +29,7 @@ from app.services import (
     campaign_service,
     extraction_service,
     pipeline_service,
+    superap_account_service,
 )
 from app.services.worker_clients import WorkerDispatchError, dispatch_extraction_job, dispatch_campaign_registration
 
@@ -501,10 +502,7 @@ async def on_assignment_confirmed(
     # Resolve network_preset_id from the assigned account
     network_preset_id = None
     if item.assigned_account_id:
-        acc_result = await db.execute(
-            select(SuperapAccount).where(SuperapAccount.id == item.assigned_account_id)
-        )
-        acc = acc_result.scalar_one_or_none()
+        acc = await superap_account_service.get_account_by_id(db, item.assigned_account_id)
         if acc:
             network_preset_id = acc.network_preset_id
 

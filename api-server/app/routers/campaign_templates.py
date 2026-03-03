@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -54,16 +55,11 @@ async def create_template(
     """Create a new campaign template (system_admin only)."""
     try:
         template = await campaign_template_service.create_template(db, body)
-    except Exception as e:
-        error_str = str(e).lower()
-        if "unique" in error_str or "duplicate" in error_str:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Template with type_name '{body.type_name}' or code already exists",
-            )
+    except IntegrityError:
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create campaign template",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Template with type_name '{body.type_name}' or code already exists",
         )
     return template
 

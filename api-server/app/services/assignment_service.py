@@ -39,6 +39,7 @@ from app.schemas.assignment import (
     PlaceRecommendationV2,
     TypeRecommendation,
 )
+from app.services import superap_account_service
 
 
 async def auto_assign(
@@ -356,18 +357,10 @@ async def _apply_assignment(
         order_item.assigned_at = datetime.now(timezone.utc)
 
         # PHASE 0: Record unit_cost snapshot from the assigned account
-        account = await db.execute(
-            select(SuperapAccount).where(
-                SuperapAccount.id == result.assigned_account_id
-            )
-        )
-        acc = account.scalar_one_or_none()
+        acc = await superap_account_service.get_account_by_id(db, result.assigned_account_id)
         if acc:
             campaign_type = result.campaign_type or "traffic"
-            if campaign_type == "save":
-                order_item.cost_unit_price = acc.unit_cost_save
-            else:
-                order_item.cost_unit_price = acc.unit_cost_traffic
+            order_item.cost_unit_price = superap_account_service.resolve_unit_cost(acc, campaign_type)
 
         await db.flush()
 
@@ -388,19 +381,11 @@ async def confirm_assignment(
 
     # PHASE 0: Also record cost if not already set
     if order_item.cost_unit_price is None and order_item.assigned_account_id:
-        account = await db.execute(
-            select(SuperapAccount).where(
-                SuperapAccount.id == order_item.assigned_account_id
-            )
-        )
-        acc = account.scalar_one_or_none()
+        acc = await superap_account_service.get_account_by_id(db, order_item.assigned_account_id)
         if acc:
             item_data = order_item.item_data or {}
             campaign_type = item_data.get("campaign_type", "traffic")
-            if campaign_type == "save":
-                order_item.cost_unit_price = acc.unit_cost_save
-            else:
-                order_item.cost_unit_price = acc.unit_cost_traffic
+            order_item.cost_unit_price = superap_account_service.resolve_unit_cost(acc, campaign_type)
 
     await db.flush()
     await db.refresh(order_item)
@@ -421,17 +406,11 @@ async def override_assignment(
     order_item.assigned_at = datetime.now(timezone.utc)
 
     # PHASE 0: Record cost from new account
-    account = await db.execute(
-        select(SuperapAccount).where(SuperapAccount.id == account_id)
-    )
-    acc = account.scalar_one_or_none()
+    acc = await superap_account_service.get_account_by_id(db, account_id)
     if acc:
         item_data = order_item.item_data or {}
         campaign_type = item_data.get("campaign_type", "traffic")
-        if campaign_type == "save":
-            order_item.cost_unit_price = acc.unit_cost_save
-        else:
-            order_item.cost_unit_price = acc.unit_cost_traffic
+        order_item.cost_unit_price = superap_account_service.resolve_unit_cost(acc, campaign_type)
 
     await db.flush()
     await db.refresh(order_item)

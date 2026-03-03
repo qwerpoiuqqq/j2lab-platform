@@ -2,30 +2,27 @@
 
 from __future__ import annotations
 
-import re
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign_template import CampaignTemplate
 from app.schemas.campaign_template import CampaignTemplateCreate, CampaignTemplateUpdate
+from app.utils.text import slugify
+
+_KNOWN_TYPE_MAP = {
+    "트래픽": "traffic",
+    "저장하기": "save",
+    "랜드마크": "landmark",
+    "길찾기": "directions",
+}
 
 
 def _generate_code(type_name: str) -> str:
     """Generate a URL-safe code from type_name (e.g. '트래픽' -> 'traffic')."""
-    known_map = {
-        "트래픽": "traffic",
-        "저장하기": "save",
-        "랜드마크": "landmark",
-        "길찾기": "directions",
-    }
-    for korean, english in known_map.items():
+    for korean, english in _KNOWN_TYPE_MAP.items():
         if korean in type_name:
             return english
-    # Fallback: slugify
-    code = re.sub(r"\s+", "_", type_name.strip())
-    code = re.sub(r"[^a-zA-Z0-9가-힣_]", "", code)
-    return code[:50].lower() or "template"
+    return slugify(type_name, fallback="template")
 
 
 async def get_templates(

@@ -31,7 +31,7 @@ from app.models.product import Product
 from app.models.superap_account import SuperapAccount
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreate
-from app.services import price_service
+from app.services import price_service, superap_account_service
 
 
 def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
@@ -355,10 +355,9 @@ async def create_order(
             order_item.assigned_at = datetime.now(timezone.utc)
             # Select cost based on campaign_type from item_data
             _idata = item_data.item_data if isinstance(item_data.item_data, dict) else {}
-            if _idata.get("campaign_type") == "save":
-                order_item.cost_unit_price = assigned_account.unit_cost_save
-            else:
-                order_item.cost_unit_price = assigned_account.unit_cost_traffic
+            order_item.cost_unit_price = superap_account_service.resolve_unit_cost(
+                assigned_account, _idata.get("campaign_type", "traffic")
+            )
 
         db.add(order_item)
         total_amount += subtotal

@@ -7,7 +7,7 @@ PHASE 6: Added by-handler, by-company, by-date aggregation views.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time, timezone
 
 from sqlalchemy import func, select, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,13 +44,9 @@ def _base_filters(
     filters = [Order.status.in_(settled_statuses)]
 
     if date_from is not None:
-        from datetime import datetime, time, timezone
-
         start_of_day = datetime.combine(date_from, time.min, tzinfo=timezone.utc)
         filters.append(Order.created_at >= start_of_day)
     if date_to is not None:
-        from datetime import datetime, time, timezone
-
         end_of_day = datetime.combine(date_to, time.max, tzinfo=timezone.utc)
         filters.append(Order.created_at <= end_of_day)
 

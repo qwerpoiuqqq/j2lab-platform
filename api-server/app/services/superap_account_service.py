@@ -12,6 +12,13 @@ from app.schemas.superap_account import SuperapAccountCreate, SuperapAccountUpda
 from app.utils.crypto import encrypt_password
 
 
+def resolve_unit_cost(account: SuperapAccount, campaign_type: str = "traffic") -> int:
+    """Return the appropriate unit cost from an account based on campaign_type."""
+    if campaign_type == "save":
+        return account.unit_cost_save
+    return account.unit_cost_traffic
+
+
 async def get_accounts(
     db: AsyncSession,
     company_id: int | None = None,

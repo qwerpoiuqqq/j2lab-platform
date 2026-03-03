@@ -223,9 +223,9 @@ export default function SettlementPage() {
     return () => { cancelled = true; };
   }, [activeTab, startDate, endDate]);
 
-  // Fetch "Managed" tab data
+  // Fetch "Managed" tab data (items sub-view only)
   useEffect(() => {
-    if (activeTab !== 'managed') return;
+    if (activeTab !== 'managed' || managedSubView !== 'items') return;
     let cancelled = false;
     setManagedLoading(true);
     setManagedError(null);
@@ -255,7 +255,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, managedPage, startDate, endDate]);
+  }, [activeTab, managedSubView, managedPage, startDate, endDate]);
 
   // Fetch "Managed - By Company" sub-view data
   useEffect(() => {
