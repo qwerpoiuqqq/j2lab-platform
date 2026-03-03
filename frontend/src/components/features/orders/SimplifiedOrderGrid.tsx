@@ -393,11 +393,10 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
 function RecommendationInfo({
   recommendation,
   loading,
-  campaignType,
 }: {
   recommendation: PlaceRecommendationV2 | null;
   loading: boolean;
-  campaignType: 'traffic' | 'save';
+  campaignType?: 'traffic' | 'save';
 }) {
   if (loading) {
     return (
