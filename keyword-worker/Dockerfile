@@ -2,7 +2,7 @@
 # Playwright-based keyword extraction worker
 # Uses Microsoft's official Playwright image with Chromium pre-installed
 
-FROM mcr.microsoft.com/playwright/python:v1.49.1-noble
+FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
 
 LABEL maintainer="J2LAB <dev@j2lab.com>"
 LABEL description="J2LAB Keyword Extraction Worker (Playwright)"
