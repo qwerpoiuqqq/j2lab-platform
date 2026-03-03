@@ -70,7 +70,7 @@ export default function OrdersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const canCreate = user && ['distributor', 'sub_account'].includes(user.role);
+  const canCreate = user && ['system_admin', 'company_admin', 'distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
