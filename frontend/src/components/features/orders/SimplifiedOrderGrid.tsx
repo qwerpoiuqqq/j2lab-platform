@@ -8,7 +8,7 @@ import {
 import { placesApi, type PlaceRecommendationV2 } from '@/api/places';
 import { ordersApi } from '@/api/orders';
 import { useAuthStore } from '@/store/auth';
-import { formatCurrency, formatNumber } from '@/utils/format';
+import { formatNumber } from '@/utils/format';
 import Button from '@/components/common/Button';
 
 interface SimplifiedRow {
