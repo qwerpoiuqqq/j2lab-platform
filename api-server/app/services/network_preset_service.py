@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.campaign import Campaign
 from app.models.network_preset import NetworkPreset
 from app.schemas.network_preset import NetworkPresetCreate, NetworkPresetUpdate
 
@@ -90,6 +92,19 @@ async def update_preset(
 
 
 async def delete_preset(db: AsyncSession, preset: NetworkPreset) -> None:
-    """Delete a network preset."""
+    """Delete a network preset. Raises 409 if connected campaigns exist."""
+    campaign_count_result = await db.execute(
+        select(func.count(Campaign.id)).where(
+            Campaign.network_preset_id == preset.id
+        )
+    )
+    campaign_count = campaign_count_result.scalar_one()
+
+    if campaign_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete: {campaign_count} campaign(s) are using this network preset",
+        )
+
     await db.delete(preset)
     await db.flush()

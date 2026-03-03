@@ -842,6 +842,34 @@ async def create_simplified_order(
     return order
 
 
+DELETABLE_STATUSES = {
+    OrderStatus.DRAFT.value,
+    OrderStatus.CANCELLED.value,
+    OrderStatus.REJECTED.value,
+}
+
+
+async def delete_order(
+    db: AsyncSession,
+    order: Order,
+) -> None:
+    """Delete an order permanently.
+
+    Only orders in draft/cancelled/rejected status can be deleted.
+    Cascading deletes handle order_items, pipeline_states, pipeline_logs.
+    Campaign.order_item_id and ExtractionJob.order_item_id are SET NULL.
+    BalanceTransaction.order_id is SET NULL.
+    """
+    if order.status not in DELETABLE_STATUSES:
+        raise ValueError(
+            f"'{order.status}' 상태의 주문은 삭제할 수 없습니다. "
+            "임시저장, 취소, 반려 상태의 주문만 삭제 가능합니다."
+        )
+
+    await db.delete(order)
+    await db.flush()
+
+
 async def get_sub_account_pending_orders(
     db: AsyncSession,
     distributor: User,

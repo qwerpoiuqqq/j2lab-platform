@@ -234,10 +234,10 @@ Nginx 설정:
 - `POST /orders/{id}/exclude` — 접수건 제외
 - `POST /orders/bulk-include` — 일괄 포함
 
-### DB 마이그레이션 필요 (009)
+### DB 마이그레이션 필요 (009~016)
 
 ```
-alembic upgrade head  # order_items.cost_unit_price, products.setup_delay_minutes, orders.selection_*
+alembic upgrade head  # 009~015 + 016(캠페인 템플릿 seed 데이터)
 ```
 
 ### 새 파일
@@ -246,10 +246,30 @@ alembic upgrade head  # order_items.cost_unit_price, products.setup_delay_minute
 - `frontend/src/api/places.ts` — 추천 API 모듈
 - `frontend/src/components/features/orders/SubAccountOrders.tsx` — 총판 접수건 선택
 
+## 워크플로우 점검 수정사항 (2026-03-03)
+
+| 수정 | 파일 | 내용 |
+|------|------|------|
+| CRITICAL | `network_preset_service.py` | 프리셋 삭제 시 연결된 캠페인 체크 (409 반환) |
+| CRITICAL | `016_seed_campaign_templates.py` | quantum에서 누락된 트래픽/저장하기 템플릿 seed |
+| HIGH | `settlements.py` (라우터) | ORDER_HANDLER daily-check 조회 권한 추가 |
+| HIGH | `settlement_service.py` | daily-check에 handler_user_ids 필터 추가 |
+| HIGH | `pipeline_orchestrator.py` | 템플릿 조회를 code 필드 기반으로 수정 |
+
+### quantum 비교 결과 (참고)
+
+- 키워드 로테이션: 100% 포트 완료 + conversion threshold 추가
+- 세팅 로직: 핵심 동일, ModuleRegistry(landmark/steps 런타임 추출) 미통합 (DB 저장값 활용)
+- 템플릿: 스키마 호환, seed 데이터 migration 016으로 추가
+
 ## 남은 TODO
 
+- [ ] EC2 배포: docker-compose build + alembic upgrade head (016 포함)
 - [ ] quantum-campaign SQLite → PostgreSQL 캠페인 데이터 마이그레이션
+- [ ] campaign-worker Scheduler mapper 에러 수정 (Campaign.superap_account FK)
+- [ ] campaign extension_history JSON append 로직 구현
 - [ ] 도메인 + SSL 설정 (Let's Encrypt)
 - [ ] 백업 자동화 (cron + scripts/backup-db.sh)
 - [ ] CI/CD 파이프라인 (GitHub Actions)
 - [ ] EC2에 apscheduler 패키지 설치 필요 (`pip install apscheduler`)
+- [ ] 일자별 정산 그래프 시각화 (Recharts 통합)

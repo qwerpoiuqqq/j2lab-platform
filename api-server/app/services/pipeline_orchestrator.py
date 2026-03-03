@@ -471,7 +471,7 @@ async def on_assignment_confirmed(
     template_result = await db.execute(
         select(CampaignTemplate)
         .where(
-            CampaignTemplate.campaign_type_selection.ilike(f"%{campaign_type}%"),
+            CampaignTemplate.code == campaign_type,
             CampaignTemplate.is_active == True,
         )
         .limit(1)

@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   CalendarIcon,
   ArrowPathIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import type { Order, OrderItem } from '@/types';
 import { ordersApi } from '@/api/orders';
@@ -29,12 +30,21 @@ export default function OrderDetailPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Hold modal
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
+
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Deadline modal
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState('');
   const [deadlineLoading, setDeadlineLoading] = useState(false);
 
   const isAdmin = user && ['system_admin', 'company_admin'].includes(user.role);
+  const canDelete = isAdmin && order && ['draft', 'cancelled', 'rejected'].includes(order.status);
 
   const loadOrder = async () => {
     if (!id) return;
@@ -78,6 +88,14 @@ export default function OrderDetailPage() {
           setActionLoading(false);
           return;
         }
+        case 'hold': {
+          setShowHoldModal(true);
+          setActionLoading(false);
+          return;
+        }
+        case 'release-hold':
+          updated = await ordersApi.releaseHold(Number(id));
+          break;
         case 'cancel':
           updated = await ordersApi.cancel(Number(id));
           break;
@@ -110,6 +128,22 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleHoldConfirm = async () => {
+    if (!id || !holdReason.trim()) return;
+    setActionLoading(true);
+    try {
+      const updated = await ordersApi.holdOrder(Number(id), holdReason);
+      setOrder(updated);
+      setItems(updated.items || []);
+      setShowHoldModal(false);
+      setHoldReason('');
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '보류에 실패했습니다.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleExportItems = async () => {
     if (!id) return;
     try {
@@ -117,6 +151,20 @@ export default function OrderDetailPage() {
       downloadBlob(blob, `주문항목_${order?.order_number || id}.xlsx`);
     } catch {
       alert('내보내기에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleteLoading(true);
+    try {
+      await ordersApi.delete(Number(id));
+      navigate('/orders');
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '삭제에 실패했습니다.');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -173,9 +221,9 @@ export default function OrderDetailPage() {
           목록으로
         </Button>
 
-        {/* Enhanced action buttons */}
+        {/* Top action buttons */}
         <div className="flex gap-2">
-          {isAdmin && order.status === 'submitted' && (
+          {isAdmin && ['submitted', 'payment_hold'].includes(order.status) && (
             <Button
               variant="success"
               size="sm"
@@ -204,6 +252,16 @@ export default function OrderDetailPage() {
           >
             항목 Excel
           </Button>
+          {canDelete && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setShowDeleteModal(true)}
+              icon={<TrashIcon className="h-4 w-4" />}
+            >
+              삭제
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -222,6 +280,8 @@ export default function OrderDetailPage() {
         onConfirmPayment={() => handleAction('confirm-payment')}
         onReject={() => handleAction('reject')}
         onCancel={() => handleAction('cancel')}
+        onHold={() => handleAction('hold')}
+        onReleaseHold={() => handleAction('release-hold')}
         actionLoading={actionLoading}
       />
 
@@ -252,6 +312,63 @@ export default function OrderDetailPage() {
               disabled={!rejectReason.trim()}
             >
               반려 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Hold Modal */}
+      <Modal
+        isOpen={showHoldModal}
+        onClose={() => { setShowHoldModal(false); setHoldReason(''); }}
+        title="입금 보류"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-600">보류 사유를 입력하세요.</p>
+          <textarea
+            value={holdReason}
+            onChange={(e) => setHoldReason(e.target.value)}
+            placeholder="보류 사유를 입력하세요..."
+            rows={4}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setShowHoldModal(false); setHoldReason(''); }}>
+              취소
+            </Button>
+            <Button
+              variant="warning"
+              onClick={handleHoldConfirm}
+              loading={actionLoading}
+              disabled={!holdReason.trim()}
+            >
+              보류 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirm Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="주문 삭제"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-600">
+            주문 <span className="font-semibold">#{order.order_number}</span>을(를) 삭제하시겠습니까?
+          </p>
+          <p className="text-xs text-red-500">이 작업은 되돌릴 수 없습니다.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>취소</Button>
+            <Button
+              variant="danger"
+              onClick={handleDelete}
+              loading={deleteLoading}
+            >
+              삭제 확인
             </Button>
           </div>
         </div>

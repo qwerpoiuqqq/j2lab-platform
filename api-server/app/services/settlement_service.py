@@ -396,11 +396,13 @@ async def get_daily_settlement_check(
     db: AsyncSession,
     check_date: date,
     company_id: int | None = None,
+    handler_user_ids: list | None = None,
 ) -> DailyCheckResponse:
     """Get daily settlement check view: submitted + payment_hold orders grouped by distributor.
 
     Returns orders that need payment checking for the given date,
     grouped by the distributor (parent of the order's user).
+    order_handler sees only their line's orders via handler_user_ids.
     """
     from datetime import datetime, time, timezone as tz
     from sqlalchemy.orm import aliased
@@ -420,6 +422,8 @@ async def get_daily_settlement_check(
     ]
     if company_id is not None:
         filters.append(Order.company_id == company_id)
+    if handler_user_ids is not None:
+        filters.append(Order.user_id.in_(handler_user_ids))
 
     # Fetch orders with their user info
     OrderUser = aliased(User, name="order_user")

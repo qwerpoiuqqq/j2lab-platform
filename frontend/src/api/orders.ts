@@ -181,6 +181,18 @@ export const ordersApi = {
     return response.data;
   },
 
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/orders/${id}`);
+    return response.data;
+  },
+
+  bulkDelete: async (orderIds: number[]): Promise<{ message: string }> => {
+    const response = await apiClient.post('/orders/bulk-delete', {
+      order_ids: orderIds,
+    });
+    return response.data;
+  },
+
   holdOrder: async (orderId: number, reason: string): Promise<Order> => {
     const response = await apiClient.post<Order>(`/orders/${orderId}/hold`, { reason });
     return response.data;

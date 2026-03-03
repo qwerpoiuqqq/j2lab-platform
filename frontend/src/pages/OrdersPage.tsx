@@ -9,6 +9,7 @@ import {
   PlusIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import type { Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth';
@@ -58,6 +59,8 @@ export default function OrdersPage() {
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const canCreate = user && ['distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
@@ -137,6 +140,23 @@ export default function OrdersPage() {
       alert(err?.response?.data?.detail || '일괄 변경에 실패했습니다.');
     } finally {
       setBulkLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setDeleteLoading(true);
+    try {
+      const result = await ordersApi.bulkDelete(Array.from(selectedIds));
+      setShowDeleteModal(false);
+      setRefreshKey((k) => k + 1);
+      if (result.detail?.errors?.length > 0) {
+        alert(`일부 삭제 실패:\n${(result as any).detail.errors.join('\n')}`);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '일괄 삭제에 실패했습니다.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -230,6 +250,9 @@ export default function OrdersPage() {
               <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
                 일괄 상태변경
               </Button>
+              <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)} icon={<TrashIcon className="h-3 w-3" />}>
+                일괄 삭제
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
                 선택 해제
               </Button>
@@ -299,6 +322,29 @@ export default function OrdersPage() {
             totalItems={totalItems}
             pageSize={20}
           />
+
+          {/* Bulk Delete Modal */}
+          <Modal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            title="일괄 삭제"
+            size="sm"
+          >
+            <div className="space-y-4 p-1">
+              <p className="text-sm text-gray-600">
+                {selectedIds.size}건의 주문을 삭제하시겠습니까?
+              </p>
+              <p className="text-xs text-red-500">
+                임시저장/취소/반려 상태의 주문만 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>취소</Button>
+                <Button variant="danger" onClick={handleBulkDelete} loading={deleteLoading}>
+                  삭제 확인
+                </Button>
+              </div>
+            </div>
+          </Modal>
 
           {/* Bulk Status Modal */}
           <Modal

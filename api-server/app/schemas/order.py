@@ -20,12 +20,23 @@ class OrderItemCreate(BaseModel):
     item_data: Any = None
 
 
+class _ProductBrief(BaseModel):
+    """Inline product brief for order item responses."""
+
+    id: int
+    name: str
+    code: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class OrderItemResponse(BaseModel):
     """Order item response model."""
 
     id: int
     order_id: int
     product_id: int
+    product: _ProductBrief | None = None
     row_number: int | None = None
     quantity: int
     unit_price: int
@@ -97,6 +108,8 @@ class OrderResponse(BaseModel):
     order_number: str
     user_id: uuid.UUID
     company_id: int | None = None
+    user: _UserBrief | None = None
+    company: _CompanyBrief | None = None
     status: str
     payment_status: str
     total_amount: int
@@ -133,6 +146,12 @@ class BulkStatusRequest(BaseModel):
 
     order_ids: list[int] = Field(..., min_length=1)
     status: str = Field(..., min_length=1)
+
+
+class BulkDeleteRequest(BaseModel):
+    """Schema for bulk order deletion."""
+
+    order_ids: list[int] = Field(..., min_length=1)
 
 
 class DeadlineUpdateRequest(BaseModel):

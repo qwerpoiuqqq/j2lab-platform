@@ -6,6 +6,7 @@ import {
   formatCurrency,
   formatDateTime,
   getOrderStatusLabel,
+  getItemStatusLabel,
 } from '@/utils/format';
 import { useAuthStore } from '@/store/auth';
 
@@ -16,6 +17,8 @@ interface OrderDetailProps {
   onConfirmPayment?: () => void;
   onReject?: () => void;
   onCancel?: () => void;
+  onHold?: () => void;
+  onReleaseHold?: () => void;
   actionLoading?: boolean;
 }
 
@@ -23,6 +26,7 @@ function getStatusBadgeVariant(status: string) {
   const map: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
     draft: 'default',
     submitted: 'info',
+    payment_hold: 'warning',
     payment_confirmed: 'success',
     processing: 'warning',
     completed: 'success',
@@ -39,10 +43,13 @@ export default function OrderDetail({
   onConfirmPayment,
   onReject,
   onCancel,
+  onHold,
+  onReleaseHold,
   actionLoading,
 }: OrderDetailProps) {
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
+  const isAdmin = ['system_admin', 'company_admin'].includes(userRole || '');
 
   return (
     <div className="space-y-6">
@@ -64,7 +71,8 @@ export default function OrderDetail({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {order.status === 'draft' && ['distributor', 'sub_account'].includes(userRole || '') && (
+            {/* draft: 접수 제출 (모든 역할) */}
+            {order.status === 'draft' && (
               <Button
                 variant="primary"
                 onClick={onSubmit}
@@ -73,7 +81,9 @@ export default function OrderDetail({
                 접수 제출
               </Button>
             )}
-            {order.status === 'submitted' && ['system_admin', 'company_admin'].includes(userRole || '') && (
+
+            {/* submitted: 입금 확인, 보류, 반려 (관리자) */}
+            {order.status === 'submitted' && isAdmin && (
               <>
                 <Button
                   variant="success"
@@ -84,6 +94,13 @@ export default function OrderDetail({
                 </Button>
                 <Button
                   variant="warning"
+                  onClick={onHold}
+                  loading={actionLoading}
+                >
+                  보류
+                </Button>
+                <Button
+                  variant="warning"
                   onClick={onReject}
                   loading={actionLoading}
                 >
@@ -91,18 +108,54 @@ export default function OrderDetail({
                 </Button>
               </>
             )}
-            {['draft', 'submitted'].includes(order.status) &&
-              ['system_admin', 'company_admin'].includes(userRole || '') && (
+
+            {/* payment_hold: 입금 확인, 보류 해제, 반려 (관리자) */}
+            {order.status === 'payment_hold' && isAdmin && (
+              <>
                 <Button
-                  variant="danger"
-                  onClick={onCancel}
+                  variant="success"
+                  onClick={onConfirmPayment}
                   loading={actionLoading}
                 >
-                  취소
+                  입금 확인
                 </Button>
-              )}
+                <Button
+                  variant="secondary"
+                  onClick={onReleaseHold}
+                  loading={actionLoading}
+                >
+                  보류 해제
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={onReject}
+                  loading={actionLoading}
+                >
+                  반려
+                </Button>
+              </>
+            )}
+
+            {/* draft/submitted/payment_hold: 취소 (관리자) */}
+            {['draft', 'submitted', 'payment_hold'].includes(order.status) && isAdmin && (
+              <Button
+                variant="danger"
+                onClick={onCancel}
+                loading={actionLoading}
+              >
+                취소
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Hold reason banner */}
+        {order.status === 'payment_hold' && (order as any).hold_reason && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-600 uppercase mb-1">보류 사유</p>
+            <p className="text-sm text-amber-800">{(order as any).hold_reason}</p>
+          </div>
+        )}
 
         {/* Info grid */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -182,35 +235,51 @@ export default function OrderDetail({
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {item.product?.name || `상품 #${item.product_id}`}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div>
-                        <p className="text-gray-900">
-                          {item.item_data?.place_name || '-'}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate max-w-[200px]">
-                          {item.item_data?.place_url || '-'}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.quantity}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatCurrency(item.unit_price)}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {formatCurrency(item.subtotal)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge>{item.status}</Badge>
-                    </td>
-                  </tr>
-                ))
+                items.map((item) => {
+                  const placeName = item.item_data?.place_name || item.item_data?.상호명 || '';
+                  const placeUrl = item.item_data?.place_url || '';
+                  const campaignType = item.item_data?.campaign_type || '';
+                  const productLabel = item.product?.name
+                    ? `${item.product.name}${campaignType ? ` (${campaignType === 'traffic' ? '트래픽' : campaignType === 'save' ? '저장하기' : campaignType})` : ''}`
+                    : `상품 #${item.product_id}`;
+
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {productLabel}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div>
+                          <p className="text-gray-900 font-medium">
+                            {placeName || (placeUrl ? placeUrl.split('/').pop()?.split('?')[0] || '-' : '-')}
+                          </p>
+                          {placeUrl && (
+                            <a
+                              href={placeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary-500 hover:underline truncate block max-w-[250px]"
+                            >
+                              {placeUrl}
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {item.quantity}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatCurrency(item.unit_price)}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {formatCurrency(item.subtotal)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge>{getItemStatusLabel(item.status)}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -224,7 +293,7 @@ export default function OrderDetail({
           {items.map((item) => (
             <div key={`pipeline-${item.id}`} className="px-6">
               <p className="text-sm text-gray-600 mb-2">
-                {item.product?.name || `상품 #${item.product_id}`} - {item.item_data?.place_name || ''}
+                {item.product?.name || `상품 #${item.product_id}`} - {item.item_data?.place_name || item.item_data?.상호명 || ''}
               </p>
               <PipelineStatusWidget orderItemId={item.id} />
             </div>

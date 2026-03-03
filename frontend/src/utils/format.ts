@@ -70,11 +70,26 @@ export function getOrderStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     draft: '임시저장',
     submitted: '접수완료',
+    payment_hold: '입금보류',
     payment_confirmed: '입금확인',
     processing: '처리중',
     completed: '완료',
     cancelled: '취소',
     rejected: '반려',
+  };
+  return labels[status] || status;
+}
+
+/**
+ * Get Korean label for order item status
+ */
+export function getItemStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: '대기',
+    processing: '처리중',
+    completed: '완료',
+    failed: '실패',
+    cancelled: '취소',
   };
   return labels[status] || status;
 }
@@ -117,6 +132,7 @@ export function getOrderStatusColor(status: string): string {
   const colors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-800',
     submitted: 'bg-blue-100 text-blue-800',
+    payment_hold: 'bg-amber-100 text-amber-800',
     payment_confirmed: 'bg-green-100 text-green-800',
     processing: 'bg-yellow-100 text-yellow-800',
     completed: 'bg-emerald-100 text-emerald-800',

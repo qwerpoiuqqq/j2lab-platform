@@ -17,6 +17,7 @@ from app.models.order import Order
 from app.models.user import User, UserRole
 from app.schemas.common import MessageResponse, PaginatedResponse, PaginationParams
 from app.schemas.order import (
+    BulkDeleteRequest,
     BulkHoldRequest,
     BulkPaymentConfirmRequest,
     BulkStatusRequest,
@@ -541,6 +542,43 @@ async def bulk_payment_confirm(
     )
 
 
+@router.post("/bulk-delete", response_model=MessageResponse)
+async def bulk_delete_orders(
+    body: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Bulk delete multiple orders (only draft/cancelled/rejected)."""
+    success_count = 0
+    errors = []
+
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+
+        # company_admin can only delete orders in their company
+        user_role = UserRole(current_user.role)
+        if user_role == UserRole.COMPANY_ADMIN:
+            if order.company_id != current_user.company_id:
+                errors.append(f"Order {oid}: not in your company")
+                continue
+
+        try:
+            await order_service.delete_order(db, order)
+            success_count += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+
+    return MessageResponse(
+        message=f"Deleted {success_count}/{len(body.order_ids)} orders",
+        detail={"errors": errors} if errors else None,
+    )
+
+
 @router.post("/bulk-hold", response_model=MessageResponse)
 async def bulk_hold(
     body: BulkHoldRequest,
@@ -602,6 +640,45 @@ async def get_order(
         )
 
     return order
+
+
+@router.delete("/{order_id}", response_model=MessageResponse)
+async def delete_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+    ),
+):
+    """Delete an order permanently (only draft/cancelled/rejected).
+
+    company_admin can only delete orders in their own company.
+    Cascading deletes handle order_items, pipeline_states, pipeline_logs.
+    """
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    # company_admin can only delete orders in their company
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.COMPANY_ADMIN:
+        if order.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Company admin can only delete orders in their own company",
+            )
+
+    try:
+        await order_service.delete_order(db, order)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return MessageResponse(message=f"Order {order_id} deleted successfully")
 
 
 @router.patch("/{order_id}", response_model=OrderResponse)

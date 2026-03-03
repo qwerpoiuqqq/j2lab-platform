@@ -81,25 +81,29 @@ async def daily_settlement_check(
     check_date: date | None = Query(None, alias="date"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Daily settlement check view: submitted + payment_hold orders grouped by distributor.
 
     If no date is provided, defaults to today.
     company_admin sees only their company's orders.
+    order_handler sees only their line's orders.
     """
     if check_date is None:
         check_date = date.today()
 
-    # company_admin: filter by company
     company_id = None
+    handler_user_ids = None
     user_role = UserRole(current_user.role)
     if user_role == UserRole.COMPANY_ADMIN:
         company_id = current_user.company_id
+    elif user_role == UserRole.ORDER_HANDLER:
+        handler_user_ids = await get_line_user_ids(db, current_user.id)
 
     return await settlement_service.get_daily_settlement_check(
         db, check_date=check_date, company_id=company_id,
+        handler_user_ids=handler_user_ids,
     )
 
 
