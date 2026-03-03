@@ -1,13 +1,13 @@
 """Add conversion_threshold_handled flag to campaigns.
 
-Revision ID: 015_add_conversion_threshold_flag
+Revision ID: 015_conv_threshold_flag
 Revises: 014_add_payment_hold_status
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "015_add_conversion_threshold_flag"
+revision = "015_conv_threshold_flag"
 down_revision = "014_add_payment_hold_status"
 branch_labels = None
 depends_on = None
