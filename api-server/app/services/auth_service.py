@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -60,6 +60,18 @@ async def create_tokens(
     )
     db.add(db_refresh_token)
     await db.flush()
+
+    # Cleanup expired/revoked tokens for this user
+    await db.execute(
+        delete(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.id != db_refresh_token.id,
+            or_(
+                RefreshToken.expires_at < datetime.now(timezone.utc),
+                RefreshToken.revoked_at.isnot(None),
+            ),
+        )
+    )
 
     return {
         "access_token": access_token,
@@ -162,3 +174,31 @@ async def register_user(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+async def change_password(
+    db: AsyncSession,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> bool:
+    """Change user's own password after verifying current password."""
+    if not verify_password(current_password, user.hashed_password):
+        return False
+    user.hashed_password = hash_password(new_password)
+    await db.flush()
+    return True
+
+
+async def cleanup_expired_tokens(db: AsyncSession) -> int:
+    """Delete expired and revoked refresh tokens. Returns count deleted."""
+    result = await db.execute(
+        delete(RefreshToken).where(
+            or_(
+                RefreshToken.expires_at < datetime.now(timezone.utc),
+                RefreshToken.revoked_at.isnot(None),
+            )
+        )
+    )
+    await db.flush()
+    return result.rowcount

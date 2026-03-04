@@ -235,9 +235,9 @@ export default function CampaignEditModal({
           <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-sm font-medium text-gray-700 mb-2">연장 이력</div>
             <div className="space-y-1">
-              {campaign.extension_history.map((ext) => (
-                <div key={ext.round} className="text-xs text-gray-600">
-                  연장 {ext.round}회: {ext.start_date} ~ {ext.end_date} / 일 {ext.daily_limit}타
+              {campaign.extension_history.map((ext, idx) => (
+                <div key={idx} className="text-xs text-gray-600">
+                  연장 {idx + 1}회: {ext.previous_end_date} → {ext.new_end_date} / +{ext.added_quantity}개 (총 {ext.new_total_limit})
                 </div>
               ))}
             </div>

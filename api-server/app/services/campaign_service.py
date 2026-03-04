@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Campaign, CampaignStatus
@@ -53,7 +53,11 @@ async def get_campaigns(
         query = query.where(Campaign.superap_account_id == account_id)
         count_query = count_query.where(Campaign.superap_account_id == account_id)
     if search:
-        search_filter = Campaign.place_name.ilike(f"%{search}%")
+        search_filter = or_(
+            Campaign.place_name.ilike(f"%{search}%"),
+            Campaign.campaign_code.ilike(f"%{search}%"),
+            Campaign.agency_name.ilike(f"%{search}%"),
+        )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
 
@@ -89,7 +93,11 @@ async def get_campaign_by_code(
 
 
 async def delete_campaign(db: AsyncSession, campaign: Campaign) -> None:
-    """Delete a campaign."""
+    """Delete a campaign. Prevents deletion of active campaigns."""
+    if campaign.status in ("active", "pending_keyword_change", "registering"):
+        raise ValueError(
+            f"활성 상태({campaign.status})인 캠페인은 삭제할 수 없습니다. 먼저 중지하세요."
+        )
     await db.delete(campaign)
     await db.flush()
 

@@ -72,29 +72,19 @@ async def list_modules(
     return {
         "modules": [
             {
-                "name": "place",
-                "description": "명소 선택 모듈",
-                "variables": ["명소명", "상호명", "가게주소", "카테고리"],
+                "name": "place_info",
+                "description": "플레이스 실제 상호명/주소 추출",
+                "variables": ["상호명", "가게주소"],
+            },
+            {
+                "name": "landmark",
+                "description": "플레이스 주변 명소 선택",
+                "variables": ["명소명", "명소순번"],
             },
             {
                 "name": "steps",
-                "description": "걸음수 모듈",
+                "description": "출발지→업체 도보 걸음수 계산",
                 "variables": ["걸음수"],
-            },
-            {
-                "name": "product",
-                "description": "상품 클릭 모듈",
-                "variables": ["상품명"],
-            },
-            {
-                "name": "quiz",
-                "description": "퀴즈 모듈",
-                "variables": ["정답"],
-            },
-            {
-                "name": "review",
-                "description": "리뷰 작성 모듈",
-                "variables": ["리뷰내용"],
             },
         ]
     }

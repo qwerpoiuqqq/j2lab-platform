@@ -11,8 +11,58 @@ import {
   DocumentDuplicateIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/react/20/solid';
 
 export type OrderGridRow = Record<string, string | number>;
+
+// ─── Place URL normalization ────────────────────────────────────────
+
+/**
+ * Normalize a Naver Place URL to canonical format: https://m.place.naver.com/{type}/{mid}
+ * Strips query params, hash, /home suffix, etc.
+ * Returns { url, warning } — warning is set for unsupported formats.
+ */
+function normalizePlaceUrl(raw: string): { url: string; warning: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { url: '', warning: '' };
+
+  // naver.me short URLs — cannot resolve client-side
+  if (/naver\.me/i.test(trimmed)) {
+    return {
+      url: trimmed,
+      warning: 'naver.me 단축 URL은 사용할 수 없습니다. 모바일 플레이스 URL(https://m.place.naver.com/...)을 입력해주세요.',
+    };
+  }
+
+  // PC URL (place.naver.com without 'm.' prefix)
+  if (/^https?:\/\/place\.naver\.com\//i.test(trimmed)) {
+    return {
+      url: trimmed,
+      warning: 'PC 주소입니다. 모바일 주소(https://m.place.naver.com/...)로 변환해서 입력해주세요.',
+    };
+  }
+
+  // Extract from m.place.naver.com URL
+  const mPlaceMatch = trimmed.match(
+    /https?:\/\/m\.place\.naver\.com\/([a-zA-Z]+)\/(\d+)/i
+  );
+  if (mPlaceMatch) {
+    const normalized = `https://m.place.naver.com/${mPlaceMatch[1]}/${mPlaceMatch[2]}`;
+    return { url: normalized, warning: '' };
+  }
+
+  // map.naver.com with place ID
+  const mapMatch = trimmed.match(/https?:\/\/map\.naver\.com\/.*?place\/(\d+)/i);
+  if (mapMatch) {
+    return {
+      url: trimmed,
+      warning: `지도 URL입니다. 모바일 플레이스 URL(https://m.place.naver.com/.../${mapMatch[1]})로 변환해서 입력해주세요.`,
+    };
+  }
+
+  // Not a recognized Naver URL — return as-is
+  return { url: trimmed, warning: '' };
+}
 
 interface OrderGridProps {
   product: Product;
@@ -137,8 +187,11 @@ export default function OrderGrid({
   const [aiStates, setAiStates] = useState<RowAIState[]>([{ recommendation: null, loading: false, networkName: '' }]);
   const timerRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
+  // URL warning state per row
+  const [urlWarnings, setUrlWarnings] = useState<string[]>(['']);
+
   // Find url field in schema for AI trigger
-  const urlFieldName = enableAI ? schema.find((f) => f.type === 'url')?.name || '' : '';
+  const urlFieldName = schema.find((f) => f.type === 'url')?.name || '';
   const campaignTypeFieldName = enableAI ? schema.find((f) => f.name === 'campaign_type')?.name || '' : '';
 
   useEffect(() => {
@@ -147,16 +200,6 @@ export default function OrderGrid({
     };
   }, []);
 
-  // Keep aiStates in sync with rows count
-  useEffect(() => {
-    setAiStates((prev) => {
-      if (prev.length === rows.length) return prev;
-      if (prev.length < rows.length) {
-        return [...prev, ...Array(rows.length - prev.length).fill(null).map(() => ({ recommendation: null, loading: false, networkName: '' }))];
-      }
-      return prev.slice(0, rows.length);
-    });
-  }, [rows.length]);
 
   const quantityField = schema.find((f) => f.is_quantity);
 
@@ -232,6 +275,7 @@ export default function OrderGrid({
   const addRow = useCallback(() => {
     setRows((prev) => [...prev, computeRow(createEmptyRow(schema), schema)]);
     setAiStates((prev) => [...prev, { recommendation: null, loading: false, networkName: '' }]);
+    setUrlWarnings((prev) => [...prev, '']);
   }, [schema]);
 
   const deleteRow = useCallback((idx: number) => {
@@ -240,6 +284,10 @@ export default function OrderGrid({
       return prev.filter((_, i) => i !== idx);
     });
     setAiStates((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
+    setUrlWarnings((prev) => {
       if (prev.length <= 1) return prev;
       return prev.filter((_, i) => i !== idx);
     });
@@ -256,6 +304,11 @@ export default function OrderGrid({
       const copied = prev[idx] ? { ...prev[idx] } : { recommendation: null, loading: false, networkName: '' };
       const ns = [...prev];
       ns.splice(idx + 1, 0, copied);
+      return ns;
+    });
+    setUrlWarnings((prev) => {
+      const ns = [...prev];
+      ns.splice(idx + 1, 0, prev[idx] || '');
       return ns;
     });
   }, [schema]);
@@ -298,6 +351,14 @@ export default function OrderGrid({
   const total = subtotal + vat;
 
   const handleSubmit = () => {
+    // URL 경고가 있는 행 체크
+    for (let i = 0; i < urlWarnings.length; i++) {
+      if (urlWarnings[i]) {
+        alert(`${i + 1}행: ${urlWarnings[i]}`);
+        return;
+      }
+    }
+
     const minDaily = product.min_daily_limit;
     const minDays = product.min_work_days;
     const maxDays = product.max_work_days;
@@ -391,7 +452,9 @@ export default function OrderGrid({
               {schema.map((field) => (
                 <th
                   key={field.name}
-                  className="px-3 py-3 text-left text-xs font-medium uppercase whitespace-nowrap"
+                  className={`px-3 py-3 text-left text-xs font-medium uppercase whitespace-nowrap${
+                    field.type === 'url' ? ' min-w-[340px]' : ''
+                  }`}
                   style={field.color ? { backgroundColor: field.color, color: '#fff' } : undefined}
                 >
                   {field.label}
@@ -424,10 +487,25 @@ export default function OrderGrid({
                           field={field}
                           value={row[field.name]}
                           onChange={(val) => {
-                            updateRow(rowIdx, field.name, val);
-                            // AI: trigger recommendation on URL change
-                            if (enableAI && field.name === urlFieldName) {
-                              fetchRecommendation(rowIdx, String(val));
+                            // URL auto-normalization on paste/change
+                            if (field.type === 'url' && field.name === urlFieldName) {
+                              const { url: normalized, warning } = normalizePlaceUrl(String(val));
+                              setUrlWarnings((prev) => {
+                                const ns = [...prev];
+                                ns[rowIdx] = warning;
+                                return ns;
+                              });
+                              if (!warning && normalized !== String(val)) {
+                                updateRow(rowIdx, field.name, normalized);
+                              } else {
+                                updateRow(rowIdx, field.name, val);
+                              }
+                              // AI: trigger recommendation on URL change
+                              if (enableAI) {
+                                fetchRecommendation(rowIdx, warning ? '' : normalized);
+                              }
+                            } else {
+                              updateRow(rowIdx, field.name, val);
                             }
                           }}
                           onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
@@ -472,6 +550,19 @@ export default function OrderGrid({
                       </button>
                     </td>
                   </tr>
+
+                  {/* URL 경고 메시지 */}
+                  {urlWarnings[rowIdx] && (
+                    <tr className="border-0">
+                      <td />
+                      <td colSpan={schema.length + (enableAI ? 2 : 1)} className="px-1 pb-1 pt-0">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 rounded border border-amber-200 text-xs text-amber-700">
+                          <ExclamationTriangleIcon className="h-3.5 w-3.5 shrink-0" />
+                          {urlWarnings[rowIdx]}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
 
                   {/* AI 제안 카드 — URL 입력 후 분석 결과 있을 때만 */}
                   {hasAI && (

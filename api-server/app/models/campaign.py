@@ -32,6 +32,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.campaign_keyword_pool import CampaignKeywordPool
+    from app.models.superap_account import SuperapAccount
 
 
 class CampaignStatus(str, Enum):
@@ -49,6 +50,7 @@ class CampaignStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+    PENDING_KEYWORD_CHANGE = "pending_keyword_change"
 
 
 class Campaign(Base):
@@ -154,6 +156,11 @@ class Campaign(Base):
     )
 
     # Relationships
+    superap_account: Mapped[Optional["SuperapAccount"]] = relationship(
+        "SuperapAccount",
+        lazy="selectin",
+        foreign_keys=[superap_account_id],
+    )
     keyword_pool: Mapped[List["CampaignKeywordPool"]] = relationship(
         "CampaignKeywordPool",
         back_populates="campaign",

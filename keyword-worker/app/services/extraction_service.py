@@ -204,7 +204,7 @@ class ExtractionService:
             await self._complete_job(job_id, results_json, saved_count)
 
             # Send callback to api-server
-            await self._send_callback(job_id, "completed", saved_count, db_place_id)
+            await self._send_callback(job_id, "completed", saved_count, db_place_id, place_name=place_data.name)
 
             logger.info(
                 "Job %d: Completed. %d keywords saved", job_id, saved_count
@@ -567,10 +567,12 @@ class ExtractionService:
                 payload["place_name"] = place_name
             if error_message is not None:
                 payload["error_message"] = error_message
+            headers = {"X-Internal-Secret": settings.INTERNAL_API_SECRET}
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
                     callback_url,
                     json=payload,
+                    headers=headers,
                 )
                 if resp.status_code != 200:
                     logger.warning(

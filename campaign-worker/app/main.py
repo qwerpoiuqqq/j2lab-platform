@@ -15,6 +15,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.database import engine
+from app.modules.registry import register_default_modules
 from app.routers.internal import router as internal_router
 from app.services.keyword_rotator import start_scheduler, stop_scheduler
 
@@ -36,6 +37,9 @@ async def lifespan(app: FastAPI):
         settings.APP_VERSION,
         settings.WORKER_PORT,
     )
+
+    # Register campaign setup modules (landmark, steps, place_info)
+    register_default_modules()
 
     # Start APScheduler for keyword rotation
     start_scheduler()

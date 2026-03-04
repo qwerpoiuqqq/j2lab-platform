@@ -115,7 +115,13 @@ async def delete_account(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Superap account not found",
         )
-    await superap_account_service.delete_account(db, account)
+    try:
+        await superap_account_service.delete_account(db, account)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
 
 
 @router.get("/agencies")

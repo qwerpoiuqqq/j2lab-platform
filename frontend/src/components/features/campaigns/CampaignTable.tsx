@@ -266,7 +266,7 @@ export default function CampaignTable({
                       <span
                         className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700"
                         title={c.extension_history.map(
-                          (ext) => `연장 ${ext.round}회: ${ext.start_date} ~ ${ext.end_date} / 일 ${ext.daily_limit}타`
+                          (ext, idx) => `연장 ${idx + 1}회: ${ext.previous_end_date} → ${ext.new_end_date} / +${ext.added_quantity}개`
                         ).join('\n')}
                       >
                         연장{c.extension_history.length}회

@@ -43,6 +43,10 @@ class CampaignUpdate(BaseModel):
 
     status: str | None = None
     campaign_code: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    place_name: str | None = None
+    place_url: str | None = None
     daily_limit: int | None = Field(None, ge=1)
     total_limit: int | None = None
     registration_step: str | None = None
@@ -50,6 +54,7 @@ class CampaignUpdate(BaseModel):
     landmark_name: str | None = None
     step_count: int | None = None
     module_context: Any = None
+    agency_name: str | None = None
 
     @model_validator(mode="after")
     def validate_status(self):
@@ -87,6 +92,13 @@ class CampaignResponse(BaseModel):
     registration_step: str | None = None
     registration_message: str | None = None
     extend_target_id: int | None = None
+    extension_history: Any | None = None
+    original_keywords: str | None = None
+    landmark_name: str | None = None
+    step_count: int | None = None
+    module_context: Any | None = None
+    conversion_threshold_handled: bool = False
+    last_keyword_change: datetime | None = None
     network_preset_id: int | None = None
     company_id: int | None = None
     managed_by: uuid.UUID | None = None

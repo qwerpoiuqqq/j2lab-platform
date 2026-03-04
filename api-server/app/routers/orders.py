@@ -99,7 +99,8 @@ async def create_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return order
+    # Re-fetch to ensure all nested relationships (items.product) are loaded
+    return await order_service.get_order_by_id(db, order.id)
 
 
 # === Literal-path routes (must be before /{order_id} to avoid path conflicts) ===
@@ -127,7 +128,8 @@ async def create_simplified_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return order
+    # Re-fetch to ensure all nested relationships (items.product) are loaded
+    return await order_service.get_order_by_id(db, order.id)
 
 
 @router.get("/excel-template/{product_id}")
@@ -268,7 +270,8 @@ async def excel_upload_confirm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-    return order
+    # Re-fetch to ensure all nested relationships (items.product) are loaded
+    return await order_service.get_order_by_id(db, order.id)
 
 
 @router.get("/export")
@@ -437,6 +440,33 @@ async def bulk_include_orders(
         except ValueError as e:
             errors.append(f"Order {oid}: {str(e)}")
     return {"included": success, "errors": errors}
+
+
+@router.post("/bulk-exclude", response_model=MessageResponse)
+async def bulk_exclude_orders(
+    body: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Bulk exclude multiple sub-account orders."""
+    success = 0
+    errors = []
+    for oid in body.order_ids:
+        order = await order_service.get_order_by_id(db, oid)
+        if order is None:
+            errors.append(f"Order {oid}: not found")
+            continue
+        try:
+            await order_service.set_selection_status(db, order, "excluded", current_user)
+            success += 1
+        except ValueError as e:
+            errors.append(f"Order {oid}: {str(e)}")
+    return MessageResponse(
+        message=f"{success}건 제외 처리되었습니다.",
+        detail={"errors": errors} if errors else None,
+    )
 
 
 @router.get("/deadlines")
@@ -975,13 +1005,28 @@ async def approve_order(
             detail=str(e),
         )
 
+    # Re-fetch to ensure all nested relationships are loaded
     confirmed = await order_service.get_order_by_id(db, order_id)
+
+    # Validate item_data for pipeline (non-blocking warnings)
+    pipeline_warnings: list[str] = []
+    if confirmed.items:
+        for item in confirmed.items:
+            item_warnings = validate_item_data_for_pipeline(item.item_data)
+            for w in item_warnings:
+                pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
+
+    # Start E2E pipeline (best-effort -- payment confirmation is preserved on failure)
     try:
         await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
     except Exception as e:
         logger.error("Pipeline start failed for order %s: %s", order_id, e)
 
-    return await order_service.get_order_by_id(db, order_id)
+    # Re-fetch again after pipeline may have modified state
+    confirmed = await order_service.get_order_by_id(db, order_id)
+    result = OrderResponse.model_validate(confirmed).model_dump()
+    result["pipeline_warnings"] = pipeline_warnings
+    return result
 
 
 @router.get("/{order_id}/items/export")

@@ -93,6 +93,11 @@ export default function SettlementPage() {
   const [holdAction, setHoldAction] = useState<'single' | 'bulk'>('bulk');
   const [holdTargetId, setHoldTargetId] = useState<number | null>(null);
 
+  // Reject modal state
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; orderIds: number[]; reason: string }>({
+    open: false, orderIds: [], reason: '',
+  });
+
   // Managed tab state
   const [managedRows, setManagedRows] = useState<Settlement[]>([]);
   const [managedSummary, setManagedSummary] = useState<SettlementSummary | null>(null);
@@ -367,22 +372,9 @@ export default function SettlementPage() {
     }
   };
 
-  const handleBulkReject = async () => {
+  const handleBulkReject = () => {
     if (selectedOrders.size === 0) return;
-    const reason = prompt('반려 사유를 입력하세요:');
-    if (!reason) return;
-    setActionProcessing(true);
-    try {
-      for (const orderId of selectedOrders) {
-        await ordersApi.reject(orderId, reason);
-      }
-      setSelectedOrders(new Set());
-      await fetchDailyCheck();
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || '반려 처리에 실패했습니다.');
-    } finally {
-      setActionProcessing(false);
-    }
+    setRejectModal({ open: true, orderIds: Array.from(selectedOrders), reason: '' });
   };
 
   const openHoldModal = (action: 'single' | 'bulk', orderId?: number) => {
@@ -423,12 +415,22 @@ export default function SettlementPage() {
     }
   };
 
-  const handleSingleReject = async (orderId: number) => {
-    const reason = prompt('반려 사유를 입력하세요:');
-    if (!reason) return;
+  const handleSingleReject = (orderId: number) => {
+    setRejectModal({ open: true, orderIds: [orderId], reason: '' });
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectModal.reason.trim()) {
+      alert('반려 사유를 입력해주세요.');
+      return;
+    }
     setActionProcessing(true);
     try {
-      await ordersApi.reject(orderId, reason);
+      for (const id of rejectModal.orderIds) {
+        await ordersApi.reject(id, rejectModal.reason);
+      }
+      setSelectedOrders(new Set());
+      setRejectModal({ open: false, orderIds: [], reason: '' });
       await fetchDailyCheck();
     } catch (err: any) {
       alert(err?.response?.data?.detail || '반려 처리에 실패했습니다.');
@@ -1143,6 +1145,40 @@ export default function SettlementPage() {
                   disabled={!holdReason.trim()}
                 >
                   보류 처리
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject reason modal */}
+        {rejectModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">반려 사유 입력</h3>
+              <textarea
+                value={rejectModal.reason}
+                onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px]"
+                rows={3}
+                placeholder="반려 사유를 입력하세요..."
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => setRejectModal({ open: false, orderIds: [], reason: '' })}
+                  disabled={actionProcessing}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleRejectConfirm}
+                  loading={actionProcessing}
+                  disabled={!rejectModal.reason.trim()}
+                >
+                  반려
                 </Button>
               </div>
             </div>

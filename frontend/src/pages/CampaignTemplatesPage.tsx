@@ -225,6 +225,8 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
   const [hashtag, setHashtag] = useState('');
   const [imageUrl200, setImageUrl200] = useState('');
   const [imageUrl720, setImageUrl720] = useState('');
+  const [stepsStart, setStepsStart] = useState('');
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     if (isCreate || !templateId) return;
@@ -241,6 +243,8 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
         setImageUrl200(d.image_url_200x600 || '');
         setImageUrl720(d.image_url_720x780 || '');
         setConversionText(d.conversion_text_template || '');
+        setStepsStart(d.steps_start || '');
+        setIsActive(d.is_active);
       })
       .catch(() => setError('템플릿 정보를 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
@@ -279,7 +283,9 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
       image_url_200x600: imageUrl200 || undefined,
       image_url_720x780: imageUrl720 || undefined,
       conversion_text_template: conversionText.trim() || undefined,
+      steps_start: stepsStart.trim() || undefined,
       modules: Array.from(enabledModules),
+      ...(!isCreate ? { is_active: isActive } : {}),
     };
 
     try {
@@ -335,6 +341,27 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                   placeholder="예: 트래픽, 저장하기, 명소"
                 />
               </div>
+              {!isCreate && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">활성 상태</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsActive(!isActive)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      isActive ? 'bg-primary-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-xs ${isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isActive ? '활성' : '비활성'}
+                  </span>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   superap.io 캠페인 타입
@@ -411,6 +438,22 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                   변수를 사용하면 캠페인 등록 시 자동 치환됩니다. 비워두면 걸음수 기반 전환을 사용합니다.
                 </p>
               </div>
+
+              {enabledModules.has('steps') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">걸음수 출발지 (선택)</label>
+                  <input
+                    type="text"
+                    value={stepsStart}
+                    onChange={(e) => setStepsStart(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="예: &명소명& 입구 (비워두면 명소를 출발지로 사용)"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    걸음수 계산 시 출발지를 지정합니다. 변수 사용 가능. 비워두면 선택된 명소가 출발지가 됩니다.
+                  </p>
+                </div>
+              )}
             </FormSection>
 
             {/* Section: Participation settings */}

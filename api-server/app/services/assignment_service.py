@@ -432,10 +432,6 @@ async def get_assignment_queue(
         select(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
         .where(
-            OrderItem.assignment_status.in_([
-                AssignmentStatus.PENDING.value,
-                AssignmentStatus.AUTO_ASSIGNED.value,
-            ]),
             # 입금확인된 주문만 배정 대기열에 포함 (취소/반려 제외)
             Order.status.in_([
                 "payment_confirmed",
@@ -444,12 +440,22 @@ async def get_assignment_queue(
         )
     )
 
+    # When a specific assignment_status is given, use it as the sole filter;
+    # otherwise default to showing PENDING + AUTO_ASSIGNED items.
+    if assignment_status:
+        query = query.where(OrderItem.assignment_status == assignment_status)
+    else:
+        query = query.where(
+            OrderItem.assignment_status.in_([
+                AssignmentStatus.PENDING.value,
+                AssignmentStatus.AUTO_ASSIGNED.value,
+            ])
+        )
+
     if company_id is not None:
         query = query.where(Order.company_id == company_id)
     if handler_user_ids is not None:
         query = query.where(Order.user_id.in_(handler_user_ids))
-    if assignment_status:
-        query = query.where(OrderItem.assignment_status == assignment_status)
 
     query = query.order_by(OrderItem.created_at.asc()).offset(skip).limit(limit)
 
@@ -516,7 +522,7 @@ async def get_assignment_queue_enriched(
             "order_item_id": item.id,
             "order_id": item.order_id,
             "order_number": order.order_number if order else None,
-            "company_name": None,
+            "company_name": order.company.name if order and order.company else None,
             "place_name": place.name if place else item_data.get("place_name"),
             "place_id": item.place_id,
             "campaign_type": campaign_type,

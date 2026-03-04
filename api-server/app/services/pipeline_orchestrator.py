@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +49,12 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     # Skip pipeline for no-revenue order types (manual account assignment)
     if order.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value):
         order.status = OrderStatus.PROCESSING.value
+        order.updated_at = datetime.now(timezone.utc)
         await db.flush()
+        logger.info(
+            "Order %s (%s) set to processing (manual completion required)",
+            order.id, order.order_type,
+        )
         return
 
     items = order.items
@@ -70,6 +76,24 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     await db.flush()
 
 
+async def complete_managed_order(db: AsyncSession, order_id: int) -> None:
+    """Complete a monthly_guarantee or managed order manually."""
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise ValueError(f"Order {order_id} not found")
+    if order.order_type not in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value):
+        raise ValueError(
+            f"Order {order_id} is type '{order.order_type}', not monthly_guarantee or managed"
+        )
+    if order.status != OrderStatus.PROCESSING.value:
+        raise ValueError(f"Order {order_id} is not in processing status (current: {order.status})")
+    order.status = OrderStatus.COMPLETED.value
+    order.completed_at = datetime.now(timezone.utc)
+    await db.flush()
+    logger.info("Order %s (%s) manually completed", order_id, order.order_type)
+
+
 async def _start_pipeline_for_item(
     db: AsyncSession, item: OrderItem, order: Order
 ) -> None:
@@ -79,6 +103,12 @@ async def _start_pipeline_for_item(
     If setup_delay_minutes=0, immediately queues for extraction.
     Otherwise, waits for scheduler to trigger queue transition.
     """
+    # Duplicate prevention: skip if pipeline already exists for this item
+    existing = await pipeline_service.get_pipeline_state(db, item.id)
+    if existing:
+        logger.info("Pipeline already exists for item %s (stage=%s), skipping", item.id, existing.current_stage)
+        return
+
     state = await pipeline_service.create_pipeline_state(
         db, item.id, initial_stage="payment_confirmed"
     )
@@ -205,9 +235,11 @@ async def check_and_queue_ready_items(db: AsyncSession) -> dict:
             deadline_time = product.daily_deadline
             delay_minutes = product.setup_delay_minutes or 0
 
-            today = now.date()
+            # Use the product's timezone to interpret the deadline, then compare with UTC now
+            tz = ZoneInfo(product.deadline_timezone or "Asia/Seoul")
+            today_in_tz = now.astimezone(tz).date()
             deadline_today = datetime.combine(
-                today, deadline_time, tzinfo=timezone.utc
+                today_in_tz, deadline_time, tzinfo=tz
             )
             queue_time = deadline_today + timedelta(minutes=delay_minutes)
 
@@ -415,9 +447,20 @@ async def on_assignment_choice(
 
         # Fallback: if extension not available, treat as new
         logger.warning(
-            "Extension not available for OrderItem %s, falling back to new",
+            "Extend target not found for item %s, falling back to new campaign",
             order_item_id,
         )
+        # Record the fallback in the pipeline log
+        from app.models.pipeline_log import PipelineLog
+        fallback_log = PipelineLog(
+            pipeline_state_id=state.id,
+            from_stage=state.current_stage,
+            to_stage=state.current_stage,
+            trigger_type="extend_fallback",
+            message="연장 대상 캠페인을 찾을 수 없어 신규 세팅으로 전환되었습니다.",
+        )
+        db.add(fallback_log)
+        await db.flush()
 
     # action == "new" (or extend fallback)
     await on_assignment_confirmed(db, order_item_id)
@@ -481,7 +524,7 @@ async def on_assignment_confirmed(
     campaign_type = item_data.get("campaign_type", "traffic")
     daily_limit = item_data.get("daily_limit", 300)
     total_limit = item_data.get("total_limit")
-    start_date = date.today()
+    start_date = _parse_start_date(item_data)
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
 
@@ -603,6 +646,10 @@ async def retry_stuck_pipelines(db: AsyncSession) -> dict:
                         job_id=ej.id,
                         naver_url=ej.naver_url,
                         order_item_id=ej.order_item_id,
+                        target_count=ej.target_count,
+                        max_rank=ej.max_rank,
+                        min_rank=ej.min_rank,
+                        name_keyword_ratio=ej.name_keyword_ratio,
                     )
             elif state.current_stage == "campaign_registering" and state.campaign_id:
                 await dispatch_campaign_registration(campaign_id=state.campaign_id)
@@ -621,6 +668,16 @@ async def retry_stuck_pipelines(db: AsyncSession) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _parse_start_date(item_data: dict | None) -> date:
+    """Extract start_date from item_data, defaulting to today."""
+    if item_data and item_data.get("start_date"):
+        try:
+            return date.fromisoformat(str(item_data["start_date"]))
+        except (ValueError, TypeError):
+            pass
+    return date.today()
+
 
 def _extract_place_url(item: OrderItem) -> str | None:
     """Extract place_url from OrderItem.item_data."""

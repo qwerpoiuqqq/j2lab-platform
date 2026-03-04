@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import warnings
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -73,6 +76,20 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    @model_validator(mode="after")
+    def _warn_default_secrets(self) -> "Settings":
+        if self.SECRET_KEY == "change_me_to_random_secret_key":
+            warnings.warn(
+                "WARNING: Using default SECRET_KEY. Set SECRET_KEY in .env for production!",
+                stacklevel=2,
+            )
+        if self.INTERNAL_API_SECRET == "change_me_to_internal_secret":
+            warnings.warn(
+                "WARNING: Using default INTERNAL_API_SECRET. Set it in .env for production!",
+                stacklevel=2,
+            )
+        return self
 
 
 settings = Settings()

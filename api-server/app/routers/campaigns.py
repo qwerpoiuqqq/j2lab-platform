@@ -34,6 +34,7 @@ from app.services.campaign_upload_service import (
 )
 from app.services.worker_clients import (
     WorkerDispatchError,
+    dispatch_campaign_bulk_sync,
     dispatch_campaign_extension,
     dispatch_campaign_registration,
     dispatch_keyword_rotation,
@@ -56,6 +57,7 @@ class ManualCampaignCreate(BaseModel):
     end_date: str
     daily_limit: int
     keywords: str
+    agency_name: str | None = None
 
 
 class BatchDeleteRequest(BaseModel):
@@ -75,6 +77,11 @@ admin_checker = RoleChecker([
     UserRole.COMPANY_ADMIN,
     UserRole.ORDER_HANDLER,
 ])
+
+
+# =====================================================================
+# Literal routes FIRST (before /{campaign_id} parameterized routes)
+# =====================================================================
 
 
 @router.get("/", response_model=PaginatedResponse[CampaignResponse])
@@ -139,186 +146,8 @@ async def create_campaign(
     return campaign
 
 
-@router.get("/{campaign_id}", response_model=CampaignResponse)
-async def get_campaign(
-    campaign_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_active_user),
-):
-    """Get campaign details."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-    return campaign
-
-
-@router.patch("/{campaign_id}", response_model=CampaignResponse)
-async def update_campaign(
-    campaign_id: int,
-    body: CampaignUpdate,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Update a campaign."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-    updated = await campaign_service.update_campaign(db, campaign, body)
-    return updated
-
-
-@router.get(
-    "/{campaign_id}/keywords",
-    response_model=PaginatedResponse[CampaignKeywordPoolResponse],
-)
-async def list_campaign_keywords(
-    campaign_id: int,
-    page: int = Query(default=1, ge=1),
-    size: int = Query(default=100, ge=1, le=500),
-    is_used: bool | None = None,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_active_user),
-):
-    """Get keywords in a campaign's rotation pool."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-
-    skip = (page - 1) * size
-    keywords, total = await campaign_service.get_keyword_pool(
-        db,
-        campaign_id=campaign_id,
-        skip=skip,
-        limit=size,
-        is_used=is_used,
-    )
-    return PaginatedResponse.create(
-        items=[CampaignKeywordPoolResponse.model_validate(k) for k in keywords],
-        total=total,
-        page=page,
-        size=size,
-    )
-
-
-@router.post(
-    "/{campaign_id}/keywords",
-    response_model=MessageResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_campaign_keywords(
-    campaign_id: int,
-    body: CampaignKeywordAddRequest,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Add keywords to a campaign's rotation pool."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-
-    added = await campaign_service.add_keywords_to_pool(
-        db,
-        campaign_id=campaign_id,
-        keywords=body.keywords,
-        round_number=body.round_number,
-    )
-    return MessageResponse(
-        message=f"Added {added} keywords to campaign pool",
-        detail={"added": added, "total_requested": len(body.keywords)},
-    )
-
-
 # =====================================================================
-# Register / Extend / Rotate Keywords
-# =====================================================================
-
-
-@router.post("/{campaign_id}/register", response_model=MessageResponse)
-async def register_campaign(
-    campaign_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Dispatch campaign registration to campaign-worker."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
-    if campaign.status not in ("pending", "failed"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Campaign status '{campaign.status}' is not eligible for registration",
-        )
-    try:
-        await dispatch_campaign_registration(campaign_id=campaign.id)
-    except WorkerDispatchError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
-    return MessageResponse(message="Registration dispatched")
-
-
-@router.post("/{campaign_id}/extend", response_model=MessageResponse)
-async def extend_campaign(
-    campaign_id: int,
-    body: ExtendCampaignRequest,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Extend an active campaign's end date and total."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
-    if campaign.status != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Campaign status '{campaign.status}' is not eligible for extension (must be active)",
-        )
-    try:
-        await dispatch_campaign_extension(
-            campaign_id=campaign.id,
-            new_end_date=body.new_end_date.isoformat(),
-            additional_total=body.additional_total,
-            new_daily_limit=body.new_daily_limit,
-        )
-    except WorkerDispatchError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
-    return MessageResponse(message="Extension dispatched")
-
-
-@router.post("/{campaign_id}/rotate-keywords", response_model=MessageResponse)
-async def rotate_campaign_keywords(
-    campaign_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Dispatch keyword rotation for an active campaign."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
-    if campaign.status != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Campaign status '{campaign.status}' is not eligible for keyword rotation (must be active)",
-        )
-    try:
-        await dispatch_keyword_rotation(campaign_id=campaign.id)
-    except WorkerDispatchError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
-    return MessageResponse(message="Keyword rotation dispatched")
-
-
-# =====================================================================
-# Manual campaign creation
+# Manual campaign creation (literal routes)
 # =====================================================================
 
 
@@ -338,6 +167,7 @@ async def create_manual_campaign(
         start_date=body.start_date,
         end_date=body.end_date,
         daily_limit=body.daily_limit,
+        agency_name=body.agency_name,
     )
     campaign = await campaign_service.create_campaign(db, campaign_data)
 
@@ -366,21 +196,8 @@ async def verify_campaign_code(
 
 
 # =====================================================================
-# Delete / Batch delete
+# Batch delete (literal route)
 # =====================================================================
-
-
-@router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_campaign(
-    campaign_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Delete a campaign."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
-    await campaign_service.delete_campaign(db, campaign)
 
 
 @router.post("/batch/delete", response_model=MessageResponse)
@@ -391,30 +208,24 @@ async def batch_delete_campaigns(
 ):
     """Delete multiple campaigns."""
     deleted = 0
+    errors = []
     for cid in body.ids:
         campaign = await campaign_service.get_campaign_by_id(db, cid)
         if campaign:
-            await campaign_service.delete_campaign(db, campaign)
-            deleted += 1
-    return MessageResponse(message=f"Deleted {deleted} campaigns")
+            try:
+                await campaign_service.delete_campaign(db, campaign)
+                deleted += 1
+            except ValueError as e:
+                errors.append(f"Campaign {cid}: {str(e)}")
+    return MessageResponse(
+        message=f"Deleted {deleted} campaigns",
+        detail={"errors": errors} if errors else None,
+    )
 
 
 # =====================================================================
-# Sync / Retry / Registration Progress
+# Registration retry / progress (literal routes)
 # =====================================================================
-
-
-@router.post("/{campaign_id}/sync", response_model=MessageResponse)
-async def sync_campaign(
-    campaign_id: int,
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
-):
-    """Sync campaign settings to superap.io (stub)."""
-    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
-    if campaign is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
-    return MessageResponse(message="Sync queued (stub)")
 
 
 @router.post("/registration/retry", response_model=MessageResponse)
@@ -469,7 +280,7 @@ async def get_registration_progress(
 
 
 # =====================================================================
-# Upload preview / confirm / template
+# Upload preview / confirm / template (literal routes)
 # =====================================================================
 
 
@@ -589,3 +400,219 @@ async def download_upload_template():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=campaign_template.xlsx"},
     )
+
+
+# =====================================================================
+# Parameterized routes (/{campaign_id}) AFTER all literal routes
+# =====================================================================
+
+
+@router.get("/{campaign_id}", response_model=CampaignResponse)
+async def get_campaign(
+    campaign_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Get campaign details."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+    return campaign
+
+
+@router.patch("/{campaign_id}", response_model=CampaignResponse)
+async def update_campaign(
+    campaign_id: int,
+    body: CampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Update a campaign."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+    updated = await campaign_service.update_campaign(db, campaign, body)
+    return updated
+
+
+@router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_campaign(
+    campaign_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Delete a campaign."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    try:
+        await campaign_service.delete_campaign(db, campaign)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.get(
+    "/{campaign_id}/keywords",
+    response_model=PaginatedResponse[CampaignKeywordPoolResponse],
+)
+async def list_campaign_keywords(
+    campaign_id: int,
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=100, ge=1, le=500),
+    is_used: bool | None = None,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_active_user),
+):
+    """Get keywords in a campaign's rotation pool."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+
+    skip = (page - 1) * size
+    keywords, total = await campaign_service.get_keyword_pool(
+        db,
+        campaign_id=campaign_id,
+        skip=skip,
+        limit=size,
+        is_used=is_used,
+    )
+    return PaginatedResponse.create(
+        items=[CampaignKeywordPoolResponse.model_validate(k) for k in keywords],
+        total=total,
+        page=page,
+        size=size,
+    )
+
+
+@router.post(
+    "/{campaign_id}/keywords",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_campaign_keywords(
+    campaign_id: int,
+    body: CampaignKeywordAddRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Add keywords to a campaign's rotation pool."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+
+    added = await campaign_service.add_keywords_to_pool(
+        db,
+        campaign_id=campaign_id,
+        keywords=body.keywords,
+        round_number=body.round_number,
+    )
+    return MessageResponse(
+        message=f"Added {added} keywords to campaign pool",
+        detail={"added": added, "total_requested": len(body.keywords)},
+    )
+
+
+# =====================================================================
+# Register / Extend / Rotate Keywords / Sync (parameterized)
+# =====================================================================
+
+
+@router.post("/{campaign_id}/register", response_model=MessageResponse)
+async def register_campaign(
+    campaign_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Dispatch campaign registration to campaign-worker."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    if campaign.status not in ("pending", "failed"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Campaign status '{campaign.status}' is not eligible for registration",
+        )
+    try:
+        await dispatch_campaign_registration(campaign_id=campaign.id)
+    except WorkerDispatchError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+    return MessageResponse(message="Registration dispatched")
+
+
+@router.post("/{campaign_id}/extend", response_model=MessageResponse)
+async def extend_campaign(
+    campaign_id: int,
+    body: ExtendCampaignRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Extend an active campaign's end date and total."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    if campaign.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Campaign status '{campaign.status}' is not eligible for extension (must be active)",
+        )
+    try:
+        await dispatch_campaign_extension(
+            campaign_id=campaign.id,
+            new_end_date=body.new_end_date.isoformat(),
+            additional_total=body.additional_total,
+            new_daily_limit=body.new_daily_limit,
+        )
+    except WorkerDispatchError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+    return MessageResponse(message="Extension dispatched")
+
+
+@router.post("/{campaign_id}/rotate-keywords", response_model=MessageResponse)
+async def rotate_campaign_keywords(
+    campaign_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Dispatch keyword rotation for an active campaign."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    if campaign.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Campaign status '{campaign.status}' is not eligible for keyword rotation (must be active)",
+        )
+    try:
+        await dispatch_keyword_rotation(campaign_id=campaign.id)
+    except WorkerDispatchError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+    return MessageResponse(message="Keyword rotation dispatched")
+
+
+@router.post("/{campaign_id}/sync", response_model=MessageResponse)
+async def sync_campaign(
+    campaign_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(admin_checker),
+):
+    """Sync a single campaign's status from superap.io."""
+    campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    try:
+        await dispatch_campaign_bulk_sync(account_ids=[campaign.superap_account_id] if campaign.superap_account_id else None)
+        return MessageResponse(message=f"Sync dispatched for campaign {campaign_id}")
+    except WorkerDispatchError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Worker communication failed: {str(e)}")

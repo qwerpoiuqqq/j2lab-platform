@@ -66,13 +66,38 @@ async def run_auto_assignment(
     order_item_id: int,
     campaign_type: str,
     place_id: int,
-    company_id: int,
+    company_id: int | None = None,
     total_limit: int | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_checker),
+    current_user: User = Depends(admin_checker),
 ):
     """Run auto-assignment for a specific order item."""
     from sqlalchemy import select
+
+    # Validate company_id against current user
+    if company_id and current_user.role != "system_admin":
+        if company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot assign for another company",
+            )
+    if not company_id:
+        company_id = current_user.company_id
+    if not company_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="company_id is required (not set on user profile)",
+        )
+
+    # Validate place_id exists if provided
+    if place_id:
+        from app.models.place import Place
+        place = await db.get(Place, place_id)
+        if place is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Place {place_id} not found",
+            )
 
     result = await db.execute(
         select(OrderItem).where(OrderItem.id == order_item_id)
@@ -183,8 +208,12 @@ async def choose_assignment_action(
 
     action=new: confirm + dispatch as new campaign registration
     action=extend: confirm + dispatch campaign extension
+
+    Idempotent: if the assignment is already confirmed or overridden,
+    the confirm step is skipped and dispatch proceeds directly.
     """
     from sqlalchemy import select
+    from app.models.order import AssignmentStatus
 
     result = await db.execute(
         select(OrderItem).where(OrderItem.id == item_id)
@@ -196,18 +225,30 @@ async def choose_assignment_action(
             detail="Order item not found",
         )
 
-    # Confirm the assignment first
-    try:
-        updated = await assignment_service.confirm_assignment(
-            db,
-            order_item=order_item,
-            confirmed_by=current_user.id,
+    # Idempotency: skip confirm if already confirmed or overridden
+    already_confirmed = order_item.assignment_status in (
+        AssignmentStatus.CONFIRMED.value,
+        AssignmentStatus.OVERRIDDEN.value,
+    )
+    if already_confirmed:
+        logger.info(
+            "Item %s already %s, skipping confirm step",
+            item_id, order_item.assignment_status,
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        updated = order_item
+    else:
+        # Confirm the assignment first
+        try:
+            updated = await assignment_service.confirm_assignment(
+                db,
+                order_item=order_item,
+                confirmed_by=current_user.id,
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
 
     # Dispatch based on action choice
     try:

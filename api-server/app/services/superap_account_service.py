@@ -145,6 +145,17 @@ async def update_account(
 
 
 async def delete_account(db: AsyncSession, account: SuperapAccount) -> None:
-    """Delete a superap account."""
+    """Delete a superap account. Checks for connected campaigns first."""
+    result = await db.execute(
+        select(func.count()).select_from(Campaign).where(
+            Campaign.superap_account_id == account.id,
+            Campaign.status.in_(["active", "registering", "pending_keyword_change"]),
+        )
+    )
+    active_count = result.scalar() or 0
+    if active_count > 0:
+        raise ValueError(
+            f"이 계정에 활성 캠페인 {active_count}개가 연결되어 있어 삭제할 수 없습니다."
+        )
     await db.delete(account)
     await db.flush()

@@ -401,6 +401,10 @@ async def create_order_from_excel(
     if not product.is_active:
         raise ValueError(f"Product '{product.name}' is not active")
 
+    # Determine selection_status: sub_account orders start as pending
+    user_role = UserRole(current_user.role)
+    initial_selection = "pending" if user_role == UserRole.SUB_ACCOUNT else "included"
+
     order = Order(
         order_number=await _generate_order_number(db),
         user_id=current_user.id,
@@ -409,6 +413,7 @@ async def create_order_from_excel(
         payment_status=PaymentStatus.UNPAID.value,
         notes=notes,
         source="excel",
+        selection_status=initial_selection,
     )
     db.add(order)
     await db.flush()

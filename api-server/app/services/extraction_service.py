@@ -8,6 +8,7 @@ The actual extraction happens in keyword-worker. This service:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -15,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.extraction_job import ExtractionJob, ExtractionJobStatus
 from app.schemas.extraction_job import ExtractionJobCreate
+
+logger = logging.getLogger(__name__)
 
 
 async def get_jobs(
@@ -71,6 +74,8 @@ async def create_job(
     db.add(job)
     await db.flush()
     await db.refresh(job)
+
+    # Dispatch is handled by pipeline_orchestrator to avoid double dispatch
     return job
 
 
@@ -88,6 +93,14 @@ async def cancel_job(db: AsyncSession, job: ExtractionJob) -> ExtractionJob:
     job.completed_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(job)
+
+    # Notify worker to cancel
+    try:
+        from app.services.worker_clients import cancel_extraction_job
+        await cancel_extraction_job(job.id)
+    except Exception as e:
+        logger.warning("Failed to notify worker about cancellation of job %s: %s", job.id, e)
+
     return job
 
 

@@ -413,7 +413,7 @@ async def get_daily_settlement_check(
     order_handler sees only their line's orders via handler_user_ids.
     """
     from datetime import datetime, time, timezone as tz
-    from sqlalchemy.orm import aliased
+    from sqlalchemy.orm import aliased, selectinload
 
     start_of_day = datetime.combine(check_date, time.min, tzinfo=tz.utc)
     end_of_day = datetime.combine(check_date, time.max, tzinfo=tz.utc)
@@ -442,6 +442,9 @@ async def get_daily_settlement_check(
         .join(OrderUser, Order.user_id == OrderUser.id)
         .outerjoin(ParentUser, OrderUser.parent_id == ParentUser.id)
         .where(*filters)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+        )
         .order_by(Order.created_at.asc())
     )
 

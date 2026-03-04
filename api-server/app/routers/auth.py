@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -61,6 +62,29 @@ async def logout(
             detail="Invalid refresh token",
         )
     return MessageResponse(message="Successfully logged out")
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+
+@router.post("/change-password")
+async def change_password(
+    request: PasswordChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Change the current user's password."""
+    success = await auth_service.change_password(
+        db, current_user, request.current_password, request.new_password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="현재 비밀번호가 올바르지 않습니다.",
+        )
+    return {"message": "비밀번호가 변경되었습니다."}
 
 
 @router.post(

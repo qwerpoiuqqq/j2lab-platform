@@ -17,7 +17,9 @@ VARIABLE_PATTERN = re.compile(r"&([^&]+)&")
 KOREAN_VAR_MAP: dict[str, str] = {
     "상호명": "place_name",
     "명소명": "landmark_name",
+    "명소순번": "landmark_index",
     "걸음수": "steps",
+    "가게주소": "place_address",
 }
 
 

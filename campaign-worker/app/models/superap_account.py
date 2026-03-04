@@ -26,7 +26,8 @@ class SuperapAccount(Base):
 
     company_id = Column(Integer)
     network_preset_id = Column(Integer)
-    unit_cost = Column(Integer, nullable=False, default=21)
+    unit_cost_traffic = Column(Integer, nullable=False, default=21)
+    unit_cost_save = Column(Integer, nullable=False, default=31)
     assignment_order = Column(Integer, nullable=False, default=0)
 
     is_active = Column(Boolean, default=True)

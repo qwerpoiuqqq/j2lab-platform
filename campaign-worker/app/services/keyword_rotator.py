@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 import traceback
 from collections import deque
 from datetime import date, datetime, timedelta, timezone
@@ -669,12 +670,13 @@ async def check_and_rotate_keywords() -> Dict[str, Any]:
         for account in active_accounts:
             account_key = str(account.id)
 
-            # Load campaigns for this account
+            # Load campaigns for this account (only active/pending_keyword_change)
             async with async_session_factory() as session:
                 campaigns_result = await session.execute(
                     select(Campaign).where(
                         Campaign.superap_account_id == account.id,
                         Campaign.campaign_code.isnot(None),
+                        Campaign.status.in_(["active", "pending_keyword_change"]),
                     )
                 )
                 account_campaigns = list(campaigns_result.scalars().all())
@@ -740,6 +742,26 @@ async def check_and_rotate_keywords() -> Dict[str, Any]:
                     )
             except Exception as e:
                 _log("WARNING", f"Account {account.user_id_superap} status sync error: {e}")
+
+            # Reload campaigns after sync (statuses may have changed)
+            async with async_session_factory() as session:
+                refreshed_result = await session.execute(
+                    select(Campaign).where(
+                        Campaign.superap_account_id == account.id,
+                        Campaign.campaign_code.isnot(None),
+                        Campaign.status.in_(["active", "pending_keyword_change"]),
+                    )
+                )
+                refreshed_campaigns = list(refreshed_result.scalars().all())
+
+            # Re-filter for rotation eligibility
+            campaigns_to_rotate = []
+            for c in refreshed_campaigns:
+                if c.end_date and c.end_date < today_kst:
+                    continue
+                if _was_rotated_today(c.last_keyword_change, today_kst):
+                    continue
+                campaigns_to_rotate.append(c)
 
             # Rotate keywords for each campaign
             for campaign in campaigns_to_rotate:
@@ -837,32 +859,43 @@ async def retry_stuck_registrations() -> None:
             retried = 0
 
             for campaign in stuck:
-                # Check retry count from registration_message
+                # Check retry count from registration_message using regex
                 retry_count = 0
                 msg = campaign.registration_message or ""
-                if "[재試" in msg:
-                    try:
-                        retry_count = msg.count("[재試")
-                    except Exception:
-                        pass
+                retry_matches = re.findall(r"\[retry:(\d+)]", msg)
+                if retry_matches:
+                    retry_count = max(int(m) for m in retry_matches)
 
                 if retry_count >= 3:
                     _log("WARNING", f"Campaign {campaign.id} exceeded max retries (3), skipping")
                     continue
 
-                _log("INFO", f"Retrying stuck campaign {campaign.id} (attempt {retry_count + 1})")
+                next_attempt = retry_count + 1
+                _log("INFO", f"Retrying stuck campaign {campaign.id} (attempt {next_attempt})")
+
+                # Mark retry attempt before calling register
+                async with async_session_factory() as update_session:
+                    await update_session.execute(
+                        update(Campaign)
+                        .where(Campaign.id == campaign.id)
+                        .values(
+                            registration_message=f"{msg} [retry:{next_attempt}] attempting...",
+                            updated_at=now,
+                        )
+                    )
+                    await update_session.commit()
+
                 try:
                     await register_campaign(campaign.id)
                     retried += 1
                 except Exception as e:
                     _log("ERROR", f"Retry failed for campaign {campaign.id}: {e}")
-                    # Mark retry in message
                     async with async_session_factory() as update_session:
                         await update_session.execute(
                             update(Campaign)
                             .where(Campaign.id == campaign.id)
                             .values(
-                                registration_message=f"{msg} [재試{retry_count + 1}] {str(e)[:100]}",
+                                registration_message=f"{msg} [retry:{next_attempt}] {str(e)[:100]}",
                                 updated_at=now,
                             )
                         )

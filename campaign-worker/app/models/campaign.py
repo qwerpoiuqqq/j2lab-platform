@@ -14,9 +14,11 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Text,
+    Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -31,7 +33,7 @@ class Campaign(Base):
 
     id = Column(BigInteger, primary_key=True)
     campaign_code = Column(String(20))
-    superap_account_id = Column(Integer)
+    superap_account_id = Column(Integer, ForeignKey("superap_accounts.id"))
     order_item_id = Column(BigInteger)
     place_id = Column(BigInteger)
     extraction_job_id = Column(BigInteger)
@@ -73,9 +75,10 @@ class Campaign(Base):
     # Keyword rotation
     last_keyword_change = Column(DateTime(timezone=True))
 
-    # Network + Company
+    # Network + Company + Handler
     network_preset_id = Column(Integer)
     company_id = Column(Integer)
+    managed_by = Column(Uuid)
 
     # Timestamps
     created_at = Column(
@@ -85,7 +88,7 @@ class Campaign(Base):
     updated_at = Column(DateTime(timezone=True))
 
     # Relationships
-    superap_account = relationship("SuperapAccount", back_populates="campaigns")
+    superap_account = relationship("SuperapAccount", back_populates="campaigns", foreign_keys=[superap_account_id])
     keywords = relationship(
         "CampaignKeywordPool",
         back_populates="campaign",

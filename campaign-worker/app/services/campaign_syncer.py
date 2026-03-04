@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.database import async_session_factory
 from app.models.campaign import Campaign
@@ -143,6 +142,8 @@ async def bulk_sync_campaigns(
         client = SuperapClient(headless=True)
         await client.initialize()
 
+        from app.services.keyword_rotator import sync_campaign_statuses
+
         total_synced = 0
         errors: list[str] = []
 
@@ -156,77 +157,7 @@ async def bulk_sync_campaigns(
                 if not login_ok:
                     errors.append(f"Account {account.user_id_superap} login failed")
                     continue
-            except Exception as e:
-                errors.append(f"Account {account.user_id_superap} login error: {e}")
-                continue
 
-            # Load campaigns for this account
-            async with async_session_factory() as session:
-                campaigns_result = await session.execute(
-                    select(Campaign).where(
-                        Campaign.superap_account_id == account.id,
-                        Campaign.campaign_code.isnot(None),
-                    )
-                )
-                campaigns = list(campaigns_result.scalars().all())
-
-            for campaign in campaigns:
-                try:
-                    info = await client.get_campaign_status_with_conversions(
-                        account_key, campaign.campaign_code
-                    )
-                    if not info:
-                        continue
-
-                    changed = False
-                    raw_status = info.get("status", "")
-                    if raw_status:
-                        new_status = normalize_status(raw_status)
-                        if campaign.status != new_status:
-                            campaign.status = new_status
-                            changed = True
-
-                    current_count = info.get("current_count", 0)
-                    if (
-                        current_count is not None
-                        and campaign.current_conversions != current_count
-                    ):
-                        campaign.current_conversions = current_count
-                        changed = True
-
-                    if changed:
-                        campaign.updated_at = datetime.now(timezone.utc)
-                        total_synced += 1
-                except Exception as e:
-                    errors.append(
-                        f"Campaign {campaign.campaign_code} sync error: {e}"
-                    )
-
-            # Commit all changes for this account's campaigns
-            async with async_session_factory() as session:
-                # Re-load and update in a proper session
-                # (The above modifications were on detached objects)
-                pass
-
-            # Clean up context
-            try:
-                await client.close_context(account_key)
-            except Exception:
-                pass
-
-        # Actually, we need to re-do the sync in a proper transaction
-        # Let's use sync_campaign_statuses from keyword_rotator instead
-        from app.services.keyword_rotator import sync_campaign_statuses
-
-        total_synced = 0
-        for account in accounts:
-            account_key = str(account.id)
-            try:
-                password = decrypt_password(account.password_encrypted)
-                # Re-login if needed (context was closed)
-                await client.login(
-                    account_key, account.user_id_superap, password
-                )
                 result = await sync_campaign_statuses(account.id, client)
                 total_synced += result.get("synced_count", 0)
             except Exception as e:

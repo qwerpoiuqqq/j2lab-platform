@@ -232,6 +232,13 @@ export interface Campaign {
   extend_target_id?: number;
   network_preset_id?: number;
   company_id?: number;
+  extension_history?: any;
+  original_keywords?: string;
+  landmark_name?: string;
+  step_count?: number;
+  module_context?: any;
+  conversion_threshold_handled?: boolean;
+  last_keyword_change?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -649,10 +656,12 @@ export interface CampaignListItem extends Campaign {
 }
 
 export interface ExtensionHistoryItem {
-  round: number;
-  start_date: string;
-  end_date: string;
-  daily_limit: number;
+  extended_at: string;
+  previous_total_limit: number;
+  new_total_limit: number;
+  previous_end_date: string;
+  new_end_date: string;
+  added_quantity: number;
 }
 
 export interface CampaignSettings {
@@ -831,6 +840,7 @@ export interface CampaignTemplate {
   image_url_200x600?: string;
   image_url_720x780?: string;
   conversion_text_template?: string;
+  steps_start?: string;
   modules: string[];
   is_active: boolean;
   created_at?: string;
@@ -847,6 +857,7 @@ export interface CreateCampaignTemplateRequest {
   image_url_200x600?: string;
   image_url_720x780?: string;
   conversion_text_template?: string;
+  steps_start?: string;
   modules?: string[];
 }
 
@@ -860,6 +871,7 @@ export interface UpdateCampaignTemplateRequest {
   image_url_200x600?: string;
   image_url_720x780?: string;
   conversion_text_template?: string;
+  steps_start?: string;
   modules?: string[];
   is_active?: boolean;
 }
@@ -894,6 +906,12 @@ export interface SchedulerLog {
 // ============================================================
 // Order (extended)
 // ============================================================
+
+export interface BulkDeleteResult {
+  message: string;
+  deleted?: number;
+  errors?: string[];
+}
 
 export interface BulkStatusRequest {
   order_ids: number[];
