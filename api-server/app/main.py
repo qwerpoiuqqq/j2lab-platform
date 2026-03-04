@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.database import engine
@@ -35,6 +36,17 @@ from app.routers import (
 from app.routers.internal import callbacks
 
 
+class TrailingSlashMiddleware(BaseHTTPMiddleware):
+    """Add trailing slash to /api/* paths server-side (no 307 redirect)."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.scope["path"]
+        if path.startswith("/api/") and not path.endswith("/"):
+            request.scope["path"] = path + "/"
+        response: Response = await call_next(request)
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
@@ -51,11 +63,13 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    redirect_slashes=False,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     openapi_url="/openapi.json" if settings.DEBUG else None,
 )
+
+# Trailing slash middleware (must be before CORS)
+app.add_middleware(TrailingSlashMiddleware)
 
 # CORS Middleware
 app.add_middleware(
