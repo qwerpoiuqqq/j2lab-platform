@@ -212,7 +212,7 @@ export default function CampaignDetailPage() {
         >
           목록으로
         </Button>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-red-400 text-sm">
           {error}
         </div>
       </div>
@@ -222,8 +222,8 @@ export default function CampaignDetailPage() {
   if (loading || !campaign) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-xl border border-gray-200 h-48" />
-        <div className="bg-white rounded-xl border border-gray-200 h-64" />
+        <div className="bg-surface rounded-xl border border-border h-48" />
+        <div className="bg-surface rounded-xl border border-border h-64" />
       </div>
     );
   }
@@ -289,12 +289,12 @@ export default function CampaignDetailPage() {
 
       {/* Extension History */}
       {extensionHistory.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200">
+        <div className="bg-surface rounded-xl border border-border">
           <button
             onClick={() => setHistoryOpen(!historyOpen)}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-raised transition-colors"
           >
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-gray-100">
               연장 이력 ({extensionHistory.length}회)
             </h3>
             <svg
@@ -307,25 +307,25 @@ export default function CampaignDetailPage() {
             </svg>
           </button>
           {historyOpen && (
-            <div className="border-t border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="border-t border-border">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-surface-raised">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">회차</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">연장일시</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">종료일 변경</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">총 한도 변경</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">추가 수량</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">회차</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">연장일시</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">종료일 변경</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">총 한도 변경</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">추가 수량</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-surface divide-y divide-border">
                   {extensionHistory.map((item, idx) => (
                     <tr key={idx}>
-                      <td className="px-6 py-3 text-sm text-gray-900">{idx + 1}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600">{formatDate(item.extended_at)}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600">{formatDate(item.previous_end_date)} → {formatDate(item.new_end_date)}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600">{item.previous_total_limit} → {item.new_total_limit}</td>
-                      <td className="px-6 py-3 text-sm text-gray-600">+{item.added_quantity}</td>
+                      <td className="px-6 py-3 text-sm text-gray-100">{idx + 1}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">{formatDate(item.extended_at)}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">{formatDate(item.previous_end_date)} → {formatDate(item.new_end_date)}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">{item.previous_total_limit} → {item.new_total_limit}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">+{item.added_quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,54 +338,54 @@ export default function CampaignDetailPage() {
       {/* Edit Modal */}
       {editOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">캠페인 수정</h3>
+          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">캠페인 수정</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">플레이스명</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">플레이스명</label>
                 <input
                   type="text"
                   value={editForm.place_name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, place_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">광고주명</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">광고주명</label>
                 <input
                   type="text"
                   value={editForm.agency_name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, agency_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">일일 한도</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">일일 한도</label>
                   <input
                     type="number"
                     value={editForm.daily_limit}
                     onChange={(e) => setEditForm(prev => ({ ...prev, daily_limit: Number(e.target.value) }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">총 한도</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">총 한도</label>
                   <input
                     type="number"
                     value={editForm.total_limit}
                     onChange={(e) => setEditForm(prev => ({ ...prev, total_limit: Number(e.target.value) }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
                 <input
                   type="date"
                   value={editForm.end_date}
                   onChange={(e) => setEditForm(prev => ({ ...prev, end_date: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 />
               </div>
             </div>
@@ -412,35 +412,35 @@ export default function CampaignDetailPage() {
       {/* Extend Modal */}
       {extendOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">캠페인 연장</h3>
+          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">캠페인 연장</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">새 종료일</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">새 종료일</label>
                 <input
                   type="date"
                   value={extendForm.new_end_date}
                   onChange={(e) => setExtendForm(prev => ({ ...prev, new_end_date: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">추가 총 전환수</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">추가 총 전환수</label>
                   <input
                     type="number"
                     value={extendForm.additional_total}
                     onChange={(e) => setExtendForm(prev => ({ ...prev, additional_total: Number(e.target.value) }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">새 일일 한도 (선택)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">새 일일 한도 (선택)</label>
                   <input
                     type="number"
                     value={extendForm.new_daily_limit}
                     onChange={(e) => setExtendForm(prev => ({ ...prev, new_daily_limit: Number(e.target.value) }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                     placeholder="0 = 변경 안함"
                   />
                 </div>
@@ -469,13 +469,13 @@ export default function CampaignDetailPage() {
       {/* Add Keywords Modal */}
       {keywordOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">키워드 추가</h3>
-            <p className="text-sm text-gray-500 mb-3">한 줄에 하나씩 키워드를 입력하세요.</p>
+          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">키워드 추가</h3>
+            <p className="text-sm text-gray-400 mb-3">한 줄에 하나씩 키워드를 입력하세요.</p>
             <textarea
               value={newKeywords}
               onChange={(e) => setNewKeywords(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[150px]"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 min-h-[150px] bg-surface text-gray-200"
               placeholder={"키워드1\n키워드2\n키워드3"}
               autoFocus
             />

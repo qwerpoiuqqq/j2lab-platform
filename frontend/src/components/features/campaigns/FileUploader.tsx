@@ -29,19 +29,19 @@ export default function FileUploader({ onSelect, uploading }: FileUploaderProps)
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+    <div className="bg-surface rounded-xl border border-border p-6">
       <div
         className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
           dragOver
             ? 'border-primary-400 bg-primary-50'
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-border-strong hover:border-gray-400'
         }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={() => setDragOver(false)}
       >
         <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <p className="text-sm text-gray-600 mb-1">
+        <p className="text-sm text-gray-400 mb-1">
           엑셀 파일(.xlsx)을 드래그하거나 선택하여 캠페인을 일괄 등록하세요
         </p>
         <p className="text-xs text-gray-400 mb-4">

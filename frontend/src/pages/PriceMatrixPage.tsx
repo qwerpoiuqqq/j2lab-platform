@@ -49,22 +49,22 @@ function UserCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-3 mb-3">
         <div
-          className={`w-10 h-10 rounded-full ${roleColors[user.role] || 'bg-gray-500'} flex items-center justify-center text-white font-bold text-sm`}
+          className={`w-10 h-10 rounded-full ${roleColors[user.role] || 'bg-surface-raised0'} flex items-center justify-center text-white font-bold text-sm`}
         >
           {user.name.charAt(0)}
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">{user.name}</h3>
+          <h3 className="font-semibold text-gray-100">{user.name}</h3>
           <Badge variant={user.role === 'distributor' ? 'primary' : 'success'}>
             {roleLabels[user.role] || user.role}
           </Badge>
         </div>
       </div>
-      <p className="text-sm text-gray-500 mb-1">{user.email}</p>
-      <p className="text-sm text-gray-500 mb-3">
+      <p className="text-sm text-gray-400 mb-1">{user.email}</p>
+      <p className="text-sm text-gray-400 mb-3">
         {priceCount > 0 ? `${priceCount}개 개별 단가 설정됨` : '기본 단가 적용 중'}
       </p>
       <Button size="sm" variant="secondary" onClick={onConfigure} className="w-full">
@@ -207,12 +207,12 @@ export default function PriceMatrixPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">단가 설정</h1>
-          <p className="mt-1 text-sm text-gray-500">총판/셀러별 상품 단가를 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">단가 설정</h1>
+          <p className="mt-1 text-sm text-gray-400">총판/셀러별 상품 단가를 관리합니다.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse bg-gray-200 rounded-xl h-40" />
+            <div key={i} className="animate-pulse bg-surface-raised rounded-xl h-40" />
           ))}
         </div>
       </div>
@@ -223,22 +223,22 @@ export default function PriceMatrixPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">단가 설정</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-100">단가 설정</h1>
+        <p className="mt-1 text-sm text-gray-400">
           총판/셀러별 상품 단가를 개별적으로 설정합니다.
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
           {error}
         </div>
       )}
 
       {/* User Cards Grid */}
       {matrixUsers.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
+        <div className="bg-surface rounded-xl border border-border p-8 text-center text-gray-400 text-sm">
           등록된 총판/셀러가 없습니다.
         </div>
       ) : (
@@ -279,7 +279,7 @@ export default function PriceMatrixPage() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedCategory === '__all__'
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-surface-raised text-gray-400 hover:bg-surface-raised'
               }`}
             >
               전체
@@ -291,7 +291,7 @@ export default function PriceMatrixPage() {
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   selectedCategory === cat.name
                     ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-surface-raised text-gray-400 hover:bg-surface-raised'
                 }`}
               >
                 {cat.name}
@@ -318,12 +318,12 @@ export default function PriceMatrixPage() {
                 return (
                   <div
                     key={product.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg ${isCustom ? 'bg-blue-50' : 'bg-gray-50'}`}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${isCustom ? 'bg-blue-900/20' : 'bg-surface-raised'}`}
                   >
-                    <span className="flex-1 text-sm font-medium text-gray-900">
+                    <span className="flex-1 text-sm font-medium text-gray-100">
                       {product.name}
                     </span>
-                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                    <span className="text-xs text-gray-400 bg-surface-raised px-2 py-1 rounded">
                       기본 {formatCurrency(product.base_price)}
                     </span>
                     <input
@@ -335,7 +335,7 @@ export default function PriceMatrixPage() {
                           [product.id]: parseInt(e.target.value) || 0,
                         }))
                       }
-                      className="w-32 px-3 py-2 text-right text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="w-32 px-3 py-2 text-right text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                     />
                     {discountRate > 0 && (
                       <span className="text-xs text-red-500 font-medium min-w-[60px]">

@@ -125,7 +125,7 @@ export default function NoticesPage() {
       render: (n) => (
         <div className="flex items-center gap-2">
           {n.is_pinned && <Badge variant="warning">고정</Badge>}
-          <span className="font-medium text-gray-900">{n.title}</span>
+          <span className="font-medium text-gray-100">{n.title}</span>
         </div>
       ),
     },
@@ -137,7 +137,7 @@ export default function NoticesPage() {
           const isExpanded = expandedNoticeId === n.id;
           return (
             <div
-              className={`text-sm text-gray-600 cursor-pointer ${!isExpanded ? 'line-clamp-1' : ''}`}
+              className={`text-sm text-gray-400 cursor-pointer ${!isExpanded ? 'line-clamp-1' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setExpandedNoticeId(isExpanded ? null : n.id);
@@ -151,7 +151,7 @@ export default function NoticesPage() {
           );
         }
         return (
-          <span className="text-sm text-gray-600 line-clamp-1">{n.content}</span>
+          <span className="text-sm text-gray-400 line-clamp-1">{n.content}</span>
         );
       },
     },
@@ -159,7 +159,7 @@ export default function NoticesPage() {
       key: 'created_at',
       header: '작성일',
       render: (n) => (
-        <span className="text-xs text-gray-500">{formatDateTime(n.created_at)}</span>
+        <span className="text-xs text-gray-400">{formatDateTime(n.created_at)}</span>
       ),
     },
     ...(canManage
@@ -171,13 +171,13 @@ export default function NoticesPage() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={(e) => { e.stopPropagation(); openEdit(n); }}
-                  className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded transition-colors"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(n.id); }}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -193,8 +193,8 @@ export default function NoticesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{canManage ? '공지 관리' : '공지사항'}</h1>
-          <p className="mt-1 text-sm text-gray-500">{canManage ? '공지사항을 관리합니다.' : '공지사항을 확인합니다.'}</p>
+          <h1 className="text-2xl font-bold text-gray-100">{canManage ? '공지 관리' : '공지사항'}</h1>
+          <p className="mt-1 text-sm text-gray-400">{canManage ? '공지사항을 관리합니다.' : '공지사항을 확인합니다.'}</p>
         </div>
         {canManage && (
           <Button onClick={openCreate} icon={<PlusIcon className="h-4 w-4" />}>
@@ -204,7 +204,7 @@ export default function NoticesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       <Table<Notice>
@@ -239,7 +239,7 @@ export default function NoticesPage() {
             required
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               내용 <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -247,7 +247,7 @@ export default function NoticesPage() {
               onChange={(e) => setFormContent(e.target.value)}
               placeholder="공지사항 내용을 입력하세요."
               rows={8}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
             />
           </div>
           <label className="flex items-center gap-2">
@@ -255,9 +255,9 @@ export default function NoticesPage() {
               type="checkbox"
               checked={formPinned}
               onChange={(e) => setFormPinned(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
             />
-            <span className="text-sm text-gray-700">상단 고정</span>
+            <span className="text-sm text-gray-300">상단 고정</span>
           </label>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowModal(false)}>

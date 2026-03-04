@@ -1,40 +1,75 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* Primary: Cyan/Teal */
+  --color-primary-50: #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #a5f3fc;
+  --color-primary-300: #67e8f9;
+  --color-primary-400: #22d3ee;
+  --color-primary-500: #06b6d4;
+  --color-primary-600: #0891b2;
+  --color-primary-700: #0e7490;
+  --color-primary-800: #155e75;
+  --color-primary-900: #164e63;
 
-  --color-success-50: #f0fdf4;
+  /* Surface (적당히 밝은 다크 테마) */
+  --color-surface: #1e2028;
+  --color-surface-raised: #272a34;
+  --color-surface-overlay: #16171e;
+
+  /* Border 토큰 */
+  --color-border: #323542;
+  --color-border-strong: #424656;
+  --color-border-subtle: #242730;
+
+  /* Semantic (다크 배경용) */
+  --color-success-50: #052e16;
   --color-success-500: #22c55e;
   --color-success-600: #16a34a;
 
-  --color-warning-50: #fffbeb;
+  --color-warning-50: #451a03;
   --color-warning-500: #f59e0b;
   --color-warning-600: #d97706;
 
-  --color-danger-50: #fef2f2;
+  --color-danger-50: #450a0a;
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
 
-  --color-sidebar: #1e293b;
-  --color-sidebar-hover: #334155;
-  --color-sidebar-active: #0f172a;
+  /* Sidebar */
+  --color-sidebar: #16171e;
+  --color-sidebar-hover: #272a34;
+  --color-sidebar-active: #0e3340;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui,
       Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo',
       'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji',
       'Segoe UI Symbol', sans-serif;
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-surface-overlay text-gray-200 antialiased;
   }
+
+  /* Selection */
+  ::selection {
+    background: rgba(6, 182, 212, 0.25);
+    color: #e5e7eb;
+  }
+
+  /* Focus visible (keyboard-only) */
+  :focus-visible {
+    outline: 2px solid #22d3ee;
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #16171e; }
+  ::-webkit-scrollbar-thumb { background: #323542; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #424656; }
 }

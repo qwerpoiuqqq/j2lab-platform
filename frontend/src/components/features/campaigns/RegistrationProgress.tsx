@@ -39,14 +39,14 @@ function StepIndicator({ step }: { step: string | null }) {
 
   const textColor =
     step === 'completed'
-      ? 'text-green-700'
+      ? 'text-green-400'
       : step === 'failed'
-        ? 'text-red-700'
-        : 'text-primary-700';
+        ? 'text-red-400'
+        : 'text-primary-400';
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-24 bg-gray-200 rounded-full h-2">
+      <div className="w-24 bg-surface-raised rounded-full h-2">
         <div
           className={`h-2 rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${progress}%` }}
@@ -67,9 +67,9 @@ export default function RegistrationProgress({ campaigns, isRegistering }: Props
   const total = campaigns.length;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
-        <div className="font-semibold text-sm text-gray-900">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <div className="font-semibold text-sm text-gray-100">
           superap.io 등록 현황 ({completed}/{total} 완료
           {failed > 0 && <span className="text-red-600">, {failed} 실패</span>})
         </div>
@@ -81,15 +81,15 @@ export default function RegistrationProgress({ campaigns, isRegistering }: Props
         )}
       </div>
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-border-subtle">
         {campaigns.map((c) => (
           <div key={c.campaign_id} className="px-5 py-3 flex items-center gap-4">
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm text-gray-900 truncate">
+              <div className="font-medium text-sm text-gray-100 truncate">
                 {c.place_name || `캠페인 #${c.campaign_id}`}
               </div>
               {c.registration_message && (
-                <div className="text-xs text-gray-500 mt-0.5 truncate">
+                <div className="text-xs text-gray-400 mt-0.5 truncate">
                   {c.registration_message}
                 </div>
               )}

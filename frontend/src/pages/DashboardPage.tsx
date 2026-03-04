@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+      <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-red-400 text-sm">
         {error}
       </div>
     );
@@ -63,12 +63,12 @@ export default function DashboardPage() {
       <div className="space-y-6 animate-pulse">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 h-20" />
+            <div key={i} className="bg-surface rounded-xl border border-border p-4 h-20" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 h-64" />
-          <div className="bg-white rounded-xl border border-gray-200 h-64" />
+          <div className="bg-surface rounded-xl border border-border h-64" />
+          <div className="bg-surface rounded-xl border border-border h-64" />
         </div>
       </div>
     );
@@ -84,8 +84,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{config.title}</h1>
-        <p className="mt-1 text-sm text-gray-500">{config.description}</p>
+        <h1 className="text-2xl font-bold text-gray-100">{config.title}</h1>
+        <p className="mt-1 text-sm text-gray-400">{config.description}</p>
       </div>
 
       {/* Stats cards (role-based) */}

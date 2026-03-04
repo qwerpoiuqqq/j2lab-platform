@@ -44,23 +44,23 @@ export default function StatsCards({
       value: formatNumber(pendingPayment),
       icon: InboxArrowDownIcon,
       iconColor: 'text-amber-600',
-      iconBg: 'bg-amber-100',
-      ringColor: pendingPayment > 0 ? 'ring-2 ring-amber-200' : '',
+      iconBg: 'bg-amber-900/30',
+      ringColor: pendingPayment > 0 ? 'ring-2 ring-amber-800' : '',
     },
     settingReady: {
       name: '세팅 가능',
       value: formatNumber(settingReady),
       icon: BoltIcon,
       iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-      ringColor: settingReady > 0 ? 'ring-2 ring-blue-200' : '',
+      iconBg: 'bg-blue-900/30',
+      ringColor: settingReady > 0 ? 'ring-2 ring-blue-800' : '',
     },
     inProgress: {
       name: '진행중',
       value: formatNumber(inProgress),
       icon: ArrowPathIcon,
       iconColor: 'text-indigo-600',
-      iconBg: 'bg-indigo-100',
+      iconBg: 'bg-indigo-900/30',
       ringColor: '',
     },
     activeCampaigns: {
@@ -68,7 +68,7 @@ export default function StatsCards({
       value: formatNumber(activeCampaigns ?? 0),
       icon: MegaphoneIcon,
       iconColor: 'text-green-600',
-      iconBg: 'bg-green-100',
+      iconBg: 'bg-green-900/30',
       ringColor: '',
     },
     todayRevenue: {
@@ -76,7 +76,7 @@ export default function StatsCards({
       value: formatCurrency(todayRevenue),
       icon: CurrencyDollarIcon,
       iconColor: 'text-purple-600',
-      iconBg: 'bg-purple-100',
+      iconBg: 'bg-purple-900/30',
       ringColor: '',
     },
     totalOrders: {
@@ -84,7 +84,7 @@ export default function StatsCards({
       value: formatNumber(totalOrders ?? 0),
       icon: ClipboardDocumentListIcon,
       iconColor: 'text-gray-600',
-      iconBg: 'bg-gray-100',
+      iconBg: 'bg-gray-900/30',
       ringColor: '',
     },
     pendingOrders: {
@@ -92,8 +92,8 @@ export default function StatsCards({
       value: formatNumber(pendingOrders),
       icon: ClockIcon,
       iconColor: 'text-orange-600',
-      iconBg: 'bg-orange-100',
-      ringColor: pendingOrders > 0 ? 'ring-2 ring-orange-200' : '',
+      iconBg: 'bg-orange-900/30',
+      ringColor: pendingOrders > 0 ? 'ring-2 ring-orange-800' : '',
     },
   };
 
@@ -127,15 +127,15 @@ export default function StatsCards({
       {stats.map((stat) => (
         <div
           key={stat.name}
-          className={`bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow ${stat.ringColor}`}
+          className={`bg-surface rounded-xl border border-border p-4 hover:shadow-md transition-shadow ${stat.ringColor}`}
         >
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl ${stat.iconBg}`}>
               <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
             </div>
             <div>
-              <p className="text-xs text-gray-500">{stat.name}</p>
-              <p className="text-xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-400">{stat.name}</p>
+              <p className="text-xl font-bold text-gray-100">{stat.value}</p>
             </div>
           </div>
         </div>

@@ -238,37 +238,37 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
 
       {/* Grid table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead className="bg-surface-raised">
             <tr>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-10">#</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 min-w-[220px]">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-10">#</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 min-w-[220px]">
                 플레이스 URL <span className="text-red-500">*</span>
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-32">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-32">
                 작업 시작일 <span className="text-red-500">*</span>
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-24">
                 일 작업량(타수) <span className="text-red-500">*</span>
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-24">
                 작업 기간(일) <span className="text-red-500">*</span>
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-32">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-32">
                 목표 노출 키워드
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-24">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-24">
                 캠페인 타입
               </th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-40">
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-40">
                 네트워크
               </th>
-              <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 w-20">총 수량</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 w-28">마감일</th>
+              <th className="px-2 py-3 text-center text-xs font-semibold text-gray-400 w-20">총 수량</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-400 w-28">마감일</th>
               <th className="px-2 py-3 w-16" />
             </tr>
           </thead>
-          <tbody className="bg-white">
+          <tbody className="bg-surface">
             {rows.map((row, rowIdx) => (
               <RowWithSuggestion
                 key={row.id}
@@ -289,26 +289,26 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
       {/* Notes + Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">비고</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
             placeholder="주문 관련 메모를 입력하세요..."
           />
         </div>
 
-        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
+        <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">총 건수</span>
-            <span className="font-medium text-gray-900">{formatNumber(rows.length)}건</span>
+            <span className="text-gray-400">총 건수</span>
+            <span className="font-medium text-gray-100">{formatNumber(rows.length)}건</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">총 수량</span>
-            <span className="font-medium text-gray-900">{formatNumber(totalQuantity)}타</span>
+            <span className="text-gray-400">총 수량</span>
+            <span className="font-medium text-gray-100">{formatNumber(totalQuantity)}타</span>
           </div>
-          <div className="border-t border-gray-200 pt-2" />
+          <div className="border-t border-border pt-2" />
           <div className="text-xs text-gray-400">
             실제 금액은 서버에서 가격 정책 기반으로 계산됩니다.
           </div>
@@ -353,7 +353,7 @@ function RowWithSuggestion({
   return (
     <>
       {/* 데이터 입력 행 */}
-      <tr className="border-t border-gray-200 hover:bg-gray-50/50 align-top">
+      <tr className="border-t border-border hover:bg-surface-raised/50 align-top">
         <td className="px-2 py-2 text-gray-400 font-medium">{rowIdx + 1}</td>
 
         {/* 플레이스 URL */}
@@ -366,7 +366,7 @@ function RowWithSuggestion({
               fetchRecommendation(row.id, e.target.value);
             }}
             placeholder="https://m.place.naver.com/..."
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </td>
 
@@ -376,7 +376,7 @@ function RowWithSuggestion({
             type="date"
             value={row.start_date}
             onChange={(e) => updateRow(row.id, { start_date: e.target.value })}
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </td>
 
@@ -389,7 +389,7 @@ function RowWithSuggestion({
             onChange={(e) =>
               updateRow(row.id, { daily_limit: Math.max(1, parseInt(e.target.value) || 1) })
             }
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 text-right focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </td>
 
@@ -402,7 +402,7 @@ function RowWithSuggestion({
             onChange={(e) =>
               updateRow(row.id, { duration_days: Math.max(1, parseInt(e.target.value) || 1) })
             }
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 text-right focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </td>
 
@@ -413,20 +413,20 @@ function RowWithSuggestion({
             value={row.target_keyword}
             onChange={(e) => updateRow(row.id, { target_keyword: e.target.value })}
             placeholder="키워드 입력"
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </td>
 
         {/* 캠페인 타입 */}
         <td className="px-1 py-1">
-          <div className="flex rounded-md border border-gray-300 overflow-hidden">
+          <div className="flex rounded-md border border-border-strong overflow-hidden">
             <button
               type="button"
               onClick={() => onCampaignTypeChange(row.id, 'traffic')}
               className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${
                 row.campaign_type === 'traffic'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-500 hover:bg-gray-50'
+                  : 'bg-surface text-gray-400 hover:bg-surface-raised'
               }`}
             >
               트래픽
@@ -437,7 +437,7 @@ function RowWithSuggestion({
               className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${
                 row.campaign_type === 'save'
                   ? 'bg-purple-600 text-white'
-                  : 'bg-white text-gray-500 hover:bg-gray-50'
+                  : 'bg-surface text-gray-400 hover:bg-surface-raised'
               }`}
             >
               저장하기
@@ -451,7 +451,7 @@ function RowWithSuggestion({
             <select
               value={row.network_name}
               onChange={(e) => updateRow(row.id, { network_name: e.target.value })}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
             >
               {networkList.map((n) => (
                 <option key={n.id} value={n.name}>
@@ -462,17 +462,17 @@ function RowWithSuggestion({
           ) : rec ? (
             <span className="text-xs text-gray-400 px-2">네트워크 없음</span>
           ) : (
-            <span className="text-xs text-gray-300 px-2">URL 입력 후 선택</span>
+            <span className="text-xs text-gray-600 px-2">URL 입력 후 선택</span>
           )}
         </td>
 
         {/* 총 수량 */}
-        <td className="px-2 py-2 text-sm text-gray-700 text-center font-medium bg-gray-50/50">
+        <td className="px-2 py-2 text-sm text-gray-300 text-center font-medium bg-surface-raised/50">
           {formatNumber(row.total_quantity)}
         </td>
 
         {/* 마감일 */}
-        <td className="px-2 py-2 text-sm text-gray-600 bg-gray-50/50">{row.end_date}</td>
+        <td className="px-2 py-2 text-sm text-gray-400 bg-surface-raised/50">{row.end_date}</td>
 
         {/* Actions */}
         <td className="px-1 py-1">
@@ -526,9 +526,9 @@ function SuggestionCard({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50/60 rounded-lg border border-blue-100 animate-pulse">
-        <SparklesIcon className="h-4 w-4 text-blue-400 shrink-0" />
-        <span className="text-xs text-blue-500">AI가 이 플레이스를 분석하고 있습니다...</span>
+      <div className="flex items-center gap-2 px-3 py-2 bg-primary-900/20 rounded-lg border border-primary-800/30 animate-pulse">
+        <SparklesIcon className="h-4 w-4 text-primary-400 shrink-0" />
+        <span className="text-xs text-primary-400">AI가 이 플레이스를 분석하고 있습니다...</span>
       </div>
     );
   }
@@ -545,20 +545,20 @@ function SuggestionCard({
   const actionText = recTypeRec.recommended_action === 'extend' ? '연장' : '신규 세팅';
 
   return (
-    <div className="flex items-start gap-2 px-3 py-2.5 bg-gradient-to-r from-blue-50/80 to-purple-50/40 rounded-lg border border-blue-100/80">
-      <SparklesIcon className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+    <div className="flex items-start gap-2 px-3 py-2.5 bg-surface-raised rounded-lg border border-border">
+      <SparklesIcon className="h-4 w-4 text-primary-400 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         {/* 메인 제안 문구 */}
-        <div className="text-xs text-gray-700 leading-relaxed">
-          <span className="font-medium text-blue-700">{placeStatus}</span>
+        <div className="text-xs text-gray-300 leading-relaxed">
+          <span className="font-medium text-primary-400">{placeStatus}</span>
           입니다.{' '}
-          <span className={`font-semibold ${recType === 'traffic' ? 'text-blue-600' : 'text-purple-600'}`}>
+          <span className={`font-semibold ${recType === 'traffic' ? 'text-primary-400' : 'text-purple-400'}`}>
             {recType === 'traffic' ? '트래픽' : '저장하기'}
           </span>
           {recTypeRec.recommended_network && (
             <>
               {' '}
-              <span className="font-medium text-gray-800">{recTypeRec.recommended_network}</span>
+              <span className="font-medium text-gray-200">{recTypeRec.recommended_network}</span>
             </>
           )}
           으로 <span className="font-medium">{actionText}</span> 진행해보시는 건 어떨까요?
@@ -569,14 +569,14 @@ function SuggestionCard({
           {/* 배지들 */}
           <span
             className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-              rec.is_existing ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+              rec.is_existing ? 'bg-orange-900/30 text-orange-400' : 'bg-green-900/30 text-green-400'
             }`}
           >
             {rec.is_existing ? '기존' : '신규'}
           </span>
 
           {recTypeRec.recommended_action === 'extend' && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-700">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-900/30 text-yellow-400">
               연장 가능
             </span>
           )}

@@ -13,7 +13,7 @@ export default function ProductSelector({ products, category, onSelect, effectiv
 
   if (filtered.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-400">
         이 카테고리에 상품이 없습니다.
       </div>
     );
@@ -25,16 +25,16 @@ export default function ProductSelector({ products, category, onSelect, effectiv
         <button
           key={product.id}
           onClick={() => onSelect(product)}
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-left hover:border-primary-400 hover:shadow-md transition-all group"
+          className="bg-surface rounded-xl border border-border shadow-sm p-6 text-left hover:border-primary-400 hover:shadow-md transition-all group"
         >
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600">
+          <h3 className="text-lg font-semibold text-gray-100 group-hover:text-primary-600">
             {product.name}
           </h3>
           <p className="mt-1 text-sm font-medium text-primary-600">
             {formatCurrency(effectivePrices?.[product.id] ?? product.base_price)}
           </p>
           {product.description && (
-            <p className="mt-2 text-sm text-gray-500 line-clamp-2">
+            <p className="mt-2 text-sm text-gray-400 line-clamp-2">
               {product.description}
             </p>
           )}

@@ -159,8 +159,8 @@ export default function CategoriesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">카테고리 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">상품 카테고리를 관리하고 순서를 변경합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">카테고리 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">상품 카테고리를 관리하고 순서를 변경합니다.</p>
         </div>
         <Button onClick={openCreate} icon={<PlusIcon className="h-4 w-4" />}>
           카테고리 추가
@@ -168,33 +168,33 @@ export default function CategoriesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       {/* Category List */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-200">
+      <div className="bg-surface rounded-xl border border-border shadow-sm divide-y divide-border">
         {loading ? (
           <div className="animate-pulse space-y-3 p-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-gray-200 rounded" />)}
+            {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-surface-raised rounded" />)}
           </div>
         ) : categories.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-sm">카테고리가 없습니다.</div>
+          <div className="p-8 text-center text-gray-400 text-sm">카테고리가 없습니다.</div>
         ) : (
           categories.map((cat, index) => (
-            <div key={cat.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+            <div key={cat.id} className="flex items-center justify-between px-4 py-3 hover:bg-surface-raised transition-colors">
               <div className="flex items-center gap-3">
                 <div className="flex flex-col gap-0.5">
                   <button
                     onClick={() => handleMove(index, 'up')}
                     disabled={index === 0 || reordering}
-                    className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                    className="p-0.5 text-gray-400 hover:text-gray-400 disabled:opacity-30"
                   >
                     <ArrowUpIcon className="h-3 w-3" />
                   </button>
                   <button
                     onClick={() => handleMove(index, 'down')}
                     disabled={index === categories.length - 1 || reordering}
-                    className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                    className="p-0.5 text-gray-400 hover:text-gray-400 disabled:opacity-30"
                   >
                     <ArrowDownIcon className="h-3 w-3" />
                   </button>
@@ -202,27 +202,27 @@ export default function CategoriesPage() {
                 <span className="text-xl mr-2">{iconMap[cat.icon || 'grid'] || '\u{1F4CB}'}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{cat.name}</span>
+                    <span className="font-medium text-gray-100">{cat.name}</span>
                     <span className="text-xs text-gray-400 ml-2">{productCounts[cat.name] || 0}개 상품</span>
                     <Badge variant={cat.is_active ? 'success' : 'default'}>
                       {cat.is_active ? '활성' : '비활성'}
                     </Badge>
                   </div>
                   {cat.description && (
-                    <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{cat.description}</p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => openEdit(cat)}
-                  className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded transition-colors"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(cat.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -254,7 +254,7 @@ export default function CategoriesPage() {
             placeholder="선택사항"
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">아이콘</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">아이콘</label>
             <div className="flex flex-wrap gap-2">
               {Object.entries(iconMap).map(([key, emoji]) => (
                 <button
@@ -262,7 +262,7 @@ export default function CategoriesPage() {
                   type="button"
                   onClick={() => setFormIcon(key)}
                   className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-xl transition-colors ${
-                    formIcon === key ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                    formIcon === key ? 'border-primary-500 bg-primary-900/20' : 'border-border hover:border-border-strong'
                   }`}
                 >
                   {emoji}

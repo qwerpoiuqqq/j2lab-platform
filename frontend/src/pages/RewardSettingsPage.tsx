@@ -306,16 +306,16 @@ export default function RewardSettingsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-100">
             네트워크 배정 설정
           </h1>
-          <p className="mt-1 text-sm text-gray-500">로딩 중...</p>
+          <p className="mt-1 text-sm text-gray-400">로딩 중...</p>
         </div>
         <div className="space-y-4">
           {[1, 2].map((i) => (
             <div
               key={i}
-              className="animate-pulse bg-gray-200 rounded-xl h-48"
+              className="animate-pulse bg-surface-raised rounded-xl h-48"
             />
           ))}
         </div>
@@ -326,16 +326,16 @@ export default function RewardSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-100">
           네트워크 배정 설정
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-400">
           드래그하여 배정 순서를 변경하세요. 위에서부터 우선 배정됩니다.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -348,15 +348,15 @@ export default function RewardSettingsPage() {
         return (
           <div
             key={company.id}
-            className="bg-white rounded-xl border border-gray-200 shadow-sm"
+            className="bg-surface rounded-xl border border-border shadow-sm"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+              <h2 className="text-lg font-bold text-gray-100">
                 {company.name}
               </h2>
               <button
                 onClick={() => openAdd(company.id)}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                className="text-sm text-primary-400 hover:text-primary-300 font-medium"
               >
                 + 네트워크 추가
               </button>
@@ -379,10 +379,10 @@ export default function RewardSettingsPage() {
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
                           ct === 'traffic'
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-blue-900/30 text-primary-300'
                             : ct === 'save'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-purple-100 text-purple-700'
+                              ? 'bg-green-900/30 text-green-400'
+                              : 'bg-purple-900/30 text-purple-400'
                         }`}
                       >
                         {TYPE_LABELS[ct]} ({list.length})
@@ -406,7 +406,7 @@ export default function RewardSettingsPage() {
                             }
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => onDrop(e, company.id, ct, idx)}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group cursor-grab active:cursor-grabbing ${
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-raised hover:bg-surface-raised transition-colors group cursor-grab active:cursor-grabbing ${
                               isDragOver
                                 ? 'border-2 border-dashed border-primary-400'
                                 : 'border border-transparent'
@@ -416,16 +416,16 @@ export default function RewardSettingsPage() {
                               ⠿
                             </span>
 
-                            <span className="w-7 h-7 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            <span className="w-7 h-7 rounded-full bg-primary-900/30 text-primary-300 flex items-center justify-center text-sm font-bold flex-shrink-0">
                               {idx + 1}
                             </span>
 
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 text-sm">
+                              <div className="font-medium text-gray-100 text-sm">
                                 {preset.name}
                               </div>
                               {linked.length > 0 ? (
-                                <div className="text-xs text-gray-500 mt-0.5">
+                                <div className="text-xs text-gray-400 mt-0.5">
                                   {linked.map((a, i) => (
                                     <span key={a.id}>
                                       {i > 0 && ' / '}
@@ -446,13 +446,13 @@ export default function RewardSettingsPage() {
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => openEdit(preset)}
-                                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                                className="text-xs text-primary-400 hover:text-primary-300 font-medium"
                               >
                                 편집
                               </button>
                               <button
                                 onClick={() => setDeleteTarget(preset)}
-                                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                                className="text-xs text-red-500 hover:text-red-400 font-medium"
                               >
                                 삭제
                               </button>
@@ -471,9 +471,9 @@ export default function RewardSettingsPage() {
 
       {/* ---- Unassigned accounts ---- */}
       {unassigned.length > 0 && (
-        <div className="bg-white rounded-xl border border-orange-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-orange-100">
-            <h2 className="text-base font-bold text-orange-700">
+        <div className="bg-surface rounded-xl border border-orange-800 shadow-sm">
+          <div className="px-6 py-4 border-b border-orange-800">
+            <h2 className="text-base font-bold text-orange-400">
               미연결 계정 ({unassigned.length}개)
             </h2>
           </div>
@@ -481,10 +481,10 @@ export default function RewardSettingsPage() {
             {unassigned.map((acct) => (
               <div
                 key={acct.id}
-                className="flex items-center gap-3 px-4 py-2 rounded-lg bg-orange-50"
+                className="flex items-center gap-3 px-4 py-2 rounded-lg bg-orange-900/20"
               >
                 <span className="text-orange-400">•</span>
-                <span className="flex-1 text-sm text-gray-700">
+                <span className="flex-1 text-sm text-gray-300">
                   {acct.user_id_superap}
                   {acct.agency_name && ` · ${acct.agency_name}`}
                   {acct.company_id
@@ -524,7 +524,7 @@ export default function RewardSettingsPage() {
         <div className="space-y-4">
           {/* Context (edit mode) */}
           {editPreset && (
-            <div className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            <div className="text-sm text-gray-400 bg-surface-raised rounded-lg px-3 py-2">
               {modalCompanyName} · {TYPE_LABELS[form.campaign_type]} ·{' '}
               {editPreset.tier_order}순위
             </div>
@@ -533,7 +533,7 @@ export default function RewardSettingsPage() {
           {/* Campaign type (create only) */}
           {!editPreset && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 캠페인 타입
               </label>
               <div className="flex gap-2">
@@ -545,7 +545,7 @@ export default function RewardSettingsPage() {
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                       form.campaign_type === ct
                         ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-surface-raised text-gray-400 hover:bg-surface-raised'
                     }`}
                   >
                     {TYPE_LABELS[ct]}
@@ -557,7 +557,7 @@ export default function RewardSettingsPage() {
 
           {/* Network name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               네트워크 이름
             </label>
             <input
@@ -565,13 +565,13 @@ export default function RewardSettingsPage() {
               value={form.name}
               onChange={(e) => setField('name', e.target.value)}
               placeholder="예: 제이투랩 저장 1순위"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             />
           </div>
 
           {/* ---- Account selection (ALL accounts) ---- */}
-          <div className="border-t border-gray-200 pt-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <div className="border-t border-border pt-4">
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
               슈퍼앱 계정 연결
             </label>
             <select
@@ -582,7 +582,7 @@ export default function RewardSettingsPage() {
                   e.target.value ? Number(e.target.value) : null,
                 )
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+              className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface bg-surface text-gray-200"
             >
               <option value="">-- 계정 선택 --</option>
 
@@ -628,27 +628,27 @@ export default function RewardSettingsPage() {
             const sel = accounts.find((a) => a.id === form.selectedAccountId);
             if (!sel) return null;
             return (
-              <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                <div className="text-xs text-gray-500">
-                  <span className="font-medium text-gray-700">아이디:</span>{' '}
+              <div className="bg-surface-raised rounded-lg p-3 space-y-1">
+                <div className="text-xs text-gray-400">
+                  <span className="font-medium text-gray-300">아이디:</span>{' '}
                   {sel.user_id_superap}
                 </div>
                 {sel.agency_name && (
-                  <div className="text-xs text-gray-500">
-                    <span className="font-medium text-gray-700">
+                  <div className="text-xs text-gray-400">
+                    <span className="font-medium text-gray-300">
                       대행사:
                     </span>{' '}
                     {sel.agency_name}
                   </div>
                 )}
-                <div className="text-xs text-gray-500">
-                  <span className="font-medium text-gray-700">원가:</span>{' '}
+                <div className="text-xs text-gray-400">
+                  <span className="font-medium text-gray-300">원가:</span>{' '}
                   트래픽 {sel.unit_cost_traffic}원 / 저장 {sel.unit_cost_save}
                   원
                 </div>
                 {sel.network_preset_id &&
                   sel.network_preset_id !== editPreset?.id && (
-                    <div className="text-xs text-orange-600 font-medium mt-1">
+                    <div className="text-xs text-orange-400 font-medium mt-1">
                       현재 &quot;{presetNames[sel.network_preset_id]}&quot;에
                       연결됨 — 저장 시 이 네트워크로 이동됩니다
                     </div>
@@ -678,10 +678,10 @@ export default function RewardSettingsPage() {
           </>
         }
       >
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-300">
           <strong>{deleteTarget?.name}</strong> 네트워크를 삭제하시겠습니까?
           <br />
-          <span className="text-gray-500">
+          <span className="text-gray-400">
             연결된 계정은 삭제되지 않고 미연결 상태로 전환됩니다.
           </span>
         </p>

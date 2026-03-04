@@ -132,13 +132,13 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
       />
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-300 mb-1">
           역할 <span className="text-danger-500">*</span>
         </label>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as UserRole)}
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          className="block w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           required
         >
           {availableRoles.map((r) => (
@@ -151,7 +151,7 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
 
       {currentUser?.role === 'system_admin' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             소속 회사
           </label>
           <select
@@ -159,7 +159,7 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
             onChange={(e) =>
               setCompanyId(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="block w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           >
             <option value="">선택 안함 (시스템 관리자)</option>
             {companies.map((c) => (
@@ -173,13 +173,13 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
 
       {needsParent && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             {parentConfig.label} <span className="text-danger-500">*</span>
           </label>
           <select
             value={parentId || ''}
             onChange={(e) => setParentId(e.target.value || undefined)}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="block w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
             required
             disabled={loadingParents}
           >

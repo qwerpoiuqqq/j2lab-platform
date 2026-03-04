@@ -126,37 +126,37 @@ export function getRoleLabel(role: string): string {
 }
 
 /**
- * Get color class for order status badge
+ * Get color class for order status badge (dark theme)
  */
 export function getOrderStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-800',
-    submitted: 'bg-blue-100 text-blue-800',
-    payment_hold: 'bg-amber-100 text-amber-800',
-    payment_confirmed: 'bg-green-100 text-green-800',
-    processing: 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-emerald-100 text-emerald-800',
-    cancelled: 'bg-red-100 text-red-800',
-    rejected: 'bg-orange-100 text-orange-800',
+    draft: 'bg-gray-900/40 text-gray-400',
+    submitted: 'bg-blue-900/40 text-blue-400',
+    payment_hold: 'bg-amber-900/40 text-amber-400',
+    payment_confirmed: 'bg-green-900/40 text-green-400',
+    processing: 'bg-yellow-900/40 text-yellow-400',
+    completed: 'bg-emerald-900/40 text-emerald-400',
+    cancelled: 'bg-red-900/40 text-red-400',
+    rejected: 'bg-orange-900/40 text-orange-400',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-900/40 text-gray-400';
 }
 
 /**
- * Get color class for campaign status badge
+ * Get color class for campaign status badge (dark theme)
  */
 export function getCampaignStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-800',
-    queued: 'bg-blue-100 text-blue-800',
-    registering: 'bg-blue-100 text-blue-800',
-    active: 'bg-green-100 text-green-800',
-    paused: 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-emerald-100 text-emerald-800',
-    failed: 'bg-red-100 text-red-800',
-    expired: 'bg-orange-100 text-orange-800',
+    pending: 'bg-gray-900/40 text-gray-400',
+    queued: 'bg-blue-900/40 text-blue-400',
+    registering: 'bg-blue-900/40 text-blue-400',
+    active: 'bg-green-900/40 text-green-400',
+    paused: 'bg-yellow-900/40 text-yellow-400',
+    completed: 'bg-emerald-900/40 text-emerald-400',
+    failed: 'bg-red-900/40 text-red-400',
+    expired: 'bg-orange-900/40 text-orange-400',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-900/40 text-gray-400';
 }
 
 /**
@@ -205,15 +205,15 @@ export function getSettlementStatusLabel(status: string): string {
 }
 
 /**
- * Get color class for settlement status badge
+ * Get color class for settlement status badge (dark theme)
  */
 export function getSettlementStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    confirmed: 'bg-blue-100 text-blue-800',
-    settled: 'bg-green-100 text-green-800',
+    pending: 'bg-yellow-900/40 text-yellow-400',
+    confirmed: 'bg-blue-900/40 text-blue-400',
+    settled: 'bg-green-900/40 text-green-400',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-900/40 text-gray-400';
 }
 
 /**
@@ -234,12 +234,12 @@ export function getNotificationTypeLabel(type: string): string {
  */
 export function getNotificationTypeColor(type: string): string {
   const colors: Record<string, string> = {
-    order: 'text-blue-500',
-    campaign: 'text-green-500',
-    system: 'text-gray-500',
-    settlement: 'text-purple-500',
+    order: 'text-primary-400',
+    campaign: 'text-green-400',
+    system: 'text-gray-400',
+    settlement: 'text-purple-400',
   };
-  return colors[type] || 'text-gray-500';
+  return colors[type] || 'text-gray-400';
 }
 
 /**
@@ -264,24 +264,24 @@ export function getCampaignExtendedStatusLabel(status: string): string {
 }
 
 /**
- * Get extended campaign status color
+ * Get extended campaign status color (dark theme)
  */
 export function getCampaignExtendedStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-800',
-    queued: 'bg-blue-100 text-blue-800',
-    registering: 'bg-yellow-100 text-yellow-800',
-    active: 'bg-green-100 text-green-800',
-    daily_exhausted: 'bg-orange-100 text-orange-800',
-    campaign_exhausted: 'bg-red-100 text-red-800',
-    paused: 'bg-yellow-100 text-yellow-800',
-    deactivated: 'bg-red-100 text-red-800',
-    pending_extend: 'bg-purple-100 text-purple-800',
-    completed: 'bg-gray-100 text-gray-800',
-    failed: 'bg-red-100 text-red-800',
-    expired: 'bg-orange-100 text-orange-800',
+    pending: 'bg-gray-900/40 text-gray-400',
+    queued: 'bg-blue-900/40 text-blue-400',
+    registering: 'bg-yellow-900/40 text-yellow-400',
+    active: 'bg-green-900/40 text-green-400',
+    daily_exhausted: 'bg-orange-900/40 text-orange-400',
+    campaign_exhausted: 'bg-red-900/40 text-red-400',
+    paused: 'bg-yellow-900/40 text-yellow-400',
+    deactivated: 'bg-red-900/40 text-red-400',
+    pending_extend: 'bg-purple-900/40 text-purple-400',
+    completed: 'bg-gray-900/40 text-gray-400',
+    failed: 'bg-red-900/40 text-red-400',
+    expired: 'bg-orange-900/40 text-orange-400',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-900/40 text-gray-400';
 }
 
 /**
@@ -297,15 +297,15 @@ export function getKeywordStatusLabel(status: string): string {
 }
 
 /**
- * Get keyword status color
+ * Get keyword status color (dark theme)
  */
 export function getKeywordStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    normal: 'bg-green-100 text-green-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    critical: 'bg-red-100 text-red-800',
+    normal: 'bg-green-900/40 text-green-400',
+    warning: 'bg-yellow-900/40 text-yellow-400',
+    critical: 'bg-red-900/40 text-red-400',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-900/40 text-gray-400';
 }
 
 /**

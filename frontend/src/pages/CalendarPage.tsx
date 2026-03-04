@@ -135,8 +135,8 @@ export default function CalendarPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">마감 캘린더</h1>
-        <p className="mt-1 text-sm text-gray-500">주문 마감일과 캠페인 종료일을 캘린더에서 확인합니다.</p>
+        <h1 className="text-2xl font-bold text-gray-100">마감 캘린더</h1>
+        <p className="mt-1 text-sm text-gray-400">주문 마감일과 캠페인 종료일을 캘린더에서 확인합니다.</p>
       </div>
 
       {/* Calendar Navigation */}
@@ -144,14 +144,14 @@ export default function CalendarPage() {
         <Button variant="ghost" size="sm" onClick={() => navigateMonth(-1)} icon={<ChevronLeftIcon className="h-4 w-4" />}>
           이전
         </Button>
-        <h2 className="text-lg font-bold text-gray-900">{year}년 {monthNames[month]}</h2>
+        <h2 className="text-lg font-bold text-gray-100">{year}년 {monthNames[month]}</h2>
         <Button variant="ghost" size="sm" onClick={() => navigateMonth(1)}>
           다음 <ChevronRightIcon className="h-4 w-4 ml-1" />
         </Button>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-gray-500">
+      <div className="flex items-center gap-4 text-xs text-gray-400">
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> 오늘 마감</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-500" /> 1일 후</div>
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-500" /> 2일 후</div>
@@ -160,7 +160,7 @@ export default function CalendarPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       {loading && (
@@ -169,11 +169,11 @@ export default function CalendarPage() {
 
       <div className="flex gap-6">
         {/* Calendar Grid */}
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex-1 bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
           {/* Day headers */}
-          <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+          <div className="grid grid-cols-7 bg-surface-raised border-b border-border">
             {dayNames.map((day) => (
-              <div key={day} className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+              <div key={day} className="px-2 py-3 text-center text-xs font-medium text-gray-400 uppercase">
                 {day}
               </div>
             ))}
@@ -191,9 +191,9 @@ export default function CalendarPage() {
                 <button
                   key={idx}
                   onClick={() => setSelectedDate(dateStr)}
-                  className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 text-left transition-colors hover:bg-gray-50
-                    ${!day.isCurrentMonth ? 'text-gray-300 bg-gray-50/50' : ''}
-                    ${isSelected ? 'bg-primary-50 ring-2 ring-primary-500 ring-inset' : ''}
+                  className={`min-h-[80px] p-1.5 border-b border-r border-border-subtle text-left transition-colors hover:bg-surface-raised
+                    ${!day.isCurrentMonth ? 'text-gray-300 bg-surface-raised/50' : ''}
+                    ${isSelected ? 'bg-primary-900/20 ring-2 ring-primary-500 ring-inset' : ''}
                   `}
                 >
                   <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full
@@ -222,8 +222,8 @@ export default function CalendarPage() {
 
         {/* Selected Date Detail */}
         <div className="w-80 shrink-0">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sticky top-20">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+          <div className="bg-surface rounded-xl border border-border shadow-sm p-4 sticky top-20">
+            <h3 className="text-sm font-semibold text-gray-100 mb-3">
               {selectedDate ? `${selectedDate}` : '날짜를 선택하세요'}
             </h3>
             {selectedEntries.length === 0 ? (
@@ -234,19 +234,19 @@ export default function CalendarPage() {
                   <Link
                     key={`${entry.type}-${entry.id}`}
                     to={entry.type === 'order' ? `/orders/${entry.id}` : `/campaigns/${entry.id}`}
-                    className="block p-3 border border-gray-100 rounded-lg hover:bg-gray-50"
+                    className="block p-3 border border-border-subtle rounded-lg hover:bg-surface-raised"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono text-xs text-gray-600">{entry.label}</span>
+                      <span className="font-mono text-xs text-gray-400">{entry.label}</span>
                       <Badge
-                        className={entry.type === 'campaign' ? 'bg-blue-100 text-blue-800' : getOrderStatusColor(entry.status)}
+                        className={entry.type === 'campaign' ? 'bg-blue-900/30 text-blue-400' : getOrderStatusColor(entry.status)}
                         variant="default"
                       >
                         {entry.type === 'campaign' ? '캠페인' : getOrderStatusLabel(entry.status)}
                       </Badge>
                     </div>
                     {entry.type === 'order' && entry.amount !== undefined && (
-                      <p className="text-xs text-gray-500 mt-1">{formatCurrency(entry.amount)}</p>
+                      <p className="text-xs text-gray-400 mt-1">{formatCurrency(entry.amount)}</p>
                     )}
                   </Link>
                 ))}

@@ -450,14 +450,14 @@ export default function SettlementPage() {
     {
       key: 'product_name',
       header: '상품명',
-      render: (s) => <span className="text-gray-900">{s.product_name}</span>,
+      render: (s) => <span className="text-gray-100">{s.product_name}</span>,
     },
     {
       key: 'user_name',
       header: '주문자',
       render: (s) => (
         <div>
-          <span className="text-gray-700">{s.user_name}</span>
+          <span className="text-gray-300">{s.user_name}</span>
           <span className="ml-1 text-xs text-gray-400">({getRoleLabel(s.user_role)})</span>
         </div>
       ),
@@ -465,7 +465,7 @@ export default function SettlementPage() {
     {
       key: 'quantity',
       header: '수량',
-      render: (s) => <span className="text-gray-700">{formatNumber(s.quantity)}</span>,
+      render: (s) => <span className="text-gray-300">{formatNumber(s.quantity)}</span>,
     },
     {
       key: 'subtotal',
@@ -475,7 +475,7 @@ export default function SettlementPage() {
     {
       key: 'cost',
       header: '매입',
-      render: (s) => <span className="text-gray-600">{formatCurrency(s.cost)}</span>,
+      render: (s) => <span className="text-gray-400">{formatCurrency(s.cost)}</span>,
     },
     {
       key: 'profit',
@@ -490,7 +490,7 @@ export default function SettlementPage() {
       key: 'margin_pct',
       header: '마진율',
       render: (s) => (
-        <Badge className={s.margin_pct >= 20 ? 'bg-green-100 text-green-800' : s.margin_pct >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+        <Badge className={s.margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : s.margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
           {s.margin_pct.toFixed(1)}%
         </Badge>
       ),
@@ -498,7 +498,7 @@ export default function SettlementPage() {
     {
       key: 'created_at',
       header: '일자',
-      render: (s) => <span className="text-gray-500 text-xs">{formatDate(s.created_at)}</span>,
+      render: (s) => <span className="text-gray-400 text-xs">{formatDate(s.created_at)}</span>,
     },
   ];
 
@@ -506,24 +506,24 @@ export default function SettlementPage() {
     {
       key: 'handler_name',
       header: '담당자명',
-      render: (r) => <span className="font-medium text-gray-900">{r.handler_name}</span>,
+      render: (r) => <span className="font-medium text-gray-100">{r.handler_name}</span>,
     },
     {
       key: 'handler_role',
       header: '역할',
       render: (r) => (
-        <Badge className="bg-gray-100 text-gray-700">{getRoleLabel(r.handler_role)}</Badge>
+        <Badge className="bg-surface-raised text-gray-300">{getRoleLabel(r.handler_role)}</Badge>
       ),
     },
     {
       key: 'order_count',
       header: '주문수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.order_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.order_count)}</span>,
     },
     {
       key: 'item_count',
       header: '아이템수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.item_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.item_count)}</span>,
     },
     {
       key: 'total_revenue',
@@ -533,7 +533,7 @@ export default function SettlementPage() {
     {
       key: 'total_cost',
       header: '매입',
-      render: (r) => <span className="text-gray-600">{formatCurrency(r.total_cost)}</span>,
+      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
     },
     {
       key: 'total_profit',
@@ -548,7 +548,7 @@ export default function SettlementPage() {
       key: 'avg_margin_pct',
       header: '마진율',
       render: (r) => (
-        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-100 text-green-800' : r.avg_margin_pct >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
           {r.avg_margin_pct.toFixed(1)}%
         </Badge>
       ),
@@ -559,17 +559,17 @@ export default function SettlementPage() {
     {
       key: 'company_name',
       header: '회사명',
-      render: (r) => <span className="font-medium text-gray-900">{r.company_name}</span>,
+      render: (r) => <span className="font-medium text-gray-100">{r.company_name}</span>,
     },
     {
       key: 'order_count',
       header: '주문수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.order_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.order_count)}</span>,
     },
     {
       key: 'item_count',
       header: '아이템수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.item_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.item_count)}</span>,
     },
     {
       key: 'total_revenue',
@@ -579,7 +579,7 @@ export default function SettlementPage() {
     {
       key: 'total_cost',
       header: '매입',
-      render: (r) => <span className="text-gray-600">{formatCurrency(r.total_cost)}</span>,
+      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
     },
     {
       key: 'total_profit',
@@ -594,7 +594,7 @@ export default function SettlementPage() {
       key: 'avg_margin_pct',
       header: '마진율',
       render: (r) => (
-        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-100 text-green-800' : r.avg_margin_pct >= 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
           {r.avg_margin_pct.toFixed(1)}%
         </Badge>
       ),
@@ -605,17 +605,17 @@ export default function SettlementPage() {
     {
       key: 'date',
       header: '날짜',
-      render: (r) => <span className="font-medium text-gray-900">{r.date}</span>,
+      render: (r) => <span className="font-medium text-gray-100">{r.date}</span>,
     },
     {
       key: 'order_count',
       header: '주문수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.order_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.order_count)}</span>,
     },
     {
       key: 'item_count',
       header: '아이템수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.item_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.item_count)}</span>,
     },
     {
       key: 'total_revenue',
@@ -625,7 +625,7 @@ export default function SettlementPage() {
     {
       key: 'total_cost',
       header: '매입',
-      render: (r) => <span className="text-gray-600">{formatCurrency(r.total_cost)}</span>,
+      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
     },
     {
       key: 'total_profit',
@@ -642,7 +642,7 @@ export default function SettlementPage() {
 
   const renderError = (msg: string | null) =>
     msg ? (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{msg}</div>
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{msg}</div>
     ) : null;
 
   const renderAllTab = () => (
@@ -737,24 +737,24 @@ export default function SettlementPage() {
     {
       key: 'product_name',
       header: '상품',
-      render: (s) => <span className="text-gray-900">{s.product_name}</span>,
+      render: (s) => <span className="text-gray-100">{s.product_name}</span>,
     },
     {
       key: 'user_name',
       header: '주문자',
-      render: (s) => <span className="text-gray-700">{s.user_name}</span>,
+      render: (s) => <span className="text-gray-300">{s.user_name}</span>,
     },
     {
       key: 'quantity',
       header: '수량',
-      render: (s) => <span className="text-gray-700">{formatNumber(s.quantity)}</span>,
+      render: (s) => <span className="text-gray-300">{formatNumber(s.quantity)}</span>,
     },
     {
       key: 'cost',
       header: '매입단가',
       render: (s) => {
         const costPerUnit = s.quantity > 0 ? Math.round(s.cost / s.quantity) : 0;
-        return <span className="text-gray-600">{formatCurrency(costPerUnit)}</span>;
+        return <span className="text-gray-400">{formatCurrency(costPerUnit)}</span>;
       },
     },
     {
@@ -765,7 +765,7 @@ export default function SettlementPage() {
     {
       key: 'created_at',
       header: '일자',
-      render: (s) => <span className="text-gray-500 text-xs">{formatDate(s.created_at)}</span>,
+      render: (s) => <span className="text-gray-400 text-xs">{formatDate(s.created_at)}</span>,
     },
   ];
 
@@ -773,17 +773,17 @@ export default function SettlementPage() {
     {
       key: 'company_name',
       header: '업체명',
-      render: (r) => <span className="font-medium text-gray-900">{r.company_name}</span>,
+      render: (r) => <span className="font-medium text-gray-100">{r.company_name}</span>,
     },
     {
       key: 'order_count',
       header: '주문수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.order_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.order_count)}</span>,
     },
     {
       key: 'item_count',
       header: '아이템수',
-      render: (r) => <span className="text-gray-700">{formatNumber(r.item_count)}</span>,
+      render: (r) => <span className="text-gray-300">{formatNumber(r.item_count)}</span>,
     },
     {
       key: 'total_cost',
@@ -793,13 +793,13 @@ export default function SettlementPage() {
     {
       key: 'total_revenue',
       header: '매출',
-      render: (r) => <span className="text-gray-500">{formatCurrency(r.total_revenue)}</span>,
+      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_revenue)}</span>,
     },
     {
       key: 'avg_margin_pct',
       header: '마진율',
       render: (r) => (
-        <Badge className="bg-gray-100 text-gray-700">
+        <Badge className="bg-surface-raised text-gray-300">
           {r.avg_margin_pct.toFixed(1)}%
         </Badge>
       ),
@@ -836,8 +836,8 @@ export default function SettlementPage() {
           onClick={() => setManagedSubView('items')}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             managedSubView === 'items'
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-primary-900/30 text-primary-300'
+              : 'bg-surface text-gray-400 border border-border hover:bg-surface-raised'
           }`}
         >
           건별
@@ -846,8 +846,8 @@ export default function SettlementPage() {
           onClick={() => setManagedSubView('company')}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             managedSubView === 'company'
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              ? 'bg-primary-900/30 text-primary-300'
+              : 'bg-surface text-gray-400 border border-border hover:bg-surface-raised'
           }`}
         >
           업체별
@@ -904,11 +904,11 @@ export default function SettlementPage() {
   const renderDailyCheckTab = () => {
     if (dailyCheckLoading) {
       return (
-        <div className="bg-white rounded-xl border border-gray-200 p-8">
+        <div className="bg-surface rounded-xl border border-border p-8">
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/3" />
-            <div className="h-4 bg-gray-200 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
+            <div className="h-4 bg-surface-raised rounded w-1/3" />
+            <div className="h-4 bg-surface-raised rounded w-1/2" />
+            <div className="h-4 bg-surface-raised rounded w-2/3" />
           </div>
         </div>
       );
@@ -923,7 +923,7 @@ export default function SettlementPage() {
             type="date"
             value={checkDate}
             onChange={(e) => setCheckDate(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
           />
         </div>
 
@@ -952,8 +952,8 @@ export default function SettlementPage() {
 
         {/* Bulk action bar */}
         {selectedOrders.size > 0 && (
-          <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 flex items-center justify-between">
-            <span className="text-sm text-primary-700 font-medium">
+          <div className="bg-primary-900/20 border border-primary-800 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-sm text-primary-300 font-medium">
               {selectedOrders.size}건 선택됨
             </span>
             <div className="flex gap-2">
@@ -987,7 +987,7 @@ export default function SettlementPage() {
 
         {/* Distributor groups */}
         {dailyCheckData?.distributors.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+          <div className="bg-surface rounded-xl border border-border p-8 text-center text-gray-400">
             해당 날짜에 정산 체크 대상 접수건이 없습니다.
           </div>
         )}
@@ -997,11 +997,11 @@ export default function SettlementPage() {
           const allSelected = dist.orders.every((o) => selectedOrders.has(o.id));
 
           return (
-            <div key={dist.distributor_id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div key={dist.distributor_id} className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
               {/* Distributor header row */}
               <button
                 onClick={() => toggleDistributor(dist.distributor_id)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-raised transition-colors"
               >
                 <div className="flex items-center gap-3">
                   {isExpanded ? (
@@ -1010,75 +1010,75 @@ export default function SettlementPage() {
                     <ChevronRightIcon className="h-5 w-5 text-gray-400" />
                   )}
                   <div className="text-left">
-                    <span className="font-semibold text-gray-900">{dist.distributor_name}</span>
-                    <span className="ml-2 text-sm text-gray-500">
+                    <span className="font-semibold text-gray-100">{dist.distributor_name}</span>
+                    <span className="ml-2 text-sm text-gray-400">
                       ({formatNumber(dist.order_count)}건)
                     </span>
                   </div>
                 </div>
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-gray-300">
                   {formatCurrency(dist.total_amount)}
                 </span>
               </button>
 
               {/* Expanded order list */}
               {isExpanded && (
-                <div className="border-t border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="border-t border-border">
+                  <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-surface-raised">
                       <tr>
                         <th className="px-4 py-3 text-left">
                           <input
                             type="checkbox"
                             checked={allSelected && dist.orders.length > 0}
                             onChange={() => toggleAllInDistributor(dist.orders)}
-                            className="rounded border-gray-300 text-primary-600"
+                            className="rounded border-border-strong text-primary-400"
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           주문 ID
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           업체명
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           금액
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           상태
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           접수일
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           작업
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-border">
                       {dist.orders.map((order: OrderBrief) => (
-                        <tr key={order.id} className="hover:bg-gray-50">
+                        <tr key={order.id} className="hover:bg-surface-raised">
                           <td className="px-4 py-3">
                             <input
                               type="checkbox"
                               checked={selectedOrders.has(order.id)}
                               onChange={() => toggleOrderSelect(order.id)}
-                              className="rounded border-gray-300 text-primary-600"
+                              className="rounded border-border-strong text-primary-400"
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm font-mono text-primary-600">
+                          <td className="px-4 py-3 text-sm font-mono text-primary-400">
                             #{order.id}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-sm text-gray-100">
                             {order.place_name || '-'}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-300">
                             {formatCurrency(order.total_amount)}
                           </td>
                           <td className="px-4 py-3">
                             {getStatusBadge(order.status)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-400">
                             {order.created_at ? formatDate(order.created_at) : '-'}
                           </td>
                           <td className="px-4 py-3">
@@ -1122,13 +1122,13 @@ export default function SettlementPage() {
         {/* Hold reason modal */}
         {holdModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">보류 사유 입력</h3>
+            <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-100 mb-4">보류 사유 입력</h3>
               <textarea
                 value={holdReason}
                 onChange={(e) => setHoldReason(e.target.value)}
                 placeholder="보류 사유를 입력하세요..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px]"
+                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 min-h-[100px] bg-surface text-gray-200"
               />
               <div className="flex justify-end gap-2 mt-4">
                 <Button
@@ -1154,12 +1154,12 @@ export default function SettlementPage() {
         {/* Reject reason modal */}
         {rejectModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">반려 사유 입력</h3>
+            <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-100 mb-4">반려 사유 입력</h3>
               <textarea
                 value={rejectModal.reason}
                 onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[100px]"
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 min-h-[100px] bg-surface text-gray-200"
                 rows={3}
                 placeholder="반려 사유를 입력하세요..."
                 autoFocus
@@ -1195,8 +1195,8 @@ export default function SettlementPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">정산 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">주문별 수익/비용 현황을 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">정산 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">주문별 수익/비용 현황을 관리합니다.</p>
         </div>
         <Button
           variant="secondary"
@@ -1219,7 +1219,7 @@ export default function SettlementPage() {
               ${
                 activeTab === tab.key
                   ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  : 'bg-surface text-gray-400 border border-border hover:bg-surface-raised'
               }
             `}
           >
@@ -1237,14 +1237,14 @@ export default function SettlementPage() {
               type="date"
               value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             />
             <span className="text-gray-400">~</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             />
           </div>
         </div>
@@ -1271,9 +1271,9 @@ function SummaryCard({ label, value, color, subtitle }: { label: string; value: 
   };
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 ${borderColors[color] || 'border-l-gray-500'}`}>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+    <div className={`bg-surface rounded-xl border border-border shadow-sm p-4 border-l-4 ${borderColors[color] || 'border-l-gray-500'}`}>
+      <p className="text-sm text-gray-400">{label}</p>
+      <p className="text-xl font-bold text-gray-100 mt-1">{value}</p>
       {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
     </div>
   );

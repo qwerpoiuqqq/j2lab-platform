@@ -444,11 +444,11 @@ export default function OrderGrid({
       </div>
 
       {/* Grid table */}
-      <div className="overflow-auto max-h-[60vh] border border-gray-200 rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 sticky top-0 z-10">
+      <div className="overflow-auto max-h-[60vh] border border-border rounded-lg">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-surface-raised sticky top-0 z-10">
             <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">#</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 uppercase w-12">#</th>
               {schema.map((field) => (
                 <th
                   key={field.name}
@@ -463,14 +463,14 @@ export default function OrderGrid({
               ))}
               {/* AI: 네트워크 선택 컬럼 */}
               {enableAI && (
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 uppercase whitespace-nowrap">
                   네트워크
                 </th>
               )}
               <th className="px-3 py-3 w-12" />
             </tr>
           </thead>
-          <tbody className="bg-white">
+          <tbody className="bg-surface">
             {rows.map((row, rowIdx) => {
               const ai = aiStates[rowIdx] || { recommendation: null, loading: false, networkName: '' };
               const networkList = enableAI ? getNetworkList(rowIdx) : [];
@@ -479,8 +479,8 @@ export default function OrderGrid({
               return (
                 <React.Fragment key={rowIdx}>
                   {/* 데이터 행 */}
-                  <tr className="border-t border-gray-200 hover:bg-gray-50 align-top">
-                    <td className="px-3 py-2 text-sm text-gray-500">{rowIdx + 1}</td>
+                  <tr className="border-t border-border hover:bg-surface-raised align-top">
+                    <td className="px-3 py-2 text-sm text-gray-400">{rowIdx + 1}</td>
                     {schema.map((field, colIdx) => (
                       <td key={field.name} className="px-1 py-1">
                         <GridCell
@@ -528,7 +528,7 @@ export default function OrderGrid({
                                 return ns;
                               });
                             }}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            className="w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
                           >
                             {networkList.map((n) => (
                               <option key={n.id} value={n.name}>{n.name}</option>
@@ -537,7 +537,7 @@ export default function OrderGrid({
                         ) : ai.recommendation ? (
                           <span className="text-xs text-gray-400 px-2">네트워크 없음</span>
                         ) : (
-                          <span className="text-xs text-gray-300 px-2">URL 입력 후</span>
+                          <span className="text-xs text-gray-600 px-2">URL 입력 후</span>
                         )}
                       </td>
                     )}
@@ -556,7 +556,7 @@ export default function OrderGrid({
                     <tr className="border-0">
                       <td />
                       <td colSpan={schema.length + (enableAI ? 2 : 1)} className="px-1 pb-1 pt-0">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 rounded border border-amber-200 text-xs text-amber-700">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-900/20 rounded border border-amber-800/50 text-xs text-amber-400">
                           <ExclamationTriangleIcon className="h-3.5 w-3.5 shrink-0" />
                           {urlWarnings[rowIdx]}
                         </div>
@@ -587,68 +587,68 @@ export default function OrderGrid({
       {/* Notes + Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">비고</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
             placeholder="주문 관련 메모를 입력하세요..."
           />
         </div>
 
         {mode === 'combined' && combinedConfig ? (
-          <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
+          <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">총 건수</span>
-              <span className="font-medium text-gray-900">{formatNumber(rows.length)}건</span>
+              <span className="text-gray-400">총 건수</span>
+              <span className="font-medium text-gray-100">{formatNumber(rows.length)}건</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">트래픽 ({formatNumber(trafficTotalQty)}타 x {formatCurrency(combinedConfig.trafficPrice)})</span>
-              <span className="font-medium text-gray-900">{formatCurrency(trafficSubtotal)}</span>
+              <span className="text-gray-400">트래픽 ({formatNumber(trafficTotalQty)}타 x {formatCurrency(combinedConfig.trafficPrice)})</span>
+              <span className="font-medium text-gray-100">{formatCurrency(trafficSubtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">저장하기 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
-              <span className="font-medium text-gray-900">{formatCurrency(saveSubtotal)}</span>
+              <span className="text-gray-400">저장하기 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
+              <span className="font-medium text-gray-100">{formatCurrency(saveSubtotal)}</span>
             </div>
-            <div className="border-t border-gray-200 pt-2" />
+            <div className="border-t border-border pt-2" />
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">공급가액</span>
-              <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
+              <span className="text-gray-400">공급가액</span>
+              <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">부가세 (10%)</span>
-              <span className="font-medium text-gray-900">{formatCurrency(vat)}</span>
+              <span className="text-gray-400">부가세 (10%)</span>
+              <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
             </div>
-            <div className="border-t border-gray-200 pt-2 flex justify-between">
-              <span className="text-base font-semibold text-gray-900">합계</span>
+            <div className="border-t border-border pt-2 flex justify-between">
+              <span className="text-base font-semibold text-gray-100">합계</span>
               <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-2">
+          <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">총 건수</span>
-              <span className="font-medium text-gray-900">{formatNumber(rows.length)}건</span>
+              <span className="text-gray-400">총 건수</span>
+              <span className="font-medium text-gray-100">{formatNumber(rows.length)}건</span>
             </div>
             {quantityField && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">총 수량 ({quantityField.label})</span>
-                <span className="font-medium text-gray-900">
+                <span className="text-gray-400">총 수량 ({quantityField.label})</span>
+                <span className="font-medium text-gray-100">
                   {formatNumber(rows.reduce((s, r) => s + (Number(r[quantityField.name]) || 0), 0))}
                 </span>
               </div>
             )}
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">공급가액</span>
-              <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
+              <span className="text-gray-400">공급가액</span>
+              <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">부가세 (10%)</span>
-              <span className="font-medium text-gray-900">{formatCurrency(vat)}</span>
+              <span className="text-gray-400">부가세 (10%)</span>
+              <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
             </div>
-            <div className="border-t border-gray-200 pt-2 flex justify-between">
-              <span className="text-base font-semibold text-gray-900">합계</span>
+            <div className="border-t border-border pt-2 flex justify-between">
+              <span className="text-base font-semibold text-gray-100">합계</span>
               <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
             </div>
           </div>
@@ -678,9 +678,9 @@ function SuggestionCard({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50/60 rounded-lg border border-blue-100 animate-pulse">
-        <SparklesIcon className="h-4 w-4 text-blue-400 shrink-0" />
-        <span className="text-xs text-blue-500">AI가 이 플레이스를 분석하고 있습니다...</span>
+      <div className="flex items-center gap-2 px-3 py-2 bg-primary-900/20 rounded-lg border border-primary-800/30 animate-pulse">
+        <SparklesIcon className="h-4 w-4 text-primary-400 shrink-0" />
+        <span className="text-xs text-primary-400">AI가 이 플레이스를 분석하고 있습니다...</span>
       </div>
     );
   }
@@ -697,25 +697,25 @@ function SuggestionCard({
   const actionText = recTypeRec.recommended_action === 'extend' ? '연장' : '신규 세팅';
 
   return (
-    <div className="flex items-start gap-2 px-3 py-2.5 bg-gradient-to-r from-blue-50/80 to-purple-50/40 rounded-lg border border-blue-100/80">
-      <SparklesIcon className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+    <div className="flex items-start gap-2 px-3 py-2.5 bg-surface-raised rounded-lg border border-border">
+      <SparklesIcon className="h-4 w-4 text-primary-400 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <div className="text-xs text-gray-700 leading-relaxed">
-          <span className="font-medium text-blue-700">{placeLabel}</span>입니다.{' '}
-          <span className={`font-semibold ${recType === 'traffic' ? 'text-blue-600' : 'text-purple-600'}`}>
+        <div className="text-xs text-gray-300 leading-relaxed">
+          <span className="font-medium text-primary-400">{placeLabel}</span>입니다.{' '}
+          <span className={`font-semibold ${recType === 'traffic' ? 'text-primary-400' : 'text-purple-400'}`}>
             {recType === 'traffic' ? '트래픽' : '저장하기'}
           </span>
           {recTypeRec.recommended_network && (
-            <> <span className="font-medium text-gray-800">{recTypeRec.recommended_network}</span></>
+            <> <span className="font-medium text-gray-200">{recTypeRec.recommended_network}</span></>
           )}
           으로 <span className="font-medium">{actionText}</span> 진행해보시는 건 어떨까요?
         </div>
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
-          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${rec.is_existing ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${rec.is_existing ? 'bg-orange-900/30 text-orange-400' : 'bg-green-900/30 text-green-400'}`}>
             {rec.is_existing ? '기존' : '신규'}
           </span>
           {recTypeRec.recommended_action === 'extend' && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-700">연장 가능</span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-900/30 text-yellow-400">연장 가능</span>
           )}
           <span className="text-[10px] text-gray-400">
             남은 네트워크: 트래픽 {rec.traffic.available_networks}개 / 저장하기 {rec.save.available_networks}개
@@ -743,13 +743,13 @@ interface GridCellProps {
 
 function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled }: GridCellProps) {
   const baseClass =
-    `w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500${
-      disabled ? ' bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+    `w-full px-2 py-1.5 text-sm border border-border-strong rounded bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400${
+      disabled ? ' bg-surface-overlay text-gray-500 cursor-not-allowed' : ''
     }`;
   const readonlyClass =
-    'w-full px-2 py-1.5 text-sm bg-gray-100 border border-gray-200 rounded text-gray-600 cursor-default';
+    'w-full px-2 py-1.5 text-sm bg-surface-overlay border border-border rounded text-gray-400 cursor-default';
   const disabledReadonlyClass =
-    'w-full px-2 py-1.5 text-sm bg-gray-100 border border-gray-200 rounded text-gray-300 cursor-not-allowed';
+    'w-full px-2 py-1.5 text-sm bg-surface-overlay border border-border rounded text-gray-600 cursor-not-allowed';
 
   const dataAttrs = { 'data-row': rowIdx, 'data-col': colIdx } as Record<string, number>;
 
@@ -761,7 +761,7 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled 
             type="checkbox"
             checked={!!value}
             onChange={(e) => onChange(e.target.checked ? 1 : 0)}
-            className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+            className="h-5 w-5 rounded border-border-strong text-primary-600 focus:ring-primary-400/40 cursor-pointer"
             {...dataAttrs}
           />
         </div>
@@ -813,7 +813,7 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled 
 
     case 'readonly':
       return (
-        <div className="w-full px-2 py-1.5 text-sm bg-gray-100 border border-gray-200 rounded text-gray-600 cursor-default" title={field.description}>
+        <div className="w-full px-2 py-1.5 text-sm bg-surface-overlay border border-border rounded text-gray-400 cursor-default" title={field.description}>
           {String(value || field.description || field.sample || '')}
         </div>
       );

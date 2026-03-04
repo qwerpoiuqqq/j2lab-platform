@@ -85,18 +85,18 @@ export default function OrderGridPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">주문 접수</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-100">주문 접수</h1>
+        <p className="mt-1 text-sm text-gray-400">
           상품을 선택한 후 접수 양식에 맞게 데이터를 입력하세요. AI가 캠페인 타입과 네트워크를 자동 추천합니다.
         </p>
       </div>
 
       {/* Step 1: 상품 선택 */}
       {!selectedProduct ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">상품 선택</h2>
-            <p className="mt-1 text-sm text-gray-500">접수할 상품을 선택하세요.</p>
+        <div className="bg-surface rounded-xl border border-border shadow-sm">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-gray-100">상품 선택</h2>
+            <p className="mt-1 text-sm text-gray-400">접수할 상품을 선택하세요.</p>
           </div>
           <div className="p-6">
             {productsLoading ? (
@@ -112,11 +112,11 @@ export default function OrderGridPage() {
                   <button
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
-                    className="text-left p-4 border border-gray-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                    className="text-left p-4 border border-border rounded-lg hover:border-primary-400 hover:bg-primary-900/20 transition-colors"
                   >
-                    <div className="font-medium text-gray-900">{product.name}</div>
+                    <div className="font-medium text-gray-100">{product.name}</div>
                     {product.category && (
-                      <div className="mt-1 text-xs text-gray-500">{product.category}</div>
+                      <div className="mt-1 text-xs text-gray-400">{product.category}</div>
                     )}
                     {product.description && (
                       <div className="mt-1 text-xs text-gray-400 line-clamp-2">{product.description}</div>
@@ -145,27 +145,27 @@ export default function OrderGridPage() {
               상품 변경
             </Button>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">{selectedProduct.name}</span>
+              <span className="text-sm font-medium text-gray-100">{selectedProduct.name}</span>
               {selectedProduct.category && (
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                <span className="text-xs text-gray-400 bg-surface-raised px-2 py-0.5 rounded">
                   {selectedProduct.category}
                 </span>
               )}
             </div>
             {isAdmin && (
               <div className="flex items-center gap-2 ml-auto">
-                <label className="text-sm text-gray-600">주문 유형:</label>
+                <label className="text-sm text-gray-400">주문 유형:</label>
                 <select
                   value={orderType}
                   onChange={(e) => setOrderType(e.target.value as OrderType)}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="rounded-lg border border-border-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                 >
                   {orderTypeOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
                 {isNoRevenue && (
-                  <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                  <span className="text-xs text-orange-400 bg-orange-900/20 px-2 py-1 rounded">
                     매출 0원 (매입만 발생)
                   </span>
                 )}
@@ -173,11 +173,11 @@ export default function OrderGridPage() {
             )}
             {isAdmin && isNoRevenue && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">배정 계정:</label>
+                <label className="text-sm text-gray-400">배정 계정:</label>
                 <select
                   value={assignedAccountId ?? ''}
                   onChange={(e) => setAssignedAccountId(e.target.value ? Number(e.target.value) : null)}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="rounded-lg border border-border-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                 >
                   <option value="">계정 선택 (필수)</option>
                   {accounts.map((acc) => (
@@ -191,9 +191,9 @@ export default function OrderGridPage() {
           </div>
 
           {/* Order Grid */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">접수 양식 입력</h2>
+          <div className="bg-surface rounded-xl border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-gray-100">접수 양식 입력</h2>
             </div>
             <div className="p-6">
               <OrderGrid

@@ -134,7 +134,7 @@ export default function AssignmentQueuePage() {
               ${
                 activeTab === tab.key
                   ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  : 'bg-surface text-gray-400 border border-border hover:bg-surface-raised'
               }
             `}
           >
@@ -144,90 +144,90 @@ export default function AssignmentQueuePage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-surface rounded-xl border border-border">
         {loading ? (
           <div className="px-6 py-12 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
-            <p className="mt-2 text-sm text-gray-500">불러오는 중...</p>
+            <p className="mt-2 text-sm text-gray-400">불러오는 중...</p>
           </div>
         ) : error ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm text-red-600">{error}</p>
             <button
               onClick={fetchQueue}
-              className="mt-2 text-sm text-primary-600 hover:underline"
+              className="mt-2 text-sm text-primary-400 hover:underline"
             >
               다시 시도
             </button>
           </div>
         ) : items.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm text-gray-500">배정 대기열이 비어 있습니다.</p>
+            <p className="text-sm text-gray-400">배정 대기열이 비어 있습니다.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-surface-raised">
                 <tr>
                   <th className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedIds.size === items.length && items.length > 0}
                       onChange={toggleSelectAll}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     주문번호
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     업체명
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     플레이스
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     캠페인유형
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     배정계정
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     상태
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     AI추천
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                     작업
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-surface divide-y divide-border">
                 {items.map((item) => (
                   <Fragment key={item.order_item_id}>
-                    <tr className="hover:bg-gray-50">
+                    <tr className="hover:bg-surface-raised">
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(item.order_item_id)}
                           onChange={() => toggleSelect(item.order_item_id)}
-                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
                         />
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-primary-600">
+                      <td className="px-4 py-3 text-sm font-medium text-primary-400">
                         {item.order_number || `#${item.order_id}`}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-gray-100">
                         {item.company_name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-gray-100">
                         {item.place_name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-400">
                         {item.campaign_type ? getCampaignTypeLabel(item.campaign_type) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-400">
                         {item.assigned_account_name || '-'}
                       </td>
                       <td className="px-4 py-3">
@@ -283,11 +283,11 @@ export default function AssignmentQueuePage() {
                     </tr>
                     {/* Extend target info row */}
                     {item.extend_target_info && (
-                      <tr key={`${item.order_item_id}-extend-info`} className="bg-blue-50/50">
+                      <tr key={`${item.order_item_id}-extend-info`} className="bg-blue-900/10">
                         <td />
                         <td colSpan={8} className="px-4 py-2">
-                          <div className="flex items-center gap-4 text-xs text-gray-600">
-                            <span className="font-medium text-blue-700">기존 캠페인 연장 대상:</span>
+                          <div className="flex items-center gap-4 text-xs text-gray-400">
+                            <span className="font-medium text-primary-300">기존 캠페인 연장 대상:</span>
                             <span>
                               캠페인 ID: <span className="font-mono font-medium">{item.extend_target_info.campaign_id}</span>
                             </span>
@@ -321,8 +321,8 @@ export default function AssignmentQueuePage() {
 
       {/* Bulk confirm bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg px-6 py-3 flex items-center justify-between z-40">
-          <p className="text-sm text-gray-700">
+        <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border shadow-lg px-6 py-3 flex items-center justify-between z-40">
+          <p className="text-sm text-gray-300">
             <span className="font-semibold">{selectedIds.size}</span>건 선택됨
           </p>
           <Button

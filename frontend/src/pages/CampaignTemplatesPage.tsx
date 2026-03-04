@@ -81,8 +81,8 @@ export default function CampaignTemplatesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">템플릿 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-100">템플릿 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">
             캠페인 등록 시 사용할 템플릿을 관리합니다.
             {templates.length > 0 && ` (총 ${templates.length}개)`}
           </p>
@@ -99,20 +99,20 @@ export default function CampaignTemplatesPage() {
         <div
           className={`rounded-xl p-3 text-sm ${
             message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-900/20 text-green-400 border border-green-800'
+              : 'bg-red-900/20 text-red-400 border border-red-800'
           }`}
         >
           {message.text}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-500">로딩 중...</div>
+          <div className="p-12 text-center text-gray-400">로딩 중...</div>
         ) : templates.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-gray-500 mb-2">등록된 템플릿이 없습니다.</p>
+            <p className="text-gray-400 mb-2">등록된 템플릿이 없습니다.</p>
             <p className="text-sm text-gray-400 mb-4">
               템플릿을 생성하여 캠페인 자동화를 시작하세요.
             </p>
@@ -123,31 +123,31 @@ export default function CampaignTemplatesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-raised">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">캠페인 이름</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">캠페인 타입</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">모듈</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 이름</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 타입</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">모듈</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border-subtle">
                 {templates.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{t.type_name}</td>
-                    <td className="px-6 py-4 text-gray-600">
+                  <tr key={t.id} className="hover:bg-surface-raised transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-100">{t.type_name}</td>
+                    <td className="px-6 py-4 text-gray-400">
                       {t.campaign_type_selection ? getCampaignTypeLabel(t.campaign_type_selection) : '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-xs">
+                    <td className="px-6 py-4 text-gray-400 text-xs">
                       {t.modules.length > 0 ? t.modules.join(', ') : '-'}
                     </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           t.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-surface-raised text-gray-400'
                         }`}
                       >
                         {t.is_active ? '활성' : '비활성'}
@@ -157,14 +157,14 @@ export default function CampaignTemplatesPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => { setEditId(t.id); setMessage(null); }}
-                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          className="text-sm text-primary-400 hover:text-primary-300 font-medium"
                         >
                           편집
                         </button>
                         <button
                           onClick={() => handleDelete(t.id, t.type_name)}
                           disabled={deleteMutation.isPending}
-                          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                          className="text-sm text-red-500 hover:text-red-400 font-medium disabled:opacity-50"
                         >
                           삭제
                         </button>
@@ -322,7 +322,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
       }
     >
       {loading ? (
-        <div className="text-center py-8 text-gray-500">로딩 중...</div>
+        <div className="text-center py-8 text-gray-400">로딩 중...</div>
       ) : (
         <div className="flex gap-6">
           {/* Main form */}
@@ -330,20 +330,20 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
             {/* Section: Basic info */}
             <FormSection title="기본 정보">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   캠페인 이름 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={typeName}
                   onChange={(e) => setTypeName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   placeholder="예: 트래픽, 저장하기, 명소"
                 />
               </div>
               {!isCreate && (
                 <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-gray-700">활성 상태</label>
+                  <label className="text-sm font-medium text-gray-300">활성 상태</label>
                   <button
                     type="button"
                     onClick={() => setIsActive(!isActive)}
@@ -352,24 +352,24 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                     }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                         isActive ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>
-                  <span className={`text-xs ${isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                  <span className={`text-xs ${isActive ? 'text-green-600' : 'text-gray-400'}`}>
                     {isActive ? '활성' : '비활성'}
                   </span>
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   superap.io 캠페인 타입
                 </label>
                 <select
                   value={campaignType}
                   onChange={(e) => setCampaignType(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 >
                   <option value="">-- 선택 --</option>
                   {CAMPAIGN_TYPE_OPTIONS.map((group) => (
@@ -386,7 +386,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
             {/* Section: Module settings */}
             <FormSection title="모듈 & 변수 설정">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">사용할 모듈</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">사용할 모듈</label>
                 <div className="space-y-2">
                   {modules.map((m) => {
                     const isActive = enabledModules.has(m.name);
@@ -396,14 +396,14 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                         onClick={() => toggleModule(m.name)}
                         className={`cursor-pointer border rounded-lg p-3 transition-all ${
                           isActive
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-primary-500 bg-primary-900/20'
+                            : 'border-border hover:border-border-strong'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <div
                             className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                              isActive ? 'bg-primary-500 border-primary-500' : 'border-gray-300'
+                              isActive ? 'bg-primary-500 border-primary-500' : 'border-border-strong'
                             }`}
                           >
                             {isActive && (
@@ -413,7 +413,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                             )}
                           </div>
                           <div>
-                            <span className="text-sm font-medium text-gray-800">{m.description}</span>
+                            <span className="text-sm font-medium text-gray-200">{m.description}</span>
                             <span className="text-xs text-gray-400 ml-2">
                               변수: {m.variables.map((v) => `&${v}&`).join(', ')}
                             </span>
@@ -426,12 +426,12 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">전환 인식 텍스트 (선택)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">전환 인식 텍스트 (선택)</label>
                 <input
                   type="text"
                   value={conversionText}
                   onChange={(e) => setConversionText(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   placeholder="예: &명소명& ㄱㄱ"
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -441,12 +441,12 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
 
               {enabledModules.has('steps') && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">걸음수 출발지 (선택)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">걸음수 출발지 (선택)</label>
                   <input
                     type="text"
                     value={stepsStart}
                     onChange={(e) => setStepsStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                     placeholder="예: &명소명& 입구 (비워두면 명소를 출발지로 사용)"
                   />
                   <p className="text-xs text-gray-400 mt-1">
@@ -459,26 +459,26 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
             {/* Section: Participation settings */}
             <FormSection title="참여 설정">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   참여 방법 설명 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={descTemplate}
                   onChange={(e) => setDescTemplate(e.target.value)}
                   rows={5}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   placeholder="예: &상호명& 근처 &명소명&에서 출발하여 &걸음수& 걸음을 걸으세요."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   정답 힌트 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={hintText}
                   onChange={(e) => setHintText(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   placeholder="예: 참여 방법에 있는 출발지에서 목적지까지 [가장 빠른] 걸음 수 맞추기"
                 />
               </div>
@@ -487,21 +487,21 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
             {/* Section: Media & Links */}
             <FormSection title="미디어 & 링크 (선택)">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">링크</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">링크</label>
                 {links.map((link, i) => (
                   <div key={i} className="flex gap-2 mb-1.5">
                     <input
                       type="text"
                       value={link}
                       onChange={(e) => updateLink(i, e.target.value)}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="flex-1 border border-border-strong rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                       placeholder={`링크 ${i + 1}`}
                     />
                     {links.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeLink(i)}
-                        className="text-red-400 hover:text-red-600 text-sm px-2"
+                        className="text-red-400 hover:text-red-400 text-sm px-2"
                       >
                         삭제
                       </button>
@@ -511,18 +511,18 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                 <button
                   type="button"
                   onClick={addLink}
-                  className="text-sm text-primary-600 hover:text-primary-700"
+                  className="text-sm text-primary-400 hover:text-primary-300"
                 >
                   + 링크 추가
                 </button>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">해시태그</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">해시태그</label>
                 <select
                   value={hashtag}
                   onChange={(e) => setHashtag(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 >
                   <option value="">-- 선택 안 함 --</option>
                   {HASHTAG_OPTIONS.map((h) => (
@@ -533,22 +533,22 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">이미지 URL (200x600)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">이미지 URL (200x600)</label>
                   <input
                     type="text"
                     value={imageUrl200}
                     onChange={(e) => setImageUrl200(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                     placeholder="선택사항"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">이미지 URL (720x780)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">이미지 URL (720x780)</label>
                   <input
                     type="text"
                     value={imageUrl720}
                     onChange={(e) => setImageUrl720(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                     placeholder="선택사항"
                   />
                 </div>
@@ -560,23 +560,23 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
 
           {/* Sidebar: Variable guide */}
           <div className="w-56 flex-shrink-0 hidden lg:block">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sticky top-0">
-              <h3 className="text-sm font-semibold text-blue-800 mb-3">
+            <div className="bg-blue-900/20 border border-blue-800 rounded-xl p-4 sticky top-0">
+              <h3 className="text-sm font-semibold text-blue-400 mb-3">
                 사용 가능한 변수
               </h3>
 
               <div className="mb-3">
-                <div className="text-xs font-medium text-blue-700 mb-1.5">기본 제공</div>
+                <div className="text-xs font-medium text-primary-300 mb-1.5">기본 제공</div>
                 <VariableItem variable="&상호명&" description="마스킹된 상호명" />
               </div>
 
               {activeModules.length > 0 ? (
                 <div className="mb-3">
-                  <div className="text-xs font-medium text-blue-700 mb-1.5">선택된 모듈</div>
+                  <div className="text-xs font-medium text-primary-300 mb-1.5">선택된 모듈</div>
                   <div className="space-y-2.5">
                     {activeModules.map((m) => (
                       <div key={m.name}>
-                        <div className="text-xs text-blue-600 font-medium mb-1">{m.description}</div>
+                        <div className="text-xs text-blue-400 font-medium mb-1">{m.description}</div>
                         <div className="ml-2 space-y-1">
                           {m.variables.map((v) => (
                             <VariableItem key={v} variable={`&${v}&`} description={v} />
@@ -592,8 +592,8 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                 </div>
               )}
 
-              <div className="border-t border-blue-200 pt-3 mt-3">
-                <div className="text-xs text-blue-600 leading-relaxed">
+              <div className="border-t border-blue-800 pt-3 mt-3">
+                <div className="text-xs text-blue-400 leading-relaxed">
                   참여 방법 설명, 정답 힌트, 전환 인식 텍스트에서 사용할 수 있습니다.
                 </div>
               </div>
@@ -610,7 +610,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-gray-800 pb-1 border-b border-gray-200">{title}</h4>
+      <h4 className="text-sm font-semibold text-gray-200 pb-1 border-b border-border">{title}</h4>
       {children}
     </div>
   );
@@ -619,10 +619,10 @@ function FormSection({ title, children }: { title: string; children: React.React
 function VariableItem({ variable, description }: { variable: string; description: string }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <code className="bg-blue-100 px-1.5 py-0.5 rounded text-blue-800 font-mono whitespace-nowrap">
+      <code className="bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-400 font-mono whitespace-nowrap">
         {variable}
       </code>
-      <span className="text-blue-700">{description}</span>
+      <span className="text-primary-300">{description}</span>
     </div>
   );
 }

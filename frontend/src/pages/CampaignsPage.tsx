@@ -96,8 +96,8 @@ export default function CampaignsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">캠페인 대시보드</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-100">캠페인 대시보드</h1>
+        <p className="mt-1 text-sm text-gray-400">
           캠페인 현황을 모니터링하고 관리합니다.
         </p>
       </div>
@@ -113,7 +113,7 @@ export default function CampaignsPage() {
               ${
                 activeAccount === tab.key
                   ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  : 'bg-surface text-gray-400 border border-border hover:bg-surface-raised'
               }
             `}
           >
@@ -124,8 +124,8 @@ export default function CampaignsPage() {
                   text-xs px-1.5 py-0.5 rounded-full
                   ${
                     activeAccount === tab.key
-                      ? 'bg-white/20 text-white'
-                      : 'bg-gray-100 text-gray-500'
+                      ? 'bg-surface/20 text-white'
+                      : 'bg-surface-raised text-gray-400'
                   }
                 `}
               >

@@ -43,8 +43,8 @@ export default function SuperapAccountsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">계정 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-100">계정 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">
             superap.io 계정을 관리합니다.
           </p>
         </div>
@@ -60,58 +60,58 @@ export default function SuperapAccountsPage() {
         <div
           className={`rounded-xl p-3 text-sm ${
             message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-900/20 text-green-400 border border-green-800'
+              : 'bg-red-900/20 text-red-400 border border-red-800'
           }`}
         >
           {message.text}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-500">로딩 중...</div>
+          <div className="p-12 text-center text-gray-400">로딩 중...</div>
         ) : accounts.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-12 text-center text-gray-400">
             등록된 계정이 없습니다. 계정을 추가해주세요.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-raised">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">아이디</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">회사</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">대행사명</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">트래픽 단가</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">저장 단가</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">캠페인 수</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">등록일</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">아이디</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">회사</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">대행사명</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">트래픽 단가</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">저장 단가</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 수</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">등록일</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border-subtle">
                 {accounts.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{a.user_id_superap}</td>
-                    <td className="px-6 py-4 text-gray-600">{a.company_name || '-'}</td>
-                    <td className="px-6 py-4 text-gray-600">{a.agency_name || '-'}</td>
-                    <td className="px-6 py-4 text-right text-gray-600">{a.unit_cost_traffic}원</td>
-                    <td className="px-6 py-4 text-right text-gray-600">{a.unit_cost_save}원</td>
-                    <td className="px-6 py-4 text-gray-600">{a.campaign_count}</td>
+                  <tr key={a.id} className="hover:bg-surface-raised transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-100">{a.user_id_superap}</td>
+                    <td className="px-6 py-4 text-gray-400">{a.company_name || '-'}</td>
+                    <td className="px-6 py-4 text-gray-400">{a.agency_name || '-'}</td>
+                    <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_traffic}원</td>
+                    <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_save}원</td>
+                    <td className="px-6 py-4 text-gray-400">{a.campaign_count}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           a.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-green-900/30 text-green-400'
+                            : 'bg-surface-raised text-gray-400'
                         }`}
                       >
                         {a.is_active ? '활성' : '비활성'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-500 text-xs">
+                    <td className="px-6 py-4 text-gray-400 text-xs">
                       {a.created_at
                         ? new Date(a.created_at).toLocaleDateString('ko-KR')
                         : '-'}
@@ -120,14 +120,14 @@ export default function SuperapAccountsPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => { setEditId(a.id); setMessage(null); }}
-                          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          className="text-sm text-primary-400 hover:text-primary-300 font-medium"
                         >
                           편집
                         </button>
                         <button
                           onClick={() => handleDelete(a.id, a.user_id_superap)}
                           disabled={deleteMutation.isPending}
-                          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                          className="text-sm text-red-500 hover:text-red-400 font-medium disabled:opacity-50"
                         >
                           삭제
                         </button>
@@ -248,41 +248,41 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
       }
     >
       {!loaded && !isCreate ? (
-        <div className="text-center py-8 text-gray-500">로딩 중...</div>
+        <div className="text-center py-8 text-gray-400">로딩 중...</div>
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               아이디 (superap.io 로그인 ID)
             </label>
             <input
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="superap 아이디"
               disabled={!isCreate}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder={isCreate ? '비밀번호 입력' : '변경 시에만 입력'}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">대행사명</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">대행사명</label>
             <input
               type="text"
               value={agencyName}
               onChange={(e) => setAgencyName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="대행사명 (선택)"
             />
           </div>

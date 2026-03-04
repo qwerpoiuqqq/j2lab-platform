@@ -405,8 +405,8 @@ export default function ProductsPage() {
       header: '상품명',
       render: (p) => (
         <div>
-          <p className="font-medium text-gray-900">{p.name}</p>
-          {p.description && <p className="text-xs text-gray-500 truncate max-w-[200px]">{p.description}</p>}
+          <p className="font-medium text-gray-100">{p.name}</p>
+          {p.description && <p className="text-xs text-gray-400 truncate max-w-[200px]">{p.description}</p>}
         </div>
       ),
     },
@@ -418,18 +418,18 @@ export default function ProductsPage() {
     {
       key: 'base_price',
       header: '기본단가',
-      render: (p) => <span className="font-medium text-gray-900">{formatCurrency(p.base_price)}</span>,
+      render: (p) => <span className="font-medium text-gray-100">{formatCurrency(p.base_price)}</span>,
     },
     {
       key: 'cost_price',
       header: '참고 원가',
-      render: (p) => <span className="text-gray-600">{p.cost_price ? formatCurrency(p.cost_price) : '-'}</span>,
+      render: (p) => <span className="text-gray-400">{p.cost_price ? formatCurrency(p.cost_price) : '-'}</span>,
     },
     {
       key: 'form_schema',
       header: '스키마',
       render: (p) => (
-        <span className="text-xs text-gray-500">{normalizeSchema(p.form_schema).length}개 필드</span>
+        <span className="text-xs text-gray-400">{normalizeSchema(p.form_schema).length}개 필드</span>
       ),
     },
     {
@@ -444,7 +444,7 @@ export default function ProductsPage() {
     {
       key: 'created_at',
       header: '생성일',
-      render: (p) => <span className="text-gray-500 text-xs">{formatDateTime(p.created_at)}</span>,
+      render: (p) => <span className="text-gray-400 text-xs">{formatDateTime(p.created_at)}</span>,
     },
     ...(isAdmin
       ? [
@@ -455,7 +455,7 @@ export default function ProductsPage() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                  className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded transition-colors"
                   title="편집"
                 >
                   <PencilSquareIcon className="h-4 w-4" />
@@ -464,8 +464,8 @@ export default function ProductsPage() {
                   onClick={(e) => { e.stopPropagation(); handleToggleActive(p); }}
                   className={`p-1.5 rounded transition-colors ${
                     p.is_active
-                      ? 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'
-                      : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                      ? 'text-gray-400 hover:text-amber-600 hover:bg-amber-900/20'
+                      : 'text-gray-400 hover:text-green-600 hover:bg-green-900/20'
                   }`}
                   title={p.is_active ? '비활성화' : '활성화'}
                 >
@@ -473,7 +473,7 @@ export default function ProductsPage() {
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(p); }}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
                   title="삭제"
                 >
                   <TrashIcon className="h-4 w-4" />
@@ -516,8 +516,8 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">상품 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">상품 목록을 조회하고 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">상품 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">상품 목록을 조회하고 관리합니다.</p>
         </div>
         {isAdmin && (
           <Button onClick={openCreate} icon={<PlusIcon className="h-4 w-4" />}>
@@ -527,7 +527,7 @@ export default function ProductsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       <Table<Product>
@@ -548,17 +548,17 @@ export default function ProductsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 p-1" style={{ maxHeight: '78vh', overflow: 'auto' }}>
           {/* ==================== LEFT: Basic Info ==================== */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-gray-800 border-b border-gray-100 pb-2">기본 정보</h3>
+            <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-gray-200 border-b border-border-subtle pb-2">기본 정보</h3>
 
               {/* Preset selector (only for create mode) */}
               {!editing && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">프리셋</label>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">프리셋</label>
                   <select
                     value={selectedPreset}
                     onChange={(e) => applyPreset(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                   >
                     <option value="">직접 구성</option>
                     {PRODUCT_PRESETS.map((preset) => (
@@ -577,11 +577,11 @@ export default function ProductsPage() {
                 required
               />
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">카테고리</label>
+                <label className="block text-xs font-medium text-gray-400 mb-1">카테고리</label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                 >
                   <option value="">선택하세요</option>
                   {categories.map((cat) => (
@@ -590,12 +590,12 @@ export default function ProductsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">설명</label>
+                <label className="block text-xs font-medium text-gray-400 mb-1">설명</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 resize-none bg-surface text-gray-200"
                   placeholder="상품 설명을 입력하세요..."
                 />
               </div>
@@ -645,12 +645,12 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">일 마감시간</label>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">일 마감시간</label>
                   <input
                     type="time"
                     value={formData.daily_deadline}
                     onChange={(e) => setFormData({ ...formData, daily_deadline: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                   />
                   <p className="text-[11px] text-gray-400 mt-0.5">이 시간 이후에 세팅 진행</p>
                 </div>
@@ -665,10 +665,10 @@ export default function ProductsPage() {
             </div>
 
             {/* Price Settings Card */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-gray-800 border-b border-gray-100 pb-2">가격 설정</h3>
+            <div className="bg-surface border border-border rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-gray-200 border-b border-border-subtle pb-2">가격 설정</h3>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">수량 기준 필드</label>
+                <label className="block text-xs font-medium text-gray-400 mb-1">수량 기준 필드</label>
                 <select
                   value={quantityFieldIndex !== -1 ? String(quantityFieldIndex) : ''}
                   onChange={(e) => {
@@ -676,7 +676,7 @@ export default function ProductsPage() {
                     if (val === '') { clearQuantityField(); }
                     else { setQuantityField(Number(val)); }
                   }}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                 >
                   <option value="">선택 안 함 (슬롯 수 = 수량)</option>
                   {numberOrCalcFields.map((field) => {
@@ -692,23 +692,23 @@ export default function ProductsPage() {
               </div>
 
               {/* Pricing formula preview */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs font-semibold text-gray-500 mb-2">가격 공식</p>
+              <div className="bg-surface-raised rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-400 mb-2">가격 공식</p>
                 {quantityFieldIndex === -1 ? (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-400">
                     <p>슬롯 1건 &times; {unitPrice.toLocaleString()}원 = 공급가</p>
                     <p>공급가 + 부가세(10%) = 총 견적금액</p>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-700">
+                  <div className="text-sm text-gray-300">
                     <p className="mb-1">
-                      <strong className="text-primary-600">
+                      <strong className="text-primary-400">
                         {schemaFields[quantityFieldIndex].label || schemaFields[quantityFieldIndex].name}
                       </strong>
                       {' '}&times; {unitPrice.toLocaleString()}원 = <strong>공급가</strong>
                     </p>
-                    <p>공급가 + <strong>부가세(10%)</strong> = <strong className="text-primary-600">총 견적금액</strong></p>
-                    <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-400">
+                    <p>공급가 + <strong>부가세(10%)</strong> = <strong className="text-primary-400">총 견적금액</strong></p>
+                    <div className="mt-2 pt-2 border-t border-border text-xs text-gray-400">
                       예) {schemaFields[quantityFieldIndex].label} 7,000 &times; {unitPrice.toLocaleString()}원
                       = {(7000 * unitPrice).toLocaleString()}원
                       + {(7000 * unitPrice * 0.1).toLocaleString()}원
@@ -730,18 +730,18 @@ export default function ProductsPage() {
 
           {/* ==================== RIGHT: Schema Preview ==================== */}
           <div className="lg:col-span-3 space-y-4">
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="bg-surface border border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-gray-800">접수 양식 미리보기</h3>
+                <h3 className="text-sm font-bold text-gray-200">접수 양식 미리보기</h3>
                 <span className="text-xs text-gray-400">열 클릭으로 편집</span>
               </div>
 
               {/* Spreadsheet Preview Table */}
-              <div className="border border-gray-200 rounded-lg overflow-x-auto mb-4">
+              <div className="border border-border rounded-lg overflow-x-auto mb-4">
                 <table className="w-full text-sm">
                   <thead>
                     <tr>
-                      <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 bg-gray-50 border-r border-gray-200 w-10">
+                      <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-400 bg-surface-raised border-r border-border w-10">
                         #
                       </th>
                       {schemaFields.map((field, idx) => (
@@ -775,7 +775,7 @@ export default function ProductsPage() {
                       ))}
                       <th
                         onClick={addSchemaField}
-                        className="px-2 py-2 bg-gray-50 border border-dashed border-gray-300 cursor-pointer text-gray-400 hover:bg-blue-50 hover:text-primary-500 hover:border-primary-400 transition-colors min-w-[60px] text-xl font-light"
+                        className="px-2 py-2 bg-surface-raised border border-dashed border-border-strong cursor-pointer text-gray-400 hover:bg-blue-900/20 hover:text-primary-500 hover:border-primary-400 transition-colors min-w-[60px] text-xl font-light"
                       >
                         +
                       </th>
@@ -790,8 +790,8 @@ export default function ProductsPage() {
                       </tr>
                     ) : (
                       [1, 2].map((rowNum) => (
-                        <tr key={rowNum} className="border-t border-gray-100">
-                          <td className="px-2 py-1.5 text-xs text-gray-400 bg-gray-50 border-r border-gray-200 text-center">
+                        <tr key={rowNum} className="border-t border-border-subtle">
+                          <td className="px-2 py-1.5 text-xs text-gray-400 bg-surface-raised border-r border-border text-center">
                             {rowNum}
                           </td>
                           {schemaFields.map((field, idx) => {
@@ -802,7 +802,7 @@ export default function ProductsPage() {
                                 key={idx}
                                 onClick={() => setSelectedFieldIndex(idx)}
                                 className={`
-                                  px-3 py-1.5 text-xs border-r border-gray-200 cursor-pointer text-center
+                                  px-3 py-1.5 text-xs border-r border-border cursor-pointer text-center
                                   ${selectedFieldIndex === idx ? 'ring-2 ring-primary-500 ring-inset' : ''}
                                 `}
                                 style={{
@@ -814,9 +814,9 @@ export default function ProductsPage() {
                                 }}
                               >
                                 <span className={
-                                  isAutoCalc ? 'text-blue-600 font-semibold' :
-                                  isReadonly ? 'text-gray-500 italic text-[12px]' :
-                                  'text-gray-600'
+                                  isAutoCalc ? 'text-blue-400 font-semibold' :
+                                  isReadonly ? 'text-gray-400 italic text-[12px]' :
+                                  'text-gray-400'
                                 }>
                                   {sampleText(field, schemaFields)}
                                 </span>
@@ -825,7 +825,7 @@ export default function ProductsPage() {
                           })}
                           <td
                             onClick={addSchemaField}
-                            className="bg-gray-50 border border-dashed border-gray-300 cursor-pointer text-center text-xs text-gray-400 hover:bg-blue-50 hover:text-primary-500 transition-colors"
+                            className="bg-surface-raised border border-dashed border-border-strong cursor-pointer text-center text-xs text-gray-400 hover:bg-blue-900/20 hover:text-primary-500 transition-colors"
                           >
                             {rowNum === 1 ? '열 추가' : ''}
                           </td>
@@ -838,9 +838,9 @@ export default function ProductsPage() {
 
               {/* Field Edit Panel */}
               {selectedField && selectedFieldIndex !== null && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="bg-surface-raised border border-border rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold text-gray-800">
+                    <h4 className="text-sm font-bold text-gray-200">
                       &ldquo;{selectedField.label || selectedField.name || '새 필드'}&rdquo; 편집
                     </h4>
                     <div className="flex items-center gap-1">
@@ -848,7 +848,7 @@ export default function ProductsPage() {
                         type="button"
                         onClick={() => moveField(selectedFieldIndex, -1)}
                         disabled={selectedFieldIndex === 0}
-                        className="p-1.5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-border bg-surface text-gray-400 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed"
                         title="왼쪽으로"
                       >
                         <ChevronLeftIcon className="h-4 w-4" />
@@ -857,7 +857,7 @@ export default function ProductsPage() {
                         type="button"
                         onClick={() => moveField(selectedFieldIndex, 1)}
                         disabled={selectedFieldIndex === schemaFields.length - 1}
-                        className="p-1.5 rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded border border-border bg-surface text-gray-400 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed"
                         title="오른쪽으로"
                       >
                         <ChevronRightIcon className="h-4 w-4" />
@@ -865,7 +865,7 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() => removeSchemaField(selectedFieldIndex)}
-                        className="ml-2 p-1.5 rounded border border-red-200 bg-white text-red-500 hover:bg-red-50"
+                        className="ml-2 p-1.5 rounded border border-red-800 bg-surface text-red-500 hover:bg-red-900/20"
                         title="삭제"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -876,27 +876,27 @@ export default function ProductsPage() {
                   <div className="grid grid-cols-12 gap-3">
                     {/* Label (main input) */}
                     <div className="col-span-12">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">열 이름</label>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">열 이름</label>
                       <input
                         value={selectedField.label}
                         onChange={(e) => updateSchemaField(selectedFieldIndex, 'label', e.target.value)}
                         placeholder="예: 플레이스 URL"
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                       />
                       {selectedField.name && (
                         <p className="text-[11px] text-gray-400 mt-0.5">
-                          필드명: <code className="bg-gray-100 px-1 rounded">{selectedField.name}</code>
+                          필드명: <code className="bg-surface-raised px-1 rounded">{selectedField.name}</code>
                         </p>
                       )}
                     </div>
 
                     {/* Type */}
                     <div className="col-span-3">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">타입</label>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">타입</label>
                       <select
                         value={selectedField.type}
                         onChange={(e) => updateSchemaField(selectedFieldIndex, 'type', e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                       >
                         {fieldTypes.map((t) => (
                           <option key={t} value={t}>{fieldTypeLabels[t]}</option>
@@ -910,11 +910,11 @@ export default function ProductsPage() {
                       selectedField.type !== 'date_calc' &&
                       selectedField.type !== 'date_diff' && (
                       <div className="col-span-3">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">필수 여부</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">필수 여부</label>
                         <select
                           value={selectedField.required ? 'true' : 'false'}
                           onChange={(e) => updateSchemaField(selectedFieldIndex, 'required', e.target.value === 'true')}
-                          className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                         >
                           <option value="true">필수</option>
                           <option value="false">선택사항</option>
@@ -924,7 +924,7 @@ export default function ProductsPage() {
 
                     {/* Header color */}
                     <div className="col-span-3">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">헤더 색상</label>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">헤더 색상</label>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {colorPresets.map((color) => (
                           <button
@@ -940,7 +940,7 @@ export default function ProductsPage() {
                             style={{ backgroundColor: color }}
                           />
                         ))}
-                        <label className="relative w-5 h-5 rounded border-2 border-dashed border-gray-300 hover:border-gray-500 cursor-pointer overflow-hidden transition-all" title="자유 색상 선택">
+                        <label className="relative w-5 h-5 rounded border-2 border-dashed border-border-strong hover:border-gray-500 cursor-pointer overflow-hidden transition-all" title="자유 색상 선택">
                           <input
                             type="color"
                             value={selectedField.color || DEFAULT_COLOR}
@@ -958,12 +958,12 @@ export default function ProductsPage() {
                       selectedField.type !== 'date_calc' &&
                       selectedField.type !== 'date_diff' && (
                       <div className="col-span-6">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">샘플 텍스트</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">샘플 텍스트</label>
                         <input
                           value={selectedField.sample || ''}
                           onChange={(e) => updateSchemaField(selectedFieldIndex, 'sample', e.target.value)}
                           placeholder="미리보기에 표시될 예시 값"
-                          className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                         />
                       </div>
                     )}
@@ -971,7 +971,7 @@ export default function ProductsPage() {
                     {/* select -> options */}
                     {selectedField.type === 'select' && (
                       <div className="col-span-12">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">선택 옵션 (쉼표 구분)</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">선택 옵션 (쉼표 구분)</label>
                         <input
                           value={selectedField.options?.join(', ') || ''}
                           onChange={(e) =>
@@ -982,7 +982,7 @@ export default function ProductsPage() {
                             )
                           }
                           placeholder="옵션1, 옵션2, 옵션3"
-                          className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                         />
                       </div>
                     )}
@@ -990,13 +990,13 @@ export default function ProductsPage() {
                     {/* readonly -> description */}
                     {selectedField.type === 'readonly' && (
                       <div className="col-span-12">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">설명 내용 (주문자에게 표시)</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">설명 내용 (주문자에게 표시)</label>
                         <textarea
                           value={selectedField.description || ''}
                           onChange={(e) => updateSchemaField(selectedFieldIndex, 'description', e.target.value)}
                           placeholder="예: 5위 이내 키워드 최대 5개까지 작성 부탁드립니다"
                           rows={2}
-                          className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                          className="w-full px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 resize-none bg-surface text-gray-200"
                         />
                       </div>
                     )}
@@ -1006,12 +1006,12 @@ export default function ProductsPage() {
                       const parts = getCalcParts(selectedField);
                       return (
                         <div className="col-span-12">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">수식 설정</label>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">수식 설정</label>
                           <div className="flex items-center gap-2">
                             <select
                               value={parts.fieldA}
                               onChange={(e) => updateCalcFormula(selectedFieldIndex, { fieldA: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">필드 선택</option>
                               {numberFields.map((f) => (
@@ -1021,7 +1021,7 @@ export default function ProductsPage() {
                             <select
                               value={parts.operator}
                               onChange={(e) => updateCalcFormula(selectedFieldIndex, { operator: e.target.value as CalcFormula['operator'] })}
-                              className="w-16 px-2 py-1.5 text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="w-16 px-2 py-1.5 text-sm text-center border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               {calcOperators.map((op) => (
                                 <option key={op} value={op}>{calcOperatorLabels[op]}</option>
@@ -1030,7 +1030,7 @@ export default function ProductsPage() {
                             <select
                               value={parts.fieldB}
                               onChange={(e) => updateCalcFormula(selectedFieldIndex, { fieldB: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">필드 선택</option>
                               {numberFields.map((f) => (
@@ -1050,30 +1050,30 @@ export default function ProductsPage() {
                       const parts = getDateCalcParts(selectedField);
                       return (
                         <div className="col-span-12">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">날짜 계산 설정</label>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">날짜 계산 설정</label>
                           <div className="flex items-center gap-2 text-sm">
                             <select
                               value={parts.dateField}
                               onChange={(e) => updateDateCalcFormula(selectedFieldIndex, { dateField: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">시작일 필드</option>
                               {dateFields.map((f) => (
                                 <option key={f.name} value={f.name}>{f.label || f.name}</option>
                               ))}
                             </select>
-                            <span className="text-gray-500 font-medium whitespace-nowrap">+</span>
+                            <span className="text-gray-400 font-medium whitespace-nowrap">+</span>
                             <select
                               value={parts.daysField}
                               onChange={(e) => updateDateCalcFormula(selectedFieldIndex, { daysField: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">작업일 수 필드</option>
                               {numberFields.map((f) => (
                                 <option key={f.name} value={f.name}>{f.label || f.name}</option>
                               ))}
                             </select>
-                            <span className="text-gray-500 text-xs whitespace-nowrap">− 1일</span>
+                            <span className="text-gray-400 text-xs whitespace-nowrap">− 1일</span>
                           </div>
                           <p className="text-[11px] text-gray-400 mt-1">
                             시작일 + 작업일 수 − 1 = 마감일 (시작일 포함)
@@ -1087,30 +1087,30 @@ export default function ProductsPage() {
                       const parts = getDateDiffParts(selectedField);
                       return (
                         <div className="col-span-12">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">일수 계산 설정</label>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">일수 계산 설정</label>
                           <div className="flex items-center gap-2 text-sm">
                             <select
                               value={parts.endField}
                               onChange={(e) => updateDateDiffFormula(selectedFieldIndex, { endField: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">마감일 필드</option>
                               {dateFields.map((f) => (
                                 <option key={f.name} value={f.name}>{f.label || f.name}</option>
                               ))}
                             </select>
-                            <span className="text-gray-500 font-medium whitespace-nowrap">−</span>
+                            <span className="text-gray-400 font-medium whitespace-nowrap">−</span>
                             <select
                               value={parts.startField}
                               onChange={(e) => updateDateDiffFormula(selectedFieldIndex, { startField: e.target.value })}
-                              className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+                              className="flex-1 px-2.5 py-1.5 border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                             >
                               <option value="">시작일 필드</option>
                               {dateFields.map((f) => (
                                 <option key={f.name} value={f.name}>{f.label || f.name}</option>
                               ))}
                             </select>
-                            <span className="text-gray-500 font-medium whitespace-nowrap">+ 1</span>
+                            <span className="text-gray-400 font-medium whitespace-nowrap">+ 1</span>
                           </div>
                           <p className="text-[11px] text-gray-400 mt-1">
                             (마감일 − 시작일 + 1) = 작업 일수. 주문 시 시작일과 마감일을 입력하면 자동 계산됩니다.

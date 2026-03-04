@@ -30,13 +30,13 @@ export default function UserList({ users, allUsers, loading, onEdit }: UserListP
       key: 'name',
       header: '이름',
       render: (u) => (
-        <span className="font-medium text-gray-900">{u.name}</span>
+        <span className="font-medium text-gray-100">{u.name}</span>
       ),
     },
     {
       key: 'email',
       header: '이메일',
-      render: (u) => <span className="text-gray-600">{u.email}</span>,
+      render: (u) => <span className="text-gray-400">{u.email}</span>,
     },
     {
       key: 'role',
@@ -54,7 +54,7 @@ export default function UserList({ users, allUsers, loading, onEdit }: UserListP
         if (!u.parent_id) return <span className="text-gray-400">-</span>;
         const parent = parentMap.get(u.parent_id);
         return parent ? (
-          <span className="text-gray-600 text-sm">{parent.name}</span>
+          <span className="text-gray-400 text-sm">{parent.name}</span>
         ) : (
           <span className="text-gray-400 text-xs">{u.parent_id.slice(0, 8)}...</span>
         );
@@ -64,7 +64,7 @@ export default function UserList({ users, allUsers, loading, onEdit }: UserListP
       key: 'company',
       header: '소속 회사',
       render: (u) => (
-        <span className="text-gray-600">{u.company?.name || '-'}</span>
+        <span className="text-gray-400">{u.company?.name || '-'}</span>
       ),
     },
     {
@@ -80,7 +80,7 @@ export default function UserList({ users, allUsers, loading, onEdit }: UserListP
       key: 'created_at',
       header: '가입일',
       render: (u) => (
-        <span className="text-gray-500 text-xs">
+        <span className="text-gray-400 text-xs">
           {formatDateTime(u.created_at)}
         </span>
       ),

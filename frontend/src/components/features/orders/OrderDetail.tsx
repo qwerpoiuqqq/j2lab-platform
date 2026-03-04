@@ -54,18 +54,18 @@ export default function OrderDetail({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-surface rounded-xl border border-border p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-gray-100">
                 {order.order_number}
               </h2>
               <Badge variant={getStatusBadgeVariant(order.status)}>
                 {getOrderStatusLabel(order.status)}
               </Badge>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-400">
               {formatDateTime(order.created_at)} 접수
             </p>
           </div>
@@ -151,85 +151,85 @@ export default function OrderDetail({
 
         {/* Hold reason banner */}
         {order.status === 'payment_hold' && (order as any).hold_reason && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="mt-4 p-3 bg-amber-900/20 border border-amber-800/50 rounded-lg">
             <p className="text-xs text-amber-600 uppercase mb-1">보류 사유</p>
-            <p className="text-sm text-amber-800">{(order as any).hold_reason}</p>
+            <p className="text-sm text-amber-400">{(order as any).hold_reason}</p>
           </div>
         )}
 
         {/* Info grid */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-gray-500 uppercase">주문자</p>
-            <p className="mt-1 text-sm font-medium text-gray-900">
+            <p className="text-xs text-gray-400 uppercase">주문자</p>
+            <p className="mt-1 text-sm font-medium text-gray-100">
               {order.user?.name || '-'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase">소속 회사</p>
-            <p className="mt-1 text-sm font-medium text-gray-900">
+            <p className="text-xs text-gray-400 uppercase">소속 회사</p>
+            <p className="mt-1 text-sm font-medium text-gray-100">
               {order.company?.name || '-'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase">총 금액</p>
-            <p className="mt-1 text-sm font-bold text-gray-900">
+            <p className="text-xs text-gray-400 uppercase">총 금액</p>
+            <p className="mt-1 text-sm font-bold text-gray-100">
               {formatCurrency(order.total_amount)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase">VAT</p>
-            <p className="mt-1 text-sm font-medium text-gray-900">
+            <p className="text-xs text-gray-400 uppercase">VAT</p>
+            <p className="mt-1 text-sm font-medium text-gray-100">
               {formatCurrency(order.vat_amount)}
             </p>
           </div>
         </div>
 
         {order.notes && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500 uppercase mb-1">메모</p>
-            <p className="text-sm text-gray-700">{order.notes}</p>
+          <div className="mt-4 p-3 bg-surface-raised rounded-lg">
+            <p className="text-xs text-gray-400 uppercase mb-1">메모</p>
+            <p className="text-sm text-gray-300">{order.notes}</p>
           </div>
         )}
       </div>
 
       {/* Items */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900">
+      <div className="bg-surface rounded-xl border border-border">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-base font-semibold text-gray-100">
             주문 항목 ({items.length}건)
           </h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-surface-raised">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   상품
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   플레이스
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   수량
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   단가
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   소계
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   상태
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-surface divide-y divide-border">
               {items.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-8 text-center text-sm text-gray-500"
+                    className="px-6 py-8 text-center text-sm text-gray-400"
                   >
                     주문 항목이 없습니다.
                   </td>
@@ -245,13 +245,13 @@ export default function OrderDetail({
 
                   return (
                     <tr key={item.id}>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-gray-100">
                         {productLabel}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div>
                           {placeName && (
-                            <p className="text-gray-900 font-medium">{placeName}</p>
+                            <p className="text-gray-100 font-medium">{placeName}</p>
                           )}
                           {placeUrl && (
                             <a
@@ -266,13 +266,13 @@ export default function OrderDetail({
                           {!placeName && !placeUrl && <span className="text-gray-400">-</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-400">
                         {item.quantity}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-400">
                         {formatCurrency(item.unit_price)}
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-100">
                         {formatCurrency(item.subtotal)}
                       </td>
                       <td className="px-6 py-4">
@@ -290,10 +290,10 @@ export default function OrderDetail({
       {/* Pipeline Status per Item */}
       {items.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-base font-semibold text-gray-900 px-6">파이프라인 현황</h3>
+          <h3 className="text-base font-semibold text-gray-100 px-6">파이프라인 현황</h3>
           {items.map((item) => (
             <div key={`pipeline-${item.id}`} className="px-6">
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-gray-400 mb-2">
                 {item.product?.name || `상품 #${item.product_id}`}{item.item_data?.place_name || item.item_data?.상호명 ? ` - ${item.item_data?.place_name || item.item_data?.상호명}` : ''}
               </p>
               <PipelineStatusWidget orderItemId={item.id} />

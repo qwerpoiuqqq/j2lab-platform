@@ -55,9 +55,9 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-xl border border-gray-200 h-12" />
+        <div className="bg-surface rounded-xl border border-border h-12" />
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-xl border border-gray-200 h-20" />
+          <div key={i} className="bg-surface rounded-xl border border-border h-20" />
         ))}
       </div>
     );
@@ -67,21 +67,21 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">시스템 설정</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-100">시스템 설정</h1>
+        <p className="mt-1 text-sm text-gray-400">
           플랫폼 전역 설정을 관리합니다.
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
           {error}
         </div>
       )}
 
       {/* Settings list */}
-      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-200">
+      <div className="bg-surface rounded-xl border border-border divide-y divide-border">
         {settings.map((setting) => {
           const currentValue = String(setting.value ?? '');
           return (
@@ -90,10 +90,10 @@ export default function SettingsPage() {
               className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-gray-100">
                   {setting.description || setting.key}
                 </p>
-                <p className="text-xs text-gray-500 font-mono mt-0.5">
+                <p className="text-xs text-gray-400 font-mono mt-0.5">
                   {setting.key}
                 </p>
               </div>
@@ -107,7 +107,7 @@ export default function SettingsPage() {
                         [setting.key]: e.target.value,
                       })
                     }
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="rounded-lg border border-border-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                   >
                     <option value="true">활성화</option>
                     <option value="false">비활성화</option>
@@ -122,7 +122,7 @@ export default function SettingsPage() {
                         [setting.key]: e.target.value,
                       })
                     }
-                    className="w-32 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-32 rounded-lg border border-border-strong px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
                   />
                 )}
                 <Button

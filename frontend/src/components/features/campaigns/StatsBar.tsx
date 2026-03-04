@@ -18,12 +18,12 @@ export default function StatsBar({ stats, loading }: StatsBarProps) {
       {ITEMS.map((item) => (
         <div
           key={item.key}
-          className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 border-l-4 ${item.color}`}
+          className={`bg-surface rounded-xl border border-border p-5 border-l-4 ${item.color}`}
         >
-          <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+          <div className="text-sm text-gray-400 mb-1">{item.label}</div>
           <div className={`text-2xl font-bold ${item.textColor}`}>
             {loading ? (
-              <div className="h-8 w-12 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-12 bg-surface-raised rounded animate-pulse" />
             ) : (
               stats?.[item.key] ?? 0
             )}

@@ -46,12 +46,12 @@ export default function PreviewTable({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
-        <span className="font-semibold text-sm text-gray-900">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <span className="font-semibold text-sm text-gray-100">
           미리보기 ({previews.length}건)
         </span>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
           <span className="text-green-600">{previews.filter((p) => p.is_valid).length}건 정상</span>
           {previews.filter((p) => !p.is_valid).length > 0 && (
             <span className="text-red-600">{previews.filter((p) => !p.is_valid).length}건 오류</span>
@@ -61,30 +61,30 @@ export default function PreviewTable({
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-surface-raised">
             <tr>
               <th className="px-3 py-2.5 text-center w-8">
                 <input
                   type="checkbox"
                   checked={checked.size > 0 && checked.size === validRows.length}
                   onChange={toggleAll}
-                  className="rounded border-gray-300"
+                  className="rounded border-border-strong"
                 />
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">상호명</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">기간</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">일일</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">키워드</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">연장</th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">기존캠페인</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">상호명</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">타입</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">기간</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">일일</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">키워드</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">연장</th>
+              <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-400 uppercase">기존캠페인</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border-subtle">
             {previews.map((p) => (
               <tr
                 key={p.row_number}
-                className={p.is_valid ? 'hover:bg-gray-50' : 'bg-red-50/50 opacity-60'}
+                className={p.is_valid ? 'hover:bg-surface-raised' : 'bg-red-900/20 opacity-60'}
               >
                 <td className="px-3 py-2.5 text-center">
                   <input
@@ -92,21 +92,21 @@ export default function PreviewTable({
                     checked={checked.has(p.row_number)}
                     onChange={() => toggleCheck(p.row_number)}
                     disabled={!p.is_valid}
-                    className="rounded border-gray-300"
+                    className="rounded border-border-strong"
                   />
                 </td>
-                <td className="px-3 py-2.5 font-medium text-gray-900">
+                <td className="px-3 py-2.5 font-medium text-gray-100">
                   {p.place_name || '-'}
                   {p.errors.length > 0 && (
                     <div className="text-xs text-red-500 mt-0.5">{p.errors.join(', ')}</div>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-gray-600">{getCampaignTypeLabel(p.campaign_type)}</td>
-                <td className="px-3 py-2.5 text-gray-600 text-xs">
+                <td className="px-3 py-2.5 text-gray-400">{getCampaignTypeLabel(p.campaign_type)}</td>
+                <td className="px-3 py-2.5 text-gray-400 text-xs">
                   {p.start_date} ~ {p.end_date}
                 </td>
-                <td className="px-3 py-2.5 text-gray-600">{p.daily_limit}</td>
-                <td className="px-3 py-2.5 text-gray-600 text-xs">{p.keyword_count}개</td>
+                <td className="px-3 py-2.5 text-gray-400">{p.daily_limit}</td>
+                <td className="px-3 py-2.5 text-gray-400 text-xs">{p.keyword_count}개</td>
                 <td className="px-3 py-2.5">
                   {p.extension_eligible ? (
                     <span className="text-green-600 font-medium text-xs">가능</span>
@@ -114,7 +114,7 @@ export default function PreviewTable({
                     <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-xs font-mono text-gray-500">
+                <td className="px-3 py-2.5 text-xs font-mono text-gray-400">
                   {p.existing_campaign_code || '-'}
                 </td>
               </tr>
@@ -123,7 +123,7 @@ export default function PreviewTable({
         </table>
       </div>
 
-      <div className="flex justify-end gap-3 px-5 py-3 border-t border-gray-200">
+      <div className="flex justify-end gap-3 px-5 py-3 border-t border-border">
         <Button variant="secondary" onClick={onCancel}>
           취소
         </Button>

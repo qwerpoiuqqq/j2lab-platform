@@ -43,11 +43,11 @@ export default function FilterBar({ agencies, onFilter }: FilterBarProps) {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-surface rounded-xl border border-border p-4">
       <select
         value={agency}
         onChange={(e) => handleAgency(e.target.value)}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        className="rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
       >
         <option value="">전체 대행사</option>
         {agencies.map((a) => (
@@ -60,7 +60,7 @@ export default function FilterBar({ agencies, onFilter }: FilterBarProps) {
       <select
         value={status}
         onChange={(e) => handleStatus(e.target.value)}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        className="rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -78,7 +78,7 @@ export default function FilterBar({ agencies, onFilter }: FilterBarProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border-strong text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
           />
         </div>
         <Button variant="primary" size="sm" onClick={handleSearch}>

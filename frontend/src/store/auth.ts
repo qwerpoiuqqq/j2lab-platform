@@ -62,7 +62,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'j2lab-auth',
+      name: 'j2lab-auth', // LOGIC LAB 리브랜딩 후에도 키 유지 (기존 로그인 세션 호환)
       partialize: (state) => ({
         refreshToken: state.refreshToken,
         user: state.user,

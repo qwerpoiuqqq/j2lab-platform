@@ -27,15 +27,15 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="p-3 rounded-lg bg-danger-50 border border-red-200">
-          <p className="text-sm text-danger-600">{error}</p>
+        <div className="p-3 rounded-lg bg-danger-50 border border-red-900/50">
+          <p className="text-sm text-danger-500">{error}</p>
         </div>
       )}
 
       <Input
         label="이메일"
         type="email"
-        placeholder="admin@j2lab.co.kr"
+        placeholder="admin@logic-lab.kr"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required

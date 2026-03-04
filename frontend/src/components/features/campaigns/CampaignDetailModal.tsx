@@ -56,7 +56,7 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
   return (
     <Modal isOpen onClose={onClose} title="캠페인 상세" size="xl">
       {loading ? (
-        <div className="py-12 text-center text-gray-500">로딩 중...</div>
+        <div className="py-12 text-center text-gray-400">로딩 중...</div>
       ) : error ? (
         <div className="py-12 text-center text-red-500">{error}</div>
       ) : detail ? (
@@ -68,7 +68,7 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
               <InfoItem label="캠페인코드" value={detail.campaign_code || '-'} mono />
               <InfoItem label="캠페인 타입" value={detail.campaign_type ? getCampaignTypeLabel(detail.campaign_type) : '-'} />
               <div className="text-sm">
-                <span className="text-gray-500">상태: </span>
+                <span className="text-gray-400">상태: </span>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getCampaignExtendedStatusColor(detail.status)}`}>
                   {getCampaignExtendedStatusLabel(detail.status)}
                 </span>
@@ -97,7 +97,7 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
               <StatCard label="사용됨" value={usedCount} color="gray" />
               <StatCard label="남은 수" value={remainingCount} color="green" />
             </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+            <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
               <span>남은 일수: <strong>{remainingDays}일</strong></span>
               {ratio && (
                 <span>
@@ -111,22 +111,22 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
 
             {keywords.length > 0 ? (
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">
+                <div className="text-sm font-medium text-gray-300 mb-2">
                   키워드 목록 ({keywords.length}개)
                 </div>
                 <div className="max-h-60 overflow-auto border rounded-lg">
                   <table className="w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+                    <thead className="bg-surface-raised sticky top-0">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-12">#</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">키워드</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-20">상태</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-28">사용일</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-400 w-12">#</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-400">키워드</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-400 w-20">상태</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-400 w-28">사용일</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-border-subtle">
                       {keywords.map((kw, idx) => (
-                        <tr key={kw.id} className={kw.is_used ? 'bg-gray-50/50 text-gray-400' : ''}>
+                        <tr key={kw.id} className={kw.is_used ? 'bg-surface-raised/50 text-gray-400' : ''}>
                           <td className="px-3 py-1.5 text-gray-400">{idx + 1}</td>
                           <td className="px-3 py-1.5 font-mono">{kw.keyword}</td>
                           <td className="px-3 py-1.5">
@@ -166,7 +166,7 @@ export default function CampaignDetailModal({ campaignId, onClose }: CampaignDet
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-800 mb-2 pb-1 border-b">{title}</h3>
+      <h3 className="text-sm font-semibold text-gray-200 mb-2 pb-1 border-b border-border">{title}</h3>
       {children}
     </div>
   );
@@ -175,7 +175,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function InfoItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="text-sm">
-      <span className="text-gray-500">{label}: </span>
+      <span className="text-gray-400">{label}: </span>
       <span className={`font-medium ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   );
@@ -183,9 +183,9 @@ function InfoItem({ label, value, mono }: { label: string; value: string; mono?:
 
 function StatCard({ label, value, color }: { label: string; value: number; color: 'blue' | 'gray' | 'green' }) {
   const colorMap = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    gray: 'bg-gray-50 text-gray-700 border-gray-200',
-    green: 'bg-green-50 text-green-700 border-green-200',
+    blue: 'bg-blue-900/20 text-blue-400 border-blue-800',
+    gray: 'bg-surface-raised text-gray-300 border-border',
+    green: 'bg-green-900/20 text-green-400 border-green-800',
   };
   return (
     <div className={`flex-1 text-center px-4 py-3 rounded-lg border ${colorMap[color]}`}>

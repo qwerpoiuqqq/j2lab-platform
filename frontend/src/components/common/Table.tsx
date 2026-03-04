@@ -26,14 +26,14 @@ export default function Table<T>({
 }: TableProps<T>) {
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border overflow-hidden">
         <div className="animate-pulse">
-          <div className="h-12 bg-gray-100 border-b border-gray-200" />
+          <div className="h-12 bg-surface-raised border-b border-border" />
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 border-b border-gray-100 px-6 flex items-center gap-4">
-              <div className="h-4 bg-gray-200 rounded w-1/4" />
-              <div className="h-4 bg-gray-200 rounded w-1/3" />
-              <div className="h-4 bg-gray-200 rounded w-1/6" />
+            <div key={i} className="h-14 border-b border-border-subtle px-6 flex items-center gap-4">
+              <div className="h-4 bg-surface-raised rounded w-1/4" />
+              <div className="h-4 bg-surface-raised rounded w-1/3" />
+              <div className="h-4 bg-surface-raised rounded w-1/6" />
             </div>
           ))}
         </div>
@@ -42,22 +42,22 @@ export default function Table<T>({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-surface-raised">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${col.className || ''}`}
+                  className={`px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider ${col.className || ''}`}
                 >
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-surface divide-y divide-border">
             {data.length === 0 ? (
               <tr>
                 <td
@@ -74,7 +74,7 @@ export default function Table<T>({
                   onClick={() => onRowClick?.(item)}
                   className={
                     onRowClick
-                      ? 'cursor-pointer hover:bg-gray-50 transition-colors'
+                      ? 'cursor-pointer hover:bg-surface-raised transition-colors'
                       : ''
                   }
                 >

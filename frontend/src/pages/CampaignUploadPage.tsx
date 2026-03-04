@@ -134,8 +134,8 @@ export default function CampaignUploadPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">엑셀 업로드</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-100">엑셀 업로드</h1>
+          <p className="mt-1 text-sm text-gray-400">
             엑셀 파일로 캠페인을 일괄 등록합니다.
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function CampaignUploadPage() {
       {result && (
         <div
           className={`rounded-xl p-4 text-sm ${
-            result.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+            result.success ? 'bg-green-900/20 text-green-400 border border-green-800' : 'bg-red-900/20 text-red-400 border border-red-800'
           }`}
         >
           <div>
@@ -175,7 +175,7 @@ export default function CampaignUploadPage() {
 
       {/* File errors */}
       {fileErrors.length > 0 && (
-        <div className="bg-red-50 text-red-800 rounded-xl p-4 text-sm border border-red-200">
+        <div className="bg-red-900/20 text-red-400 rounded-xl p-4 text-sm border border-red-800">
           {fileErrors.map((e, i) => (
             <div key={i}>{e}</div>
           ))}

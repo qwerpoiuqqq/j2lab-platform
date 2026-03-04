@@ -27,6 +27,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/auth';
 import type { UserRole } from '@/types';
+import LogicLabLogo from '@/components/common/LogicLabLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -249,6 +250,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={`
           fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-white
+          border-r border-border-subtle
           transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 lg:static lg:z-auto
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -257,10 +259,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-sm font-bold">
-              J2
-            </div>
-            <span className="text-lg font-bold">J2LAB</span>
+            <LogicLabLogo size={28} className="text-primary-400" />
+            <span className="text-sm font-bold tracking-widest text-gray-100">LOGIC LAB</span>
           </div>
           <button
             onClick={onClose}
@@ -352,7 +352,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Bottom info */}
         <div className="px-6 py-4 border-t border-white/10">
-          <p className="text-xs text-gray-400">J2LAB Platform v1.0</p>
+          <p className="text-xs text-gray-500">LOGIC LAB v1.0</p>
         </div>
       </aside>
     </>

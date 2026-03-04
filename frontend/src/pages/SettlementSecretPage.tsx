@@ -80,7 +80,7 @@ export default function SettlementSecretPage() {
     { key: 'order_number', header: '주문번호', render: (s) => <span className="font-mono text-xs">{s.order_number}</span> },
     { key: 'product_name', header: '상품', render: (s) => <span className="text-sm">{s.product_name}</span> },
     { key: 'user_name', header: '주문자', render: (s) => <span className="text-sm">{s.user_name}</span> },
-    { key: 'user_role', header: '역할', render: (s) => <span className="text-xs text-gray-500">{getRoleLabel(s.user_role)}</span> },
+    { key: 'user_role', header: '역할', render: (s) => <span className="text-xs text-gray-400">{getRoleLabel(s.user_role)}</span> },
     { key: 'quantity', header: '수량', render: (s) => <span className="text-sm">{formatNumber(s.quantity)}</span> },
     { key: 'unit_price', header: '판매단가', render: (s) => <span className="text-sm">{formatCurrency(s.unit_price)}</span> },
     { key: 'base_price', header: '매입단가', render: (s) => <span className="text-sm">{formatCurrency(s.base_price)}</span> },
@@ -109,14 +109,14 @@ export default function SettlementSecretPage() {
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 w-full max-w-md">
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-8 w-full max-w-md">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-red-900/30 rounded-lg flex items-center justify-center">
               <LockClosedIcon className="h-5 w-5 text-red-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">수익 분석 (비공개)</h2>
-              <p className="text-sm text-gray-500">접근 비밀번호를 입력하세요.</p>
+              <h2 className="text-lg font-bold text-gray-100">수익 분석 (비공개)</h2>
+              <p className="text-sm text-gray-400">접근 비밀번호를 입력하세요.</p>
             </div>
           </div>
 
@@ -144,8 +144,8 @@ export default function SettlementSecretPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">수익 분석 (비공개)</h1>
-          <p className="mt-1 text-sm text-gray-500">상세 수익/비용 분석 데이터입니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">수익 분석 (비공개)</h1>
+          <p className="mt-1 text-sm text-gray-400">상세 수익/비용 분석 데이터입니다.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleExport} icon={<ArrowDownTrayIcon className="h-4 w-4" />}>
@@ -159,22 +159,22 @@ export default function SettlementSecretPage() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 border-l-blue-500">
-          <p className="text-sm text-gray-500">총 매출</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalRevenue)}</p>
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 border-l-4 border-l-blue-500">
+          <p className="text-sm text-gray-400">총 매출</p>
+          <p className="text-xl font-bold text-gray-100 mt-1">{formatCurrency(totalRevenue)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 border-l-red-500">
-          <p className="text-sm text-gray-500">총 매입</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalCost)}</p>
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 border-l-4 border-l-red-500">
+          <p className="text-sm text-gray-400">총 매입</p>
+          <p className="text-xl font-bold text-gray-100 mt-1">{formatCurrency(totalCost)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 border-l-green-500">
-          <p className="text-sm text-gray-500">순이익</p>
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 border-l-4 border-l-green-500">
+          <p className="text-sm text-gray-400">순이익</p>
           <p className={`text-xl font-bold mt-1 ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatCurrency(totalProfit)}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 border-l-4 border-l-purple-500">
-          <p className="text-sm text-gray-500">평균 마진율</p>
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 border-l-4 border-l-purple-500">
+          <p className="text-sm text-gray-400">평균 마진율</p>
           <p className={`text-xl font-bold mt-1 ${avgMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {avgMargin.toFixed(1)}%
           </p>
@@ -196,14 +196,14 @@ export default function SettlementSecretPage() {
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
         />
         <span className="text-gray-400">~</span>
         <input
           type="date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
         />
         <Button variant="secondary" size="sm" onClick={handleRefresh} loading={loading}>
           조회
@@ -212,7 +212,7 @@ export default function SettlementSecretPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       {/* Table */}

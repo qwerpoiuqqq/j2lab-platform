@@ -80,20 +80,20 @@ export default function SubAccountsPage() {
   };
 
   const columns: Column<User>[] = [
-    { key: 'name', header: '이름', render: (u) => <span className="font-medium text-gray-900">{u.name}</span> },
-    { key: 'email', header: '이메일', render: (u) => <span className="text-gray-600 text-sm">{u.email}</span> },
-    { key: 'phone', header: '전화번호', render: (u) => <span className="text-gray-600 text-sm">{u.phone || '-'}</span> },
+    { key: 'name', header: '이름', render: (u) => <span className="font-medium text-gray-100">{u.name}</span> },
+    { key: 'email', header: '이메일', render: (u) => <span className="text-gray-400 text-sm">{u.email}</span> },
+    { key: 'phone', header: '전화번호', render: (u) => <span className="text-gray-400 text-sm">{u.phone || '-'}</span> },
     { key: 'is_active', header: '상태', render: (u) => (
       <Badge variant={u.is_active ? 'success' : 'default'}>{u.is_active ? '활성' : '비활성'}</Badge>
     )},
-    { key: 'created_at', header: '생성일', render: (u) => <span className="text-gray-500 text-xs">{formatDateTime(u.created_at)}</span> },
+    { key: 'created_at', header: '생성일', render: (u) => <span className="text-gray-400 text-xs">{formatDateTime(u.created_at)}</span> },
     { key: 'actions' as keyof User, header: '작업', render: (u: User) => (
       <div className="flex items-center gap-1">
-        <button onClick={(e) => { e.stopPropagation(); openEdit(u); }} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); openEdit(u); }} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded transition-colors">
           <PencilSquareIcon className="h-4 w-4" />
         </button>
         <button onClick={(e) => { e.stopPropagation(); handleToggleActive(u); }}
-          className={`px-2 py-1 text-xs rounded ${u.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+          className={`px-2 py-1 text-xs rounded ${u.is_active ? 'text-red-600 hover:bg-red-900/20' : 'text-green-600 hover:bg-green-900/20'}`}>
           {u.is_active ? '비활성화' : '활성화'}
         </button>
       </div>
@@ -104,12 +104,12 @@ export default function SubAccountsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">하부계정 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">셀러 계정을 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">하부계정 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">셀러 계정을 관리합니다.</p>
         </div>
         <Button onClick={openCreate} icon={<PlusIcon className="h-4 w-4" />}>계정 추가</Button>
       </div>
-      {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>}
+      {error && <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>}
       <Table<User> columns={columns} data={users} keyExtractor={(u) => u.id} loading={loading} emptyMessage="하부계정이 없습니다." />
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? '계정 수정' : '계정 추가'} size="sm">
         <div className="space-y-4 p-1">

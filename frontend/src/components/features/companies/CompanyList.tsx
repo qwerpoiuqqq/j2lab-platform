@@ -17,14 +17,14 @@ export default function CompanyList({ companies, loading, onEdit, onDelete }: Co
       key: 'name',
       header: '회사명',
       render: (c) => (
-        <span className="font-medium text-gray-900">{c.name}</span>
+        <span className="font-medium text-gray-100">{c.name}</span>
       ),
     },
     {
       key: 'code',
       header: '코드',
       render: (c) => (
-        <span className="font-mono text-sm text-gray-600">{c.code}</span>
+        <span className="font-mono text-sm text-gray-400">{c.code}</span>
       ),
     },
     {
@@ -40,7 +40,7 @@ export default function CompanyList({ companies, loading, onEdit, onDelete }: Co
       key: 'created_at',
       header: '생성일',
       render: (c) => (
-        <span className="text-gray-500 text-xs">
+        <span className="text-gray-400 text-xs">
           {formatDateTime(c.created_at)}
         </span>
       ),
@@ -55,7 +55,7 @@ export default function CompanyList({ companies, loading, onEdit, onDelete }: Co
                 {onEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(c); }}
-                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-900/20 rounded transition-colors"
                     title="수정"
                   >
                     <PencilSquareIcon className="h-4 w-4" />
@@ -64,7 +64,7 @@ export default function CompanyList({ companies, loading, onEdit, onDelete }: Co
                 {onDelete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(c); }}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-900/20 rounded transition-colors"
                     title="삭제"
                   >
                     <TrashIcon className="h-4 w-4" />

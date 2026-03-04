@@ -49,10 +49,10 @@ export default function SchedulerStatus() {
 
   const statusColor =
     status.status === 'running'
-      ? 'bg-green-100 text-green-700'
+      ? 'bg-green-900/30 text-green-400'
       : status.status === 'waiting'
-        ? 'bg-yellow-100 text-yellow-700'
-        : 'bg-red-100 text-red-700';
+        ? 'bg-yellow-900/30 text-yellow-400'
+        : 'bg-red-900/30 text-red-400';
 
   const dotColor =
     status.status === 'running'
@@ -62,10 +62,10 @@ export default function SchedulerStatus() {
         : 'bg-red-500';
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <div className="bg-surface rounded-xl border border-border p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-sm text-gray-900">키워드 자동 변경</h3>
+          <h3 className="font-semibold text-sm text-gray-100">키워드 자동 변경</h3>
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}
           >
@@ -79,7 +79,7 @@ export default function SchedulerStatus() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLogs(!showLogs)}
-            className="text-xs text-gray-500 hover:text-gray-700 underline"
+            className="text-xs text-gray-400 hover:text-gray-200 underline"
           >
             {showLogs ? '로그 숨기기' : '로그 보기'}
           </button>
@@ -97,19 +97,19 @@ export default function SchedulerStatus() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
         <div>
-          <span className="text-gray-500">마지막 실행</span>
-          <div className="font-medium mt-0.5 text-gray-900">
+          <span className="text-gray-400">마지막 실행</span>
+          <div className="font-medium mt-0.5 text-gray-100">
             {status.last_run
               ? new Date(status.last_run).toLocaleString('ko-KR')
               : '없음'}
           </div>
         </div>
         <div>
-          <span className="text-gray-500">실행 횟수</span>
-          <div className="font-medium mt-0.5 text-gray-900">{status.execution_count}회</div>
+          <span className="text-gray-400">실행 횟수</span>
+          <div className="font-medium mt-0.5 text-gray-100">{status.execution_count}회</div>
         </div>
         <div>
-          <span className="text-gray-500">키워드 변경</span>
+          <span className="text-gray-400">키워드 변경</span>
           <div className="font-medium mt-0.5">
             <span className="text-green-600">{status.keyword_changes}건</span>
             {status.keyword_failures > 0 && (
@@ -118,21 +118,21 @@ export default function SchedulerStatus() {
           </div>
         </div>
         <div>
-          <span className="text-gray-500">오늘 건너뜀</span>
-          <div className="font-medium mt-0.5 text-gray-900">
+          <span className="text-gray-400">오늘 건너뜀</span>
+          <div className="font-medium mt-0.5 text-gray-100">
             {status.skipped_today}건
           </div>
         </div>
       </div>
 
       {status.error_message && (
-        <div className="mt-3 p-2.5 bg-red-50 text-red-700 text-xs rounded-lg">
+        <div className="mt-3 p-2.5 bg-red-900/20 text-red-400 text-xs rounded-lg">
           {status.error_message}
         </div>
       )}
 
       {triggerResult && (
-        <div className="mt-3 p-2.5 bg-blue-50 text-blue-700 text-xs rounded-lg">
+        <div className="mt-3 p-2.5 bg-blue-900/20 text-blue-400 text-xs rounded-lg">
           {triggerResult}
         </div>
       )}

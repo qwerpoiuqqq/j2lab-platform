@@ -73,34 +73,34 @@ export default function CampaignExtendModal({
       }
     >
       <div className="space-y-4">
-        <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-          <div>현재 종료일: <span className="font-medium text-gray-900">{campaign.end_date}</span></div>
-          <div>현재 일일한도: <span className="font-medium text-gray-900">{campaign.daily_limit}타</span></div>
+        <div className="p-3 bg-surface-raised rounded-lg text-sm text-gray-400">
+          <div>현재 종료일: <span className="font-medium text-gray-100">{campaign.end_date}</span></div>
+          <div>현재 일일한도: <span className="font-medium text-gray-100">{campaign.daily_limit}타</span></div>
           {campaign.total_limit && (
-            <div>현재 전체한도: <span className="font-medium text-gray-900">{campaign.total_limit}타</span></div>
+            <div>현재 전체한도: <span className="font-medium text-gray-100">{campaign.total_limit}타</span></div>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">새 종료일</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">새 종료일</label>
           <input
             type="date"
             value={newEndDate}
             onChange={(e) => setNewEndDate(e.target.value)}
             min={campaign.end_date}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">추가 총 타수</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">추가 총 타수</label>
           <input
             type="number"
             value={additionalTotal}
             onChange={(e) => setAdditionalTotal(e.target.value)}
             min={1}
             placeholder="연장 기간에 추가할 총 전환수"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
           />
         </div>
 

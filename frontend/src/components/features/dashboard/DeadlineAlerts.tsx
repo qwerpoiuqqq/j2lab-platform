@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import type { DeadlineAlert } from '@/types';
 
 const urgencyStyles: Record<string, string> = {
-  red: 'bg-red-100 text-red-800 border-red-200',
-  orange: 'bg-orange-100 text-orange-800 border-orange-200',
-  yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  red: 'bg-red-900/30 text-red-400 border-red-800/50',
+  orange: 'bg-orange-900/30 text-orange-400 border-orange-800/50',
+  yellow: 'bg-yellow-900/30 text-yellow-400 border-yellow-800/50',
 };
 
 const urgencyLabels: Record<string, string> = {
@@ -20,23 +20,23 @@ interface Props {
 export default function DeadlineAlerts({ deadlines }: Props) {
   if (deadlines.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">마감 임박 주문</h3>
+      <div className="bg-surface rounded-xl border border-border p-5">
+        <h3 className="text-sm font-semibold text-gray-100 mb-3">마감 임박 주문</h3>
         <p className="text-sm text-gray-400">7일 이내 마감 주문이 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+    <div className="bg-surface rounded-xl border border-border p-5">
+      <h3 className="text-sm font-semibold text-gray-100 mb-3">
         마감 임박 주문 <span className="text-gray-400 font-normal">({deadlines.length})</span>
       </h3>
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {deadlines.map((d) => (
           <div
             key={d.order_id}
-            className="flex items-center justify-between p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50"
+            className="flex items-center justify-between p-2.5 rounded-lg border border-border-subtle hover:bg-surface-raised"
           >
             <div className="flex items-center gap-2">
               <span
@@ -44,10 +44,10 @@ export default function DeadlineAlerts({ deadlines }: Props) {
               >
                 {urgencyLabels[d.urgency]}
               </span>
-              <Link to={`/orders/${d.order_id}`} className="font-mono text-xs text-gray-700 hover:text-primary-600 hover:underline">{d.order_number}</Link>
+              <Link to={`/orders/${d.order_id}`} className="font-mono text-xs text-gray-300 hover:text-primary-600 hover:underline">{d.order_number}</Link>
             </div>
             <div className="text-right">
-              <span className="text-xs text-gray-500">D-{d.days_remaining}</span>
+              <span className="text-xs text-gray-400">D-{d.days_remaining}</span>
             </div>
           </div>
         ))}

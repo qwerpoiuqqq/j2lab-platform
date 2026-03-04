@@ -57,7 +57,7 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
       {/* Items */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">주문 항목</h3>
+          <h3 className="text-sm font-semibold text-gray-100">주문 항목</h3>
           <Button
             type="button"
             variant="secondary"
@@ -72,10 +72,10 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
         {items.map((item, index) => (
           <div
             key={index}
-            className="p-4 border border-gray-200 rounded-lg space-y-3"
+            className="p-4 border border-border rounded-lg space-y-3"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-300">
                 항목 {index + 1}
               </span>
               {items.length > 1 && (
@@ -91,7 +91,7 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   상품 <span className="text-danger-500">*</span>
                 </label>
                 <select
@@ -99,7 +99,7 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
                   onChange={(e) =>
                     updateItem(index, 'product_id', Number(e.target.value))
                   }
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="block w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
                   required
                 >
                   {products.map((p) => (
@@ -138,14 +138,14 @@ export default function OrderForm({ products, onSubmit, loading }: OrderFormProp
 
       {/* Notes */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-300 mb-1">
           메모 (선택)
         </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-400"
+          className="block w-full rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 placeholder:text-gray-400"
           placeholder="주문에 대한 메모를 입력하세요..."
         />
       </div>

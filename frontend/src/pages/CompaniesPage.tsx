@@ -106,8 +106,8 @@ export default function CompaniesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">회사 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-100">회사 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">
             회사(테넌트)를 조회하고 관리합니다.
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function CompaniesPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -215,9 +215,9 @@ export default function CompaniesPage() {
               type="checkbox"
               checked={editActive}
               onChange={(e) => setEditActive(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
             />
-            <span className="text-sm text-gray-700">활성 상태</span>
+            <span className="text-sm text-gray-300">활성 상태</span>
           </label>
         </div>
       </Modal>

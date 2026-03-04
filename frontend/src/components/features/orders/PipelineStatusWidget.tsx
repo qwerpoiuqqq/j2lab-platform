@@ -98,7 +98,7 @@ function getStageColor(status: 'passed' | 'current' | 'future' | 'failed' | 'can
       return 'bg-red-400 text-white';
     case 'future':
     default:
-      return 'bg-gray-200 text-gray-500';
+      return 'bg-surface-overlay text-gray-400';
   }
 }
 
@@ -109,7 +109,7 @@ function getConnectorColor(status: 'passed' | 'current' | 'future' | 'failed' | 
     case 'current':
       return 'bg-blue-500';
     default:
-      return 'bg-gray-200';
+      return 'bg-surface-overlay';
   }
 }
 
@@ -178,10 +178,10 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
 
   if (loading) {
     return (
-      <div className="bg-gray-50 rounded-lg p-4">
+      <div className="bg-surface-raised rounded-lg p-4">
         <div className="animate-pulse flex space-x-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-6 w-16 bg-gray-200 rounded" />
+            <div key={i} className="h-6 w-16 bg-surface-overlay rounded" />
           ))}
         </div>
       </div>
@@ -190,16 +190,16 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
 
   if (error) {
     return (
-      <div className="bg-red-50 rounded-lg p-4">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="bg-red-900/20 rounded-lg p-4">
+        <p className="text-sm text-red-400">{error}</p>
       </div>
     );
   }
 
   if (!pipelineState) {
     return (
-      <div className="bg-gray-50 rounded-lg p-4">
-        <p className="text-sm text-gray-500">파이프라인이 아직 시작되지 않았습니다.</p>
+      <div className="bg-surface-raised rounded-lg p-4">
+        <p className="text-sm text-gray-400">파이프라인이 아직 시작되지 않았습니다.</p>
       </div>
     );
   }
@@ -220,7 +220,7 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
   const effectiveCampaignId = campaignId ?? pipelineState.campaign_id;
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+    <div className="bg-surface-raised rounded-lg p-4 space-y-3">
       {/* Progress stepper */}
       <div className="flex items-center overflow-x-auto pb-2 gap-0">
         {displayStages.map((stage, idx) => {
@@ -255,7 +255,7 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
                     idx + 1
                   )}
                 </div>
-                <span className="text-[10px] text-gray-500 mt-1 whitespace-nowrap">
+                <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">
                   {stage.label}
                 </span>
               </div>
@@ -287,21 +287,21 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
           >
             세팅 시작
           </Button>
-          <span className="text-xs text-gray-500">마감시간 전에 수동으로 키워드 추출을 시작합니다</span>
+          <span className="text-xs text-gray-400">마감시간 전에 수동으로 키워드 추출을 시작합니다</span>
         </div>
       )}
 
       {/* Error message */}
       {pipelineState.error_message && (
-        <div className="bg-red-50 border border-red-200 rounded p-2">
-          <p className="text-xs text-red-700">{pipelineState.error_message}</p>
+        <div className="bg-red-900/20 border border-red-800/50 rounded p-2">
+          <p className="text-xs text-red-400">{pipelineState.error_message}</p>
         </div>
       )}
 
       {/* Links */}
       <div className="flex gap-3 text-xs">
         {effectiveExtractionJobId && (
-          <span className="text-gray-500">
+          <span className="text-gray-400">
             추출 작업:{' '}
             <span className="text-primary-600 font-medium">
               #{effectiveExtractionJobId}
@@ -321,7 +321,7 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
       {/* Collapsible timeline logs */}
       <button
         onClick={() => setLogsExpanded((prev) => !prev)}
-        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
       >
         {logsExpanded ? (
           <ChevronUpIcon className="w-3.5 h-3.5" />
@@ -332,7 +332,7 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
       </button>
 
       {logsExpanded && (
-        <div className="border-l-2 border-gray-200 ml-2 pl-3 space-y-2 max-h-60 overflow-y-auto">
+        <div className="border-l-2 border-border ml-2 pl-3 space-y-2 max-h-60 overflow-y-auto">
           {logs.length === 0 ? (
             <p className="text-xs text-gray-400">로그가 없습니다.</p>
           ) : (
@@ -347,7 +347,7 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
                   )}
                 </div>
                 {log.message && (
-                  <p className="text-gray-600 mt-0.5">{log.message}</p>
+                  <p className="text-gray-400 mt-0.5">{log.message}</p>
                 )}
                 <p className="text-gray-400 mt-0.5">
                   {formatTimestamp(log.created_at)}

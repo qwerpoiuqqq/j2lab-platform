@@ -94,7 +94,7 @@ export default function SubAccountOrders() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-surface rounded-xl border border-border p-6">
         <div className="animate-pulse h-32" />
       </div>
     );
@@ -102,7 +102,7 @@ export default function SubAccountOrders() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+      <div className="bg-red-900/20 border border-red-800/50 rounded-xl p-4 text-sm text-red-400">
         {error}
       </div>
     );
@@ -113,11 +113,11 @@ export default function SubAccountOrders() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div className="bg-surface rounded-xl border border-border shadow-sm">
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">하부계정 접수건</h3>
-          <p className="text-sm text-gray-500 mt-0.5">대기 중인 접수건을 포함/제외하세요.</p>
+          <h3 className="text-lg font-semibold text-gray-100">하부계정 접수건</h3>
+          <p className="text-sm text-gray-400 mt-0.5">대기 중인 접수건을 포함/제외하세요.</p>
         </div>
         {selectedIds.size > 0 && (
           <Button
@@ -131,33 +131,33 @@ export default function SubAccountOrders() {
         )}
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-surface-raised">
             <tr>
               <th className="px-4 py-3 text-left">
                 <input
                   type="checkbox"
                   checked={selectedIds.size === orders.length && orders.length > 0}
                   onChange={toggleAll}
-                  className="rounded border-gray-300 text-primary-600"
+                  className="rounded border-border-strong text-primary-600"
                 />
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">접수일</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">주문번호</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">금액</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">접수일</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-border">
             {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
+              <tr key={order.id} className="hover:bg-surface-raised">
                 <td className="px-4 py-3">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(order.id)}
                     onChange={() => toggleSelect(order.id)}
-                    className="rounded border-gray-300 text-primary-600"
+                    className="rounded border-border-strong text-primary-600"
                   />
                 </td>
                 <td className="px-4 py-3 text-sm font-medium text-primary-600">
@@ -166,10 +166,10 @@ export default function SubAccountOrders() {
                 <td className="px-4 py-3">
                   <Badge variant="warning">{order.status}</Badge>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-700">
+                <td className="px-4 py-3 text-sm text-gray-300">
                   {formatCurrency(order.total_amount)}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
+                <td className="px-4 py-3 text-sm text-gray-400">
                   {order.created_at ? formatDate(order.created_at) : '-'}
                 </td>
                 <td className="px-4 py-3 flex gap-2">

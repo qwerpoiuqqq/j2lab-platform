@@ -56,11 +56,11 @@ function getOrderTypeLabel(orderType?: string): string {
 
 function getOrderTypeBadgeClass(orderType?: string): string {
   const map: Record<string, string> = {
-    regular: 'bg-gray-100 text-gray-600',
-    monthly_guarantee: 'bg-blue-100 text-blue-700',
-    managed: 'bg-purple-100 text-purple-700',
+    regular: 'bg-surface-raised text-gray-400',
+    monthly_guarantee: 'bg-blue-900/30 text-blue-400',
+    managed: 'bg-purple-900/30 text-purple-400',
   };
-  return map[orderType || 'regular'] || 'bg-gray-100 text-gray-600';
+  return map[orderType || 'regular'] || 'bg-surface-raised text-gray-400';
 }
 
 export default function OrderList({ orders, loading, selectable, selectedIds, onToggleSelect }: OrderListProps) {
@@ -81,7 +81,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
                   onToggleSelect?.(order.id);
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-border-strong text-primary-600 focus:ring-primary-400/40"
               />
             ),
           },
@@ -91,7 +91,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       key: 'order_number',
       header: '주문번호',
       render: (order) => (
-        <span className="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs font-mono text-gray-900">
+        <span className="inline-block bg-surface-raised px-2 py-0.5 rounded text-xs font-mono text-gray-100">
           {order.order_number}
         </span>
       ),
@@ -102,15 +102,15 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       render: (order) => (
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-900 font-medium">{order.user?.name || order.user_id || '-'}</span>
+            <span className="text-gray-100 font-medium">{order.user?.name || order.user_id || '-'}</span>
             {order.user?.role && (
-              <span className="inline-block bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] leading-none font-medium">
+              <span className="inline-block bg-surface-raised text-gray-400 px-1.5 py-0.5 rounded text-[10px] leading-none font-medium">
                 {getRoleLabel(order.user.role)}
               </span>
             )}
           </div>
           {order.company?.name && (
-            <span className="inline-flex items-center bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[11px] leading-none w-fit">
+            <span className="inline-flex items-center bg-blue-900/30 text-blue-400 px-1.5 py-0.5 rounded text-[11px] leading-none w-fit">
               {order.company.name}
             </span>
           )}
@@ -128,7 +128,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
         const uniqueNames = productNames ? [...new Set(productNames)] : [];
         return (
           <div>
-            <span className="text-gray-900 font-medium">{count}건</span>
+            <span className="text-gray-100 font-medium">{count}건</span>
             {uniqueNames.length > 0 && (
               <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[120px]">
                 {uniqueNames.join(', ')}
@@ -143,7 +143,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '금액',
       render: (order) => (
         <div className="text-right">
-          <span className="font-medium text-gray-900 tabular-nums">
+          <span className="font-medium text-gray-100 tabular-nums">
             {formatCurrency(order.total_amount)}
           </span>
         </div>
@@ -176,7 +176,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '접수일시',
       render: (order) => (
         <div>
-          <p className="text-gray-700 text-xs">
+          <p className="text-gray-300 text-xs">
             {formatDateTime(order.created_at)}
           </p>
           <p className="text-[11px] text-gray-400 mt-0.5">

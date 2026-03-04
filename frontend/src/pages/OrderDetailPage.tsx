@@ -196,7 +196,7 @@ export default function OrderDetailPage() {
         >
           목록으로
         </Button>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm">
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-red-400 text-sm">
           {error}
         </div>
       </div>
@@ -206,8 +206,8 @@ export default function OrderDetailPage() {
   if (loading || !order) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="bg-white rounded-xl border border-gray-200 h-48" />
-        <div className="bg-white rounded-xl border border-gray-200 h-64" />
+        <div className="bg-surface rounded-xl border border-border h-48" />
+        <div className="bg-surface rounded-xl border border-border h-64" />
       </div>
     );
   }
@@ -285,13 +285,13 @@ export default function OrderDetailPage() {
         size="sm"
       >
         <div className="space-y-4 p-1">
-          <p className="text-sm text-gray-600">반려 사유를 입력하세요.</p>
+          <p className="text-sm text-gray-400">반려 사유를 입력하세요.</p>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="반려 사유를 입력하세요..."
             rows={4}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => { setShowRejectModal(false); setRejectReason(''); }}>
@@ -317,13 +317,13 @@ export default function OrderDetailPage() {
         size="sm"
       >
         <div className="space-y-4 p-1">
-          <p className="text-sm text-gray-600">보류 사유를 입력하세요.</p>
+          <p className="text-sm text-gray-400">보류 사유를 입력하세요.</p>
           <textarea
             value={holdReason}
             onChange={(e) => setHoldReason(e.target.value)}
             placeholder="보류 사유를 입력하세요..."
             rows={4}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => { setShowHoldModal(false); setHoldReason(''); }}>
@@ -349,7 +349,7 @@ export default function OrderDetailPage() {
         size="sm"
       >
         <div className="space-y-4 p-1">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-400">
             주문 <span className="font-semibold">#{order.order_number}</span>을(를) 삭제하시겠습니까?
           </p>
           <p className="text-xs text-red-500">이 작업은 되돌릴 수 없습니다.</p>
@@ -374,12 +374,12 @@ export default function OrderDetailPage() {
         size="sm"
       >
         <div className="space-y-4 p-1">
-          <p className="text-sm text-gray-600">주문 #{order.order_number}의 마감일을 변경합니다.</p>
+          <p className="text-sm text-gray-400">주문 #{order.order_number}의 마감일을 변경합니다.</p>
           <input
             type="datetime-local"
             value={deadlineValue}
             onChange={(e) => setDeadlineValue(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
           />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowDeadlineModal(false)}>취소</Button>

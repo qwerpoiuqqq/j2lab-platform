@@ -33,11 +33,11 @@ const roleFilterOptions = [
 ];
 
 const roleColors: Record<string, string> = {
-  system_admin: 'text-red-600 bg-red-50',
-  company_admin: 'text-blue-600 bg-blue-50',
-  order_handler: 'text-green-600 bg-green-50',
-  distributor: 'text-purple-600 bg-purple-50',
-  sub_account: 'text-gray-600 bg-gray-50',
+  system_admin: 'text-red-600 bg-red-900/20',
+  company_admin: 'text-blue-400 bg-blue-900/20',
+  order_handler: 'text-green-600 bg-green-900/20',
+  distributor: 'text-purple-600 bg-purple-900/20',
+  sub_account: 'text-gray-400 bg-surface-raised',
 };
 
 export default function UsersPage() {
@@ -190,27 +190,27 @@ export default function UsersPage() {
   const renderTreeNode = (user: User, depth: number = 0) => (
     <div key={user.id}>
       <div
-        className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors`}
+        className={`flex items-center justify-between px-4 py-2.5 hover:bg-surface-raised transition-colors`}
         style={{ paddingLeft: `${16 + depth * 24}px` }}
       >
         <div className="flex items-center gap-3">
           {depth > 0 && <span className="text-gray-300">└</span>}
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 text-sm">{user.name}</span>
+              <span className="font-medium text-gray-100 text-sm">{user.name}</span>
               <span className={`text-xs px-1.5 py-0.5 rounded ${roleColors[user.role] || ''}`}>
                 {getRoleLabel(user.role)}
               </span>
               {!user.is_active && <Badge variant="default">비활성</Badge>}
             </div>
-            <p className="text-xs text-gray-500">{user.email}{user.company ? ` · ${user.company.name}` : ''}</p>
+            <p className="text-xs text-gray-400">{user.email}{user.company ? ` · ${user.company.name}` : ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => openEdit(user)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded">
+          <button onClick={() => openEdit(user)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded">
             <PencilSquareIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+          <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded">
             <TrashIcon className="h-4 w-4" />
           </button>
         </div>
@@ -224,20 +224,20 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">유저 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">유저 목록을 조회하고 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-100">유저 관리</h1>
+          <p className="mt-1 text-sm text-gray-400">유저 목록을 조회하고 관리합니다.</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          <div className="flex rounded-lg border border-border-strong overflow-hidden bg-surface text-gray-200">
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'text-gray-400 hover:bg-surface-raised'}`}
             >
               <ListBulletIcon className="h-4 w-4" />
             </button>
             <button
               onClick={() => setViewMode('tree')}
-              className={`px-3 py-2 text-sm ${viewMode === 'tree' ? 'bg-primary-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`px-3 py-2 text-sm ${viewMode === 'tree' ? 'bg-primary-500 text-white' : 'text-gray-400 hover:bg-surface-raised'}`}
             >
               <Squares2X2Icon className="h-4 w-4" />
             </button>
@@ -257,13 +257,13 @@ export default function UsersPage() {
             placeholder="이름, 이메일 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
           />
         </div>
         <select
           value={roleFilter}
           onChange={(e) => { setRoleFilter(e.target.value as UserRole | ''); setPage(1); }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
         >
           {roleFilterOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -272,18 +272,18 @@ export default function UsersPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
       {/* Content */}
       {viewMode === 'tree' ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+        <div className="bg-surface rounded-xl border border-border shadow-sm divide-y divide-border-subtle">
           {loading ? (
             <div className="animate-pulse p-4 space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-200 rounded" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-surface-raised rounded" />)}
             </div>
           ) : filteredUsers.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">유저가 없습니다.</div>
+            <div className="p-8 text-center text-gray-400 text-sm">유저가 없습니다.</div>
           ) : (
             userTree.rootUsers.map((user) => renderTreeNode(user))
           )}
@@ -320,7 +320,7 @@ export default function UsersPage() {
               onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
             />
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">역할</label>
               <select
                 value={editForm.role || editingUser.role}
                 onChange={(e) => {
@@ -328,7 +328,7 @@ export default function UsersPage() {
                   setEditForm({ ...editForm, role: newRole, parent_id: undefined });
                   loadParentCandidates(newRole, editingUser.company_id);
                 }}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               >
                 {roleFilterOptions.filter((o) => o.value).map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -337,13 +337,13 @@ export default function UsersPage() {
             </div>
             {PARENT_ROLE_MAP[editForm.role || editingUser.role] && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   {PARENT_ROLE_MAP[editForm.role || editingUser.role].label}
                 </label>
                 <select
                   value={editForm.parent_id || ''}
                   onChange={(e) => setEditForm({ ...editForm, parent_id: e.target.value || null })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   disabled={editParentLoading}
                 >
                   <option value="">
@@ -367,9 +367,9 @@ export default function UsersPage() {
                 type="checkbox"
                 checked={editForm.is_active ?? editingUser.is_active}
                 onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
               />
-              <span className="text-sm text-gray-700">활성</span>
+              <span className="text-sm text-gray-300">활성</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setShowEditModal(false)}>취소</Button>

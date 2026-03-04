@@ -41,7 +41,7 @@ export default function Pagination({
   return (
     <div className="flex items-center justify-between px-2 py-3">
       {totalItems !== undefined && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           총 <span className="font-medium">{totalItems}</span>건 중{' '}
           <span className="font-medium">{startItem}</span>-
           <span className="font-medium">{endItem}</span>
@@ -52,14 +52,14 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-surface-raised disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </button>
 
         {pages.map((p, idx) =>
           typeof p === 'string' ? (
-            <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">
+            <span key={`ellipsis-${idx}`} className="px-2 text-gray-500">
               ...
             </span>
           ) : (
@@ -71,7 +71,7 @@ export default function Pagination({
                 ${
                   p === page
                     ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    : 'text-gray-400 hover:bg-surface-raised'
                 }
               `}
             >
@@ -83,7 +83,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-surface-raised disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRightIcon className="h-4 w-4" />
         </button>

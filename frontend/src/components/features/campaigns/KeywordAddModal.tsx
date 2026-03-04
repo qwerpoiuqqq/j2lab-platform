@@ -62,14 +62,14 @@ export default function KeywordAddModal({
     >
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             키워드 (쉼표로 구분)
           </label>
           <textarea
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
             rows={4}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
             placeholder="키워드1, 키워드2, 키워드3"
           />
         </div>

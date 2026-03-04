@@ -109,8 +109,8 @@ export default function CampaignAddPage() {
   return (
     <div className="max-w-2xl space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">캠페인 직접 추가</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-100">캠페인 직접 추가</h1>
+        <p className="mt-1 text-sm text-gray-400">
           수동으로 캠페인을 등록합니다.
         </p>
       </div>
@@ -119,18 +119,18 @@ export default function CampaignAddPage() {
         <div
           className={`rounded-xl p-4 text-sm ${
             result.success
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-900/20 text-green-400 border border-green-800'
+              : 'bg-red-900/20 text-red-400 border border-red-800'
           }`}
         >
           {result.message}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-xl border border-border shadow-sm p-6 space-y-5">
         {/* Campaign code */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             캠페인 번호
           </label>
           <div className="flex gap-2">
@@ -142,7 +142,7 @@ export default function CampaignAddPage() {
                 setVerifyMsg(null);
                 setVerifyOk(false);
               }}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="superap 캠페인 번호"
               required
             />
@@ -160,7 +160,7 @@ export default function CampaignAddPage() {
         {/* Account + Agency */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">계정</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">계정</label>
             <select
               value={form.account_id}
               onChange={(e) => {
@@ -171,7 +171,7 @@ export default function CampaignAddPage() {
                   set('agency_name', acc.agency_name);
                 }
               }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               required
             >
               <option value="">선택</option>
@@ -183,14 +183,14 @@ export default function CampaignAddPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               대행사 <span className="text-xs text-gray-400">(계정에서 자동 입력)</span>
             </label>
             <input
               type="text"
               value={form.agency_name}
               onChange={(e) => set('agency_name', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="대행사명"
             />
           </div>
@@ -199,25 +199,25 @@ export default function CampaignAddPage() {
         {/* Place info */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">플레이스 URL</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">플레이스 URL</label>
             <input
               type="text"
               value={form.place_url}
               onChange={(e) => set('place_url', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="https://m.place.naver.com/..."
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               플레이스명 <span className="text-xs text-gray-400">(비우면 URL에서 자동 추출)</span>
             </label>
             <input
               type="text"
               value={form.place_name}
               onChange={(e) => set('place_name', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder="비워두면 자동 추출"
             />
           </div>
@@ -225,11 +225,11 @@ export default function CampaignAddPage() {
 
         {/* Template selector */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">캠페인 템플릿</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">캠페인 템플릿</label>
           <select
             value={form.template_id}
             onChange={(e) => set('template_id', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             required
           >
             <option value="">선택</option>
@@ -244,32 +244,32 @@ export default function CampaignAddPage() {
         {/* Date + daily limit */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">시작일</label>
             <input
               type="date"
               value={form.start_date}
               onChange={(e) => set('start_date', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
             <input
               type="date"
               value={form.end_date}
               onChange={(e) => set('end_date', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">일일 한도</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">일일 한도</label>
             <input
               type="number"
               value={form.daily_limit}
               onChange={(e) => set('daily_limit', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               min="1"
               required
             />
@@ -278,12 +278,12 @@ export default function CampaignAddPage() {
 
         {/* Keywords */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">키워드 (쉼표 구분)</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">키워드 (쉼표 구분)</label>
           <textarea
             value={form.keywords}
             onChange={(e) => set('keywords', e.target.value)}
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             placeholder="키워드1, 키워드2, 키워드3"
             required
           />
