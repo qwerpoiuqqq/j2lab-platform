@@ -127,12 +127,14 @@ export const settlementsApi = {
   export: async (params?: {
     start_date?: string;
     end_date?: string;
+    order_type?: string;
   }): Promise<Blob> => {
-    const { start_date, end_date } = params ?? {};
+    const { start_date, end_date, order_type } = params ?? {};
     const response = await apiClient.get('/settlements/export', {
       params: {
         date_from: start_date,
         date_to: end_date,
+        order_type,
       },
       responseType: 'blob',
     });

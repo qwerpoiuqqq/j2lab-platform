@@ -69,7 +69,13 @@ async def _confirm_and_start_pipeline(
     db: AsyncSession,
     current_user: User,
 ) -> dict:
-    """Shared logic for confirm-payment and approve endpoints."""
+    """Shared logic for confirm-payment and approve endpoints.
+
+    Pipeline state creation is done synchronously so the response already
+    contains the ``processing`` status and pipeline records are visible to
+    the frontend immediately.  Only the worker dispatch (HTTP calls to
+    keyword-worker) is deferred to a background task.
+    """
     order = await _get_order_or_404(db, order_id)
     _check_company_scope(current_user, order)
 
@@ -78,15 +84,24 @@ async def _confirm_and_start_pipeline(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    confirmed = await order_service.get_order_by_id(db, order_id)
-
     pipeline_warnings: list[str] = []
+    confirmed = await order_service.get_order_by_id(db, order_id)
     if confirmed.items:
         for item in confirmed.items:
             for w in validate_item_data_for_pipeline(item.item_data):
                 pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
 
-    background_tasks.add_task(_run_pipeline_for_order, order_id)
+    # Phase 1 (synchronous): create pipeline_state records + set order→processing
+    try:
+        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
+    except Exception:
+        logger.exception("Synchronous pipeline start failed for order %s", order_id)
+
+    # Re-read order after pipeline creation (status is now 'processing')
+    confirmed = await order_service.get_order_by_id(db, order_id)
+
+    # Phase 2 (background): dispatch extraction jobs to keyword-worker
+    background_tasks.add_task(_dispatch_extraction_jobs_background, order_id)
 
     result = OrderResponse.model_validate(confirmed).model_dump()
     result["pipeline_warnings"] = pipeline_warnings
@@ -1003,11 +1018,34 @@ async def update_deadline(
 
 
 # ---------------------------------------------------------------------------
-# Background pipeline helper
+# Background pipeline helpers
 # ---------------------------------------------------------------------------
 
+async def _dispatch_extraction_jobs_background(order_id: int) -> None:
+    """Dispatch extraction jobs to keyword-worker in background.
+
+    Called AFTER the main request committed pipeline_state records.
+    Waits briefly to ensure the commit is visible, then dispatches.
+    """
+    import asyncio
+    from app.core.database import async_session_factory
+
+    # Wait for the main request's DB transaction to be committed.
+    await asyncio.sleep(0.5)
+
+    try:
+        async with async_session_factory() as db:
+            try:
+                await pipeline_orchestrator.dispatch_pending_extraction_jobs(db)
+                logger.info("Background extraction dispatch completed for order %s", order_id)
+            except Exception:
+                logger.exception("Background extraction dispatch failed for order %s", order_id)
+    except Exception:
+        logger.exception("Background dispatch session error for order %s", order_id)
+
+
 async def _run_pipeline_for_order(order_id: int) -> None:
-    """Run pipeline start in background with a fresh DB session.
+    """Run full pipeline start in background (legacy/fallback).
 
     Two-phase approach to avoid race conditions:
     Phase 1: Create DB records (pipeline_state, extraction_job) and COMMIT

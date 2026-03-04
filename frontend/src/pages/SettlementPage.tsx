@@ -55,6 +55,11 @@ export default function SettlementPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Order type filter for all/handler/company/date tabs
+  // Defaults to 'regular' so no-revenue orders (monthly_guarantee/managed) are excluded by default.
+  // The 'managed' tab has its own hardcoded filter and is not affected by this state.
+  const [orderTypeFilter, setOrderTypeFilter] = useState<string>('regular');
+
   // All tab state
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
@@ -124,6 +129,7 @@ export default function SettlementPage() {
         size: 20,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        order_type: orderTypeFilter || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -142,7 +148,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, page, startDate, endDate]);
+  }, [activeTab, page, startDate, endDate, orderTypeFilter]);
 
   // Fetch "By Handler" tab data
   useEffect(() => {
@@ -155,6 +161,7 @@ export default function SettlementPage() {
       .byHandler({
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        order_type: orderTypeFilter || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -170,7 +177,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, startDate, endDate]);
+  }, [activeTab, startDate, endDate, orderTypeFilter]);
 
   // Fetch "By Company" tab data
   useEffect(() => {
@@ -183,6 +190,7 @@ export default function SettlementPage() {
       .byCompany({
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        order_type: orderTypeFilter || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -198,7 +206,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, startDate, endDate]);
+  }, [activeTab, startDate, endDate, orderTypeFilter]);
 
   // Fetch "By Date" tab data
   useEffect(() => {
@@ -211,6 +219,7 @@ export default function SettlementPage() {
       .byDate({
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        order_type: orderTypeFilter || undefined,
       })
       .then((data) => {
         if (!cancelled) {
@@ -226,7 +235,7 @@ export default function SettlementPage() {
       });
 
     return () => { cancelled = true; };
-  }, [activeTab, startDate, endDate]);
+  }, [activeTab, startDate, endDate, orderTypeFilter]);
 
   // Fetch "Managed" tab data (items sub-view only)
   useEffect(() => {
@@ -316,6 +325,7 @@ export default function SettlementPage() {
       const blob = await settlementsApi.export({
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        order_type: orderTypeFilter || undefined,
       });
       downloadBlob(blob, `정산내역_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch {
@@ -1228,8 +1238,8 @@ export default function SettlementPage() {
         ))}
       </div>
 
-      {/* Filters (not shown for daily-check tab which has its own date picker) */}
-      {activeTab !== 'daily-check' && (
+      {/* Filters (not shown for daily-check or managed tabs which have their own controls) */}
+      {activeTab !== 'daily-check' && activeTab !== 'managed' && (
         <div className="flex flex-col sm:flex-row gap-3 items-end">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-gray-400" />
@@ -1244,6 +1254,37 @@ export default function SettlementPage() {
               type="date"
               value={endDate}
               onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+          </div>
+          {/* Order type filter */}
+          <select
+            value={orderTypeFilter}
+            onChange={(e) => { setOrderTypeFilter(e.target.value); setPage(1); }}
+            className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+          >
+            <option value="regular">일반 주문</option>
+            <option value="monthly_guarantee,managed">월보장/관리형</option>
+            <option value="">전체</option>
+          </select>
+        </div>
+      )}
+      {/* Managed tab also shows date filters */}
+      {activeTab === 'managed' && (
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setManagedPage(1); }}
+              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+            <span className="text-gray-400">~</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setManagedPage(1); }}
               className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             />
           </div>

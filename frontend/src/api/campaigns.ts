@@ -26,8 +26,10 @@ export const campaignsApi = {
     return response.data;
   },
 
-  getKeywords: async (id: number): Promise<PaginatedResponse<CampaignKeyword>> => {
-    const response = await apiClient.get<PaginatedResponse<CampaignKeyword>>(`/campaigns/${id}/keywords`);
+  getKeywords: async (id: number, params?: { page?: number; size?: number }): Promise<PaginatedResponse<CampaignKeyword>> => {
+    const response = await apiClient.get<PaginatedResponse<CampaignKeyword>>(`/campaigns/${id}/keywords`, {
+      params: { size: 500, ...params },
+    });
     return response.data;
   },
 

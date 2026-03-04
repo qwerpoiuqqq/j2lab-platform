@@ -23,6 +23,7 @@ function getStatusBadgeVariant(status: string) {
     draft: 'default',
     submitted: 'info',
     payment_confirmed: 'success',
+    payment_hold: 'warning',
     processing: 'warning',
     completed: 'success',
     cancelled: 'danger',

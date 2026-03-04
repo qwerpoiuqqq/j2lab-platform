@@ -48,7 +48,6 @@ class ExtractionJob(Base):
     )
     order_item_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
-        ForeignKey("order_items.id", ondelete="SET NULL"),
     )
     place_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,

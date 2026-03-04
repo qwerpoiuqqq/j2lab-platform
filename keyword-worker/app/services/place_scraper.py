@@ -126,7 +126,7 @@ class PlaceData:
 class AddressParser:
     """Korean address parser for extracting region info."""
 
-    # Major area mappings: gu name -> major area short name
+    # Major area mappings: gu/gun name -> major area short name
     MAJOR_AREA_MAP = {
         "일산동구": "일산",
         "일산서구": "일산",
@@ -134,6 +134,12 @@ class AddressParser:
         "기장군": "기장",
         "강화군": "강화",
         "옹진군": "옹진",
+    }
+
+    # Abbreviated province names used in Naver addresses
+    PROVINCE_ABBREVIATIONS = {
+        "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+        "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
     }
 
     def parse(self, address: str, road_info: str = "") -> RegionInfo:
@@ -145,17 +151,26 @@ class AddressParser:
         parts = address.split()
 
         for i, part in enumerate(parts):
-            # City/Province (si/do)
+            # City/Province (si/do) - full form
             if part.endswith(("도", "특별시", "광역시", "특별자치시", "특별자치도")):
                 region.city = part.replace("특별시", "").replace("광역시", "").replace(
                     "특별자치시", ""
                 ).replace("특별자치도", "")
                 if region.city.endswith("도"):
                     region.city = region.city[:-1]
+            # Province abbreviations (전북, 경남, etc.)
+            elif i == 0 and part in self.PROVINCE_ABBREVIATIONS:
+                region.city = part
             # Si (city within province)
             elif part.endswith("시") and not part.endswith(("특별시", "광역시")):
                 region.si = part
                 region.si_without_suffix = part[:-1] if len(part) > 2 else part
+            # Gun (county) - treat like si-level for keyword generation
+            elif part.endswith("군"):
+                region.si = part
+                region.si_without_suffix = part[:-1] if len(part) > 2 else part
+                if part in self.MAJOR_AREA_MAP:
+                    region.major_area = self.MAJOR_AREA_MAP[part]
             # Gu (district)
             elif part.endswith("구"):
                 region.gu = part
@@ -167,6 +182,13 @@ class AddressParser:
             elif part.endswith("동") and len(part) >= 2:
                 # Avoid matching "구" patterns inside
                 if not any(part.endswith(s) for s in ("동구", "동군")):
+                    region.dong = part
+                    region.dong_without_suffix = (
+                        part[:-1] if len(part) > 2 else part
+                    )
+            # Eup/Myeon (town/township) - treat like dong-level
+            elif part.endswith(("읍", "면")) and len(part) >= 2:
+                if not region.dong:
                     region.dong = part
                     region.dong_without_suffix = (
                         part[:-1] if len(part) > 2 else part

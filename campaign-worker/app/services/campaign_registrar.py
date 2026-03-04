@@ -38,6 +38,16 @@ from app.services.superap_client import (
 from app.modules.base import ModuleError
 from app.modules.registry import ModuleRegistry
 from app.utils.crypto import decrypt_password
+
+# campaign_type(영문) → campaign_template.code(한글) 매핑
+_CAMPAIGN_TYPE_TO_TEMPLATE_CODE = {
+    "traffic": "트래픽",
+    "save": "저장하기",
+    "landmark": "명소",
+    "share_directions_traffic": "share_directions_traffic",
+    "traffic1": "traffic1",
+    "save1": "save1",
+}
 from app.utils.template_vars import apply_template_variables
 
 logger = logging.getLogger(__name__)
@@ -242,9 +252,12 @@ async def register_campaign(campaign_id: int) -> dict:
             await _send_callback(campaign_id, "failed", error_message="Account not found")
             return {"success": False, "error": "Account not found"}
 
-        # Load template
+        # Load template (map english campaign_type to Korean template code)
+        template_code = _CAMPAIGN_TYPE_TO_TEMPLATE_CODE.get(
+            campaign.campaign_type, campaign.campaign_type
+        )
         template_stmt = select(CampaignTemplate).where(
-            CampaignTemplate.code == campaign.campaign_type,
+            CampaignTemplate.code == template_code,
             CampaignTemplate.is_active.is_(True),
         )
         template_result = await session.execute(template_stmt)

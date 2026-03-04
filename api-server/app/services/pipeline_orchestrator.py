@@ -44,6 +44,16 @@ from app.services.worker_clients import (
 
 logger = logging.getLogger(__name__)
 
+# campaign_type(영문) → campaign_template.code(한글) 매핑
+_CAMPAIGN_TYPE_TO_TEMPLATE_CODE = {
+    "traffic": "트래픽",
+    "save": "저장하기",
+    "landmark": "명소",
+    "share_directions_traffic": "share_directions_traffic",
+    "traffic1": "traffic1",
+    "save1": "save1",
+}
+
 
 async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     """Start the pipeline after payment confirmation.
@@ -567,10 +577,11 @@ async def on_assignment_confirmed(
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
 
+    template_code = _CAMPAIGN_TYPE_TO_TEMPLATE_CODE.get(campaign_type, campaign_type)
     template_result = await db.execute(
         select(CampaignTemplate)
         .where(
-            CampaignTemplate.code == campaign_type,
+            CampaignTemplate.code == template_code,
             CampaignTemplate.is_active == True,
         )
         .limit(1)

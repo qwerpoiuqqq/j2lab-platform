@@ -26,7 +26,7 @@ class WorkerDispatchError(Exception):
 def _client() -> httpx.AsyncClient:
     """Create a one-shot async client with standard timeouts."""
     return httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=5.0, read=660.0, write=10.0, pool=5.0),
+        timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
     )
 
 

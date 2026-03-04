@@ -19,6 +19,7 @@ from app.services import superap_account_service
 router = APIRouter(prefix="/superap-accounts", tags=["superap-accounts"])
 
 admin_viewer = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+admin_editor = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
 system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
 
 
@@ -64,9 +65,16 @@ async def list_accounts(
 async def create_account(
     body: SuperapAccountCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    current_user: User = Depends(admin_editor),
 ):
-    """Create a new superap account (system_admin only). Password is AES-encrypted."""
+    """Create a new superap account. Password is AES-encrypted.
+
+    company_admin can only create accounts for their own company.
+    """
+    # company_admin: force company_id to own company
+    if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
+        body.company_id = current_user.company_id
+
     # Check uniqueness
     existing = await superap_account_service.get_account_by_login_id(
         db, body.user_id_superap
@@ -86,15 +94,25 @@ async def update_account(
     account_id: int,
     body: SuperapAccountUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    current_user: User = Depends(admin_editor),
 ):
-    """Update a superap account (system_admin only)."""
+    """Update a superap account.
+
+    company_admin can only update accounts in their own company.
+    """
     account = await superap_account_service.get_account_by_id(db, account_id)
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Superap account not found",
         )
+    # company_admin: scope check
+    if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
+        if account.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot update accounts outside your company",
+            )
     updated = await superap_account_service.update_account(db, account, body)
     return updated
 

@@ -296,7 +296,7 @@ export default function OrderDetail({
               <p className="text-sm text-gray-400 mb-2">
                 {item.product?.name || `상품 #${item.product_id}`}{item.item_data?.place_name || item.item_data?.상호명 ? ` - ${item.item_data?.place_name || item.item_data?.상호명}` : ''}
               </p>
-              <PipelineStatusWidget orderItemId={item.id} />
+              <PipelineStatusWidget key={`${item.id}-${order.status}`} orderItemId={item.id} />
             </div>
           ))}
         </div>
