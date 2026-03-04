@@ -249,7 +249,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-white
+          fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-gray-100
           border-r border-border-subtle
           transform transition-transform duration-300 ease-in-out
           lg:translate-x-0 lg:static lg:z-auto
@@ -257,7 +257,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         `}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-white/10">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-border-subtle">
           <div className="flex items-center gap-3">
             <LogicLabLogo size={28} className="text-primary-400" />
             <span className="text-sm font-bold tracking-widest text-gray-100">LOGIC LAB</span>
@@ -289,8 +289,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     onClick={() => toggleExpand(item.path)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       childActive
-                        ? 'bg-sidebar-active text-white'
-                        : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'
+                        ? 'bg-sidebar-active text-gray-100'
+                        : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
                     }`}
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
@@ -313,8 +313,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           className={({ isActive }) =>
                             `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                               isActive
-                                ? 'bg-sidebar-active text-white'
-                                : 'text-gray-400 hover:bg-sidebar-hover hover:text-white'
+                                ? 'bg-sidebar-active text-gray-100'
+                                : 'text-gray-400 hover:bg-sidebar-hover hover:text-gray-100'
                             }`
                           }
                         >
@@ -338,8 +338,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-sidebar-active text-white'
-                      : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'
+                      ? 'bg-sidebar-active text-gray-100'
+                      : 'text-gray-300 hover:bg-sidebar-hover hover:text-gray-100'
                   }`
                 }
               >
@@ -351,7 +351,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Bottom info */}
-        <div className="px-6 py-4 border-t border-white/10">
+        <div className="px-6 py-4 border-t border-border-subtle">
           <p className="text-xs text-gray-500">LOGIC LAB v1.0</p>
         </div>
       </aside>

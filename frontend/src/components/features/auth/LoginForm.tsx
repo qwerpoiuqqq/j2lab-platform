@@ -35,7 +35,7 @@ export default function LoginForm() {
       <Input
         label="이메일"
         type="email"
-        placeholder="admin@logic-lab.kr"
+        placeholder="이메일을 입력하세요"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required

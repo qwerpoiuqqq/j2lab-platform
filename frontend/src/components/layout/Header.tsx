@@ -9,8 +9,11 @@ import {
   MegaphoneIcon,
   Cog6ToothIcon,
   BanknotesIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
+import { useThemeStore } from '@/store/theme';
 import { getRoleLabel, formatRelativeTime, getNotificationTypeLabel } from '@/utils/format';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
@@ -36,6 +39,7 @@ const NOTIFICATION_TYPE_COLORS: Record<string, string> = {
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useThemeStore();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -136,6 +140,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right - Notifications + User menu */}
         <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-gray-400 hover:bg-surface-raised transition-colors"
+            title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+          >
+            {theme === 'dark' ? (
+              <SunIcon className="h-5 w-5" />
+            ) : (
+              <MoonIcon className="h-5 w-5" />
+            )}
+          </button>
+
           {/* Notification Bell */}
           <div className="relative" ref={notificationRef}>
             <button

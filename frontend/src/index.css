@@ -73,3 +73,97 @@
   ::-webkit-scrollbar-thumb { background: #323542; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #424656; }
 }
+
+/* ============================================
+   Light Theme Overrides
+   ============================================ */
+[data-theme="light"] {
+  /* --- Gray scale 반전 (텍스트 가독성) --- */
+  --color-gray-50: #030712;
+  --color-gray-100: #111827;
+  --color-gray-200: #1f2937;
+  --color-gray-300: #374151;
+  --color-gray-400: #4b5563;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #9ca3af;
+  --color-gray-700: #d1d5db;
+  --color-gray-800: #e5e7eb;
+  --color-gray-900: #f3f4f6;
+  --color-gray-950: #f9fafb;
+
+  /* --- Surface (밝은 배경) --- */
+  --color-surface: #ffffff;
+  --color-surface-raised: #f9fafb;
+  --color-surface-overlay: #f3f4f6;
+
+  /* --- Border (밝은 테마용 경계선) --- */
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-subtle: #f0f0f3;
+
+  /* --- Sidebar --- */
+  --color-sidebar: #ffffff;
+  --color-sidebar-hover: #f3f4f6;
+  --color-sidebar-active: #ecfeff;
+
+  /* --- Semantic (밝은 배경용 tint) --- */
+  --color-success-50: #f0fdf4;
+  --color-warning-50: #fffbeb;
+  --color-danger-50: #fef2f2;
+
+  /* --- Primary (아이콘/배지 가독성) --- */
+  --color-primary-300: #0891b2;
+  --color-primary-400: #0891b2;
+  --color-primary-900: #ecfeff;
+
+  /* --- Badge 컬러 (900=밝은bg, 400=어두운text) --- */
+  --color-green-400: #15803d;
+  --color-green-900: #f0fdf4;
+
+  --color-red-400: #b91c1c;
+  --color-red-500: #dc2626;
+  --color-red-900: #fef2f2;
+
+  --color-yellow-400: #a16207;
+  --color-yellow-900: #fefce8;
+
+  --color-blue-300: #1e40af;
+  --color-blue-400: #1d4ed8;
+  --color-blue-900: #eff6ff;
+
+  --color-amber-400: #b45309;
+  --color-amber-900: #fffbeb;
+
+  --color-orange-400: #c2410c;
+  --color-orange-900: #fff7ed;
+
+  --color-emerald-400: #047857;
+  --color-emerald-900: #ecfdf5;
+
+  --color-purple-400: #7e22ce;
+  --color-purple-900: #faf5ff;
+
+  /* --- Danger/Warning/Success 텍스트 --- */
+  --color-danger-500: #dc2626;
+  --color-danger-600: #b91c1c;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+  --color-success-500: #16a34a;
+  --color-success-600: #15803d;
+}
+
+/* Light theme scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-track { background: #f3f4f6; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d1d5db; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Light theme selection */
+[data-theme="light"] ::selection {
+  background: rgba(6, 182, 212, 0.2);
+  color: #1f2937;
+}
+
+/* Light theme focus */
+[data-theme="light"] :focus-visible {
+  outline-color: #0891b2;
+}
