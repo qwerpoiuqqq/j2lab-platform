@@ -6,7 +6,7 @@ import io
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,57 @@ from app.services.pipeline_validation import validate_item_data_for_pipeline
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers (DRY: used by many endpoints)
+# ---------------------------------------------------------------------------
+
+async def _get_order_or_404(db: AsyncSession, order_id: int) -> Order:
+    order = await order_service.get_order_by_id(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    return order
+
+
+def _check_company_scope(current_user: User, order: Order) -> None:
+    """Raise 403 if company_admin tries to access another company's order."""
+    if UserRole(current_user.role) == UserRole.COMPANY_ADMIN:
+        if order.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Company admin can only manage orders in their own company",
+            )
+
+
+async def _confirm_and_start_pipeline(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession,
+    current_user: User,
+) -> dict:
+    """Shared logic for confirm-payment and approve endpoints."""
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
+
+    try:
+        await order_service.confirm_payment(db, order, current_user)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    confirmed = await order_service.get_order_by_id(db, order_id)
+
+    pipeline_warnings: list[str] = []
+    if confirmed.items:
+        for item in confirmed.items:
+            for w in validate_item_data_for_pipeline(item.item_data):
+                pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
+
+    background_tasks.add_task(_run_pipeline_for_order, order_id)
+
+    result = OrderResponse.model_validate(confirmed).model_dump()
+    result["pipeline_warnings"] = pipeline_warnings
+    return result
 
 
 @router.get("/", response_model=PaginatedResponse[OrderBriefResponse])
@@ -535,6 +586,7 @@ async def get_order_deadlines(
 @router.post("/bulk-payment-confirm", response_model=MessageResponse)
 async def bulk_payment_confirm(
     body: BulkPaymentConfirmRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
@@ -543,6 +595,7 @@ async def bulk_payment_confirm(
     """Bulk payment confirmation for multiple orders (submitted -> payment_confirmed)."""
     success_count = 0
     errors = []
+    confirmed_order_ids = []
 
     for oid in body.order_ids:
         order = await order_service.get_order_by_id(db, oid)
@@ -558,15 +611,15 @@ async def bulk_payment_confirm(
                 continue
 
         try:
-            confirmed = await order_service.confirm_payment(db, order, current_user)
-            # Start pipeline (best-effort)
-            try:
-                await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
-            except Exception as e:
-                logger.error("Pipeline start failed for order %s: %s", oid, e)
+            await order_service.confirm_payment(db, order, current_user)
+            confirmed_order_ids.append(oid)
             success_count += 1
         except ValueError as e:
             errors.append(f"Order {oid}: {str(e)}")
+
+    # Start pipelines in BACKGROUND (non-blocking)
+    for oid in confirmed_order_ids:
+        background_tasks.add_task(_run_pipeline_for_order, oid)
 
     return MessageResponse(
         message=f"Confirmed {success_count}/{len(body.order_ids)} orders",
@@ -682,34 +735,14 @@ async def delete_order(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
     ),
 ):
-    """Delete an order permanently (only draft/cancelled/rejected).
-
-    company_admin can only delete orders in their own company.
-    Cascading deletes handle order_items, pipeline_states, pipeline_logs.
-    """
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    # company_admin can only delete orders in their company
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only delete orders in their own company",
-            )
+    """Delete an order permanently (only draft/cancelled/rejected)."""
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
 
     try:
         await order_service.delete_order(db, order)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return MessageResponse(message=f"Order {order_id} deleted successfully")
 
 
@@ -783,6 +816,7 @@ async def submit_order(
 @router.post("/{order_id}/confirm-payment", response_model=OrderResponse)
 async def confirm_payment(
     order_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
@@ -791,53 +825,9 @@ async def confirm_payment(
     """Confirm payment: submitted -> payment_confirmed.
 
     Deducts balance from the order's user. company_admin or system_admin only.
+    Pipeline is started in the background after response is sent.
     """
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    # company_admin can only confirm orders in their company
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only confirm orders in their own company",
-            )
-
-    try:
-        await order_service.confirm_payment(db, order, current_user)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-    # Re-fetch to ensure all nested relationships are loaded
-    confirmed = await order_service.get_order_by_id(db, order_id)
-
-    # Validate item_data for pipeline (non-blocking warnings)
-    pipeline_warnings: list[str] = []
-    if confirmed.items:
-        for item in confirmed.items:
-            item_warnings = validate_item_data_for_pipeline(item.item_data)
-            for w in item_warnings:
-                pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
-
-    # Start E2E pipeline (best-effort -- payment confirmation is preserved on failure)
-    try:
-        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
-    except Exception as e:
-        logger.error("Pipeline start failed for order %s: %s", order_id, e)
-
-    # Re-fetch again after pipeline may have modified state
-    confirmed = await order_service.get_order_by_id(db, order_id)
-    result = OrderResponse.model_validate(confirmed).model_dump()
-    result["pipeline_warnings"] = pipeline_warnings
-    return result
+    return await _confirm_and_start_pipeline(order_id, background_tasks, db, current_user)
 
 
 @router.post("/{order_id}/reject", response_model=OrderResponse)
@@ -850,29 +840,13 @@ async def reject_order(
     ),
 ):
     """Reject an order: submitted -> rejected. company_admin or system_admin only."""
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    # company_admin can only reject orders in their company
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only reject orders in their own company",
-            )
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
 
     try:
         await order_service.reject_order(db, order, body.reason)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return await order_service.get_order_by_id(db, order_id)
 
 
@@ -886,29 +860,13 @@ async def hold_order(
     ),
 ):
     """Hold an order: submitted/payment_hold -> payment_hold. company_admin or system_admin only."""
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    # company_admin can only hold orders in their company
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only hold orders in their own company",
-            )
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
 
     try:
         await order_service.hold_order(db, order, body.reason, current_user)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return await order_service.get_order_by_id(db, order_id)
 
 
@@ -921,29 +879,13 @@ async def release_hold(
     ),
 ):
     """Release hold: payment_hold -> submitted. company_admin or system_admin only."""
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    # company_admin can only release orders in their company
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only release orders in their own company",
-            )
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
 
     try:
         await order_service.release_hold(db, order, current_user)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return await order_service.get_order_by_id(db, order_id)
 
 
@@ -956,77 +898,27 @@ async def cancel_order(
     ),
 ):
     """Cancel an order: draft/submitted -> cancelled. company_admin or system_admin only."""
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
+    order = await _get_order_or_404(db, order_id)
+    _check_company_scope(current_user, order)
 
     try:
         await order_service.cancel_order(db, order, current_user)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return await order_service.get_order_by_id(db, order_id)
 
 
 @router.post("/{order_id}/approve", response_model=OrderResponse)
 async def approve_order(
     order_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
     ),
 ):
     """Approve order: submitted -> payment_confirmed. Alias for confirm-payment."""
-    order = await order_service.get_order_by_id(db, order_id)
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    user_role = UserRole(current_user.role)
-    if user_role == UserRole.COMPANY_ADMIN:
-        if order.company_id != current_user.company_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Company admin can only approve orders in their own company",
-            )
-
-    try:
-        await order_service.confirm_payment(db, order, current_user)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-    # Re-fetch to ensure all nested relationships are loaded
-    confirmed = await order_service.get_order_by_id(db, order_id)
-
-    # Validate item_data for pipeline (non-blocking warnings)
-    pipeline_warnings: list[str] = []
-    if confirmed.items:
-        for item in confirmed.items:
-            item_warnings = validate_item_data_for_pipeline(item.item_data)
-            for w in item_warnings:
-                pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
-
-    # Start E2E pipeline (best-effort -- payment confirmation is preserved on failure)
-    try:
-        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
-    except Exception as e:
-        logger.error("Pipeline start failed for order %s: %s", order_id, e)
-
-    # Re-fetch again after pipeline may have modified state
-    confirmed = await order_service.get_order_by_id(db, order_id)
-    result = OrderResponse.model_validate(confirmed).model_dump()
-    result["pipeline_warnings"] = pipeline_warnings
-    return result
+    return await _confirm_and_start_pipeline(order_id, background_tasks, db, current_user)
 
 
 @router.get("/{order_id}/items/export")
@@ -1108,3 +1000,50 @@ async def update_deadline(
             detail=str(e),
         )
     return updated
+
+
+# ---------------------------------------------------------------------------
+# Background pipeline helper
+# ---------------------------------------------------------------------------
+
+async def _run_pipeline_for_order(order_id: int) -> None:
+    """Run pipeline start in background with a fresh DB session.
+
+    Two-phase approach to avoid race conditions:
+    Phase 1: Create DB records (pipeline_state, extraction_job) and COMMIT
+    Phase 2: Dispatch to keyword-worker (worker can now see committed records)
+    """
+    import asyncio
+    from app.core.database import async_session_factory
+
+    # Wait briefly to ensure the main request's DB transaction has committed.
+    await asyncio.sleep(0.5)
+
+    # Phase 1: Create pipeline records and commit
+    try:
+        async with async_session_factory() as db:
+            try:
+                order = await order_service.get_order_by_id(db, order_id)
+                if order is None:
+                    logger.error("Background pipeline: order %s not found", order_id)
+                    return
+                await pipeline_orchestrator.start_pipeline_for_order(db, order)
+                await db.commit()
+                logger.info("Background pipeline records committed for order %s", order_id)
+            except Exception:
+                await db.rollback()
+                logger.exception("Background pipeline failed for order %s", order_id)
+                return
+    except Exception:
+        logger.exception("Background pipeline session error for order %s", order_id)
+        return
+
+    # Phase 2: Dispatch extraction jobs (AFTER commit, so worker can see records)
+    try:
+        async with async_session_factory() as db:
+            try:
+                await pipeline_orchestrator.dispatch_pending_extraction_jobs(db)
+            except Exception:
+                logger.exception("Background pipeline dispatch failed for order %s", order_id)
+    except Exception:
+        logger.exception("Background pipeline dispatch session error for order %s", order_id)

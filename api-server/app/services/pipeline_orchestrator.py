@@ -19,10 +19,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.campaign_template import CampaignTemplate
 from app.models.extraction_job import ExtractionJob
 from app.models.order import Order, OrderItem, OrderStatus, OrderType
+from app.models.pipeline_log import PipelineLog
 from app.models.pipeline_state import PipelineState
 from app.models.product import Product
+from app.models.superap_account import SuperapAccount
 from app.schemas.campaign import CampaignCreate
 from app.schemas.extraction_job import ExtractionJobCreate
 from app.services import (
@@ -32,7 +35,12 @@ from app.services import (
     pipeline_service,
     superap_account_service,
 )
-from app.services.worker_clients import WorkerDispatchError, dispatch_extraction_job, dispatch_campaign_registration
+from app.services.worker_clients import (
+    WorkerDispatchError,
+    dispatch_campaign_extension,
+    dispatch_campaign_registration,
+    dispatch_extraction_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +145,13 @@ async def _start_pipeline_for_item(
 async def _advance_to_extraction(
     db: AsyncSession, item: OrderItem, state: PipelineState
 ) -> None:
-    """Move an item from payment_confirmed to extraction_queued."""
+    """Move an item from payment_confirmed to extraction_queued.
+
+    NOTE: This only creates DB records (extraction_job + pipeline state).
+    The actual dispatch to keyword-worker must happen AFTER db.commit()
+    to avoid race conditions (keyword-worker can't see uncommitted records).
+    Use dispatch_pending_extraction_jobs() after committing.
+    """
     place_url = _extract_place_url(item)
     if not place_url:
         await pipeline_service.transition_stage(
@@ -180,23 +194,50 @@ async def _advance_to_extraction(
     )
     state.extraction_job_id = job.id
     await db.flush()
+    logger.info("Extraction job %s created for item %s (dispatch after commit)", job.id, item.id)
 
-    try:
-        await dispatch_extraction_job(
-            job_id=job.id,
-            naver_url=place_url,
-            target_count=target_count,
-            max_rank=max_rank,
-            min_rank=min_rank,
-            name_keyword_ratio=name_keyword_ratio,
-            order_item_id=item.id,
+
+async def dispatch_pending_extraction_jobs(db: AsyncSession) -> None:
+    """Dispatch all extraction_queued jobs to keyword-worker.
+
+    Must be called AFTER db.commit() so keyword-worker can see the records.
+    Only dispatches jobs still in 'queued' status (skips running/completed/failed).
+    The keyword-worker handles re-dispatch gracefully (re-queues existing queued jobs).
+    """
+    result = await db.execute(
+        select(PipelineState).where(
+            PipelineState.current_stage == "extraction_queued",
         )
-        logger.info("Dispatched extraction job %s to keyword-worker", job.id)
-    except WorkerDispatchError:
-        logger.exception(
-            "Failed to dispatch extraction job %s to keyword-worker (DB record preserved)",
-            job.id,
+    )
+    states = list(result.scalars().all())
+
+    for state in states:
+        if not state.extraction_job_id:
+            continue
+
+        ej_result = await db.execute(
+            select(ExtractionJob).where(ExtractionJob.id == state.extraction_job_id)
         )
+        ej = ej_result.scalar_one_or_none()
+        if not ej or ej.status != "queued":
+            continue
+
+        try:
+            await dispatch_extraction_job(
+                job_id=ej.id,
+                naver_url=ej.naver_url,
+                order_item_id=ej.order_item_id,
+                target_count=ej.target_count,
+                max_rank=ej.max_rank,
+                min_rank=ej.min_rank,
+                name_keyword_ratio=ej.name_keyword_ratio,
+            )
+            logger.info("Dispatched extraction job %s to keyword-worker", ej.id)
+        except WorkerDispatchError:
+            logger.exception(
+                "Failed to dispatch extraction job %s to keyword-worker (will be retried)",
+                ej.id,
+            )
 
 
 async def check_and_queue_ready_items(db: AsyncSession) -> dict:
@@ -412,7 +453,6 @@ async def on_assignment_choice(
             if extension and extension[1]:  # is_extend = True
                 existing_campaign = extension[0]
                 try:
-                    from app.services.worker_clients import dispatch_campaign_extension
                     duration_days = item_data.get("duration_days", 30)
                     new_end = (date.today() + timedelta(days=duration_days)).isoformat()
                     additional_total = item_data.get("total_limit", 3000)
@@ -451,7 +491,6 @@ async def on_assignment_choice(
             order_item_id,
         )
         # Record the fallback in the pipeline log
-        from app.models.pipeline_log import PipelineLog
         fallback_log = PipelineLog(
             pipeline_state_id=state.id,
             from_stage=state.current_stage,
@@ -527,9 +566,6 @@ async def on_assignment_confirmed(
     start_date = _parse_start_date(item_data)
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
-
-    from app.models.campaign_template import CampaignTemplate
-    from app.models.superap_account import SuperapAccount
 
     template_result = await db.execute(
         select(CampaignTemplate)

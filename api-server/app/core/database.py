@@ -19,6 +19,13 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    # Prevent idle-in-transaction deadlocks: auto-kill sessions idle for >60s
+    connect_args={
+        "server_settings": {
+            "idle_in_transaction_session_timeout": "60000",  # 60 seconds
+            "statement_timeout": "120000",  # 120 seconds max per statement
+        }
+    },
 )
 
 async_session_factory = async_sessionmaker(
@@ -43,5 +50,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()

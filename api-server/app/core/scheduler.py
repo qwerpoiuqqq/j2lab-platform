@@ -53,15 +53,26 @@ async def stop_scheduler() -> None:
 
 
 async def _run_deadline_check() -> None:
-    """Run the deadline check job within a DB session."""
-    from app.core.database import async_session_factory
-    from app.services.pipeline_orchestrator import check_and_queue_ready_items
+    """Run the deadline check job within a DB session.
 
+    Two-phase approach (same as confirm-payment background task):
+    Phase 1: Create extraction records and COMMIT
+    Phase 2: Dispatch to keyword-worker (after commit so worker can see records)
+    """
+    from app.core.database import async_session_factory
+    from app.services.pipeline_orchestrator import (
+        check_and_queue_ready_items,
+        dispatch_pending_extraction_jobs,
+    )
+
+    # Phase 1: Create records and commit
+    queued_count = 0
     try:
         async with async_session_factory() as db:
             result = await check_and_queue_ready_items(db)
+            queued_count = result["queued"]
             await db.commit()
-            if result["queued"] > 0:
+            if queued_count > 0:
                 logger.info(
                     "Deadline check: queued=%d, skipped=%d, checked=%d",
                     result["queued"],
@@ -69,4 +80,13 @@ async def _run_deadline_check() -> None:
                     result["total_checked"],
                 )
     except Exception:
-        logger.exception("Deadline check job failed")
+        logger.exception("Deadline check job failed (phase 1: record creation)")
+        return
+
+    # Phase 2: Dispatch extraction jobs (AFTER commit)
+    if queued_count > 0:
+        try:
+            async with async_session_factory() as db:
+                await dispatch_pending_extraction_jobs(db)
+        except Exception:
+            logger.exception("Deadline check job failed (phase 2: dispatch)")

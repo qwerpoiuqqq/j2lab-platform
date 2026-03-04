@@ -62,16 +62,25 @@ def _base_filters(
     return filters
 
 
-def _calc_cost(item: OrderItem, product: Product) -> int:
-    """Calculate cost with 3-tier priority (PHASE 0 fix).
+def _cost_expr():
+    """SQLAlchemy cost expression with 3-tier fallback.
 
-    Priority:
-    1. cost_unit_price (snapshot at assignment time) * quantity
-    2. Product.base_price * quantity (fallback)
+    Priority: cost_unit_price → cost_price → base_price (× quantity).
     """
+    return case(
+        (OrderItem.cost_unit_price.isnot(None), OrderItem.cost_unit_price * OrderItem.quantity),
+        (Product.cost_price.isnot(None), Product.cost_price * OrderItem.quantity),
+        else_=func.coalesce(Product.base_price, 0) * OrderItem.quantity,
+    )
+
+
+def _calc_cost(item: OrderItem, product: Product) -> int:
+    """Python-side cost calculation (same 3-tier fallback as _cost_expr)."""
     quantity = item.quantity or 1
     if item.cost_unit_price is not None:
         return int(item.cost_unit_price) * quantity
+    if product.cost_price is not None:
+        return int(product.cost_price) * quantity
     return int(product.base_price or 0) * quantity
 
 
@@ -160,16 +169,8 @@ async def _compute_summary(
     order_count = result.order_count
     total_revenue = int(result.total_revenue)
 
-    # Cost: use cost_unit_price when available, else base_price
-    cost_expr = case(
-        (
-            OrderItem.cost_unit_price.isnot(None),
-            OrderItem.cost_unit_price * OrderItem.quantity,
-        ),
-        else_=Product.base_price * OrderItem.quantity,
-    )
     cost_stmt = (
-        select(func.coalesce(func.sum(cost_expr), 0).label("total_cost"))
+        select(func.coalesce(func.sum(_cost_expr()), 0).label("total_cost"))
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
         .join(Product, OrderItem.product_id == Product.id)
@@ -215,14 +216,6 @@ async def get_settlement_by_handler(
 
     filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
-    cost_expr = case(
-        (
-            OrderItem.cost_unit_price.isnot(None),
-            OrderItem.cost_unit_price * OrderItem.quantity,
-        ),
-        else_=Product.base_price * OrderItem.quantity,
-    )
-
     # Aliases for parent chain traversal
     OrderUser = aliased(User, name="order_user")       # 주문자
     ParentUser = aliased(User, name="parent_user")     # 주문자의 parent
@@ -250,7 +243,7 @@ async def get_settlement_by_handler(
             func.count(func.distinct(Order.id)).label("order_count"),
             func.count(OrderItem.id).label("item_count"),
             func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
-            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+            func.coalesce(func.sum(_cost_expr()), 0).label("total_cost"),
         )
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -297,14 +290,6 @@ async def get_settlement_by_company(
 
     filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
-    cost_expr = case(
-        (
-            OrderItem.cost_unit_price.isnot(None),
-            OrderItem.cost_unit_price * OrderItem.quantity,
-        ),
-        else_=Product.base_price * OrderItem.quantity,
-    )
-
     stmt = (
         select(
             Company.id.label("company_id"),
@@ -312,7 +297,7 @@ async def get_settlement_by_company(
             func.count(func.distinct(Order.id)).label("order_count"),
             func.count(OrderItem.id).label("item_count"),
             func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
-            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+            func.coalesce(func.sum(_cost_expr()), 0).label("total_cost"),
         )
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -354,14 +339,6 @@ async def get_settlement_by_date(
     """Aggregate settlements by date (for chart data)."""
     filters = _base_filters(date_from, date_to, company_id=company_id, handler_user_ids=handler_user_ids, order_type=order_type)
 
-    cost_expr = case(
-        (
-            OrderItem.cost_unit_price.isnot(None),
-            OrderItem.cost_unit_price * OrderItem.quantity,
-        ),
-        else_=Product.base_price * OrderItem.quantity,
-    )
-
     date_col = func.date(Order.created_at).label("order_date")
 
     stmt = (
@@ -370,7 +347,7 @@ async def get_settlement_by_date(
             func.count(func.distinct(Order.id)).label("order_count"),
             func.count(OrderItem.id).label("item_count"),
             func.coalesce(func.sum(OrderItem.subtotal), 0).label("total_revenue"),
-            func.coalesce(func.sum(cost_expr), 0).label("total_cost"),
+            func.coalesce(func.sum(_cost_expr()), 0).label("total_cost"),
         )
         .select_from(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -412,11 +389,10 @@ async def get_daily_settlement_check(
     grouped by the distributor (parent of the order's user).
     order_handler sees only their line's orders via handler_user_ids.
     """
-    from datetime import datetime, time, timezone as tz
     from sqlalchemy.orm import aliased, selectinload
 
-    start_of_day = datetime.combine(check_date, time.min, tzinfo=tz.utc)
-    end_of_day = datetime.combine(check_date, time.max, tzinfo=tz.utc)
+    start_of_day = datetime.combine(check_date, time.min, tzinfo=timezone.utc)
+    end_of_day = datetime.combine(check_date, time.max, tzinfo=timezone.utc)
 
     check_statuses = [
         OrderStatus.SUBMITTED.value,
@@ -483,7 +459,7 @@ async def get_daily_settlement_check(
         if order.items:
             first_item = order.items[0]
             if first_item.item_data and isinstance(first_item.item_data, dict):
-                place_name = first_item.item_data.get("place_url", "")
+                place_name = first_item.item_data.get("place_name", first_item.item_data.get("place_url", ""))
 
         amt = int(order.total_amount) if order.total_amount else 0
         distributor_map[dist_id]["orders"].append(
