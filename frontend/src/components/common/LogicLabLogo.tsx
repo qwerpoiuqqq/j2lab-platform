@@ -12,7 +12,7 @@ export default function LogicLabLogo({ size = 32, className = '' }: LogicLabLogo
       src={logoImage}
       alt="LOGIC LAB"
       style={{ height: size, width: 'auto' }}
-      className={`logo-themed ${className}`}
+      className={className}
     />
   );
 }
