@@ -353,6 +353,43 @@ async def register_campaign(campaign_id: int) -> dict:
                             f"Module warning: {str(e)}",
                         )
 
+            # --- DRY_RUN: skip entire Playwright flow (login, form, submit) ---
+            if settings.DRY_RUN:
+                import secrets as _secrets
+                fake_code = f"DRY{_secrets.token_hex(3).upper()}"
+                logger.info(
+                    f"[DRY_RUN] Skipping registration for campaign {campaign_id}, "
+                    f"fake code: {fake_code}"
+                )
+                async with async_session_factory() as session:
+                    await _update_step(
+                        session, campaign_id, "completed",
+                        f"[DRY_RUN] Registration skipped — code: {fake_code}",
+                    )
+                now = datetime.now(timezone.utc)
+                async with async_session_factory() as session:
+                    await session.execute(
+                        update(Campaign)
+                        .where(Campaign.id == campaign_id)
+                        .values(
+                            campaign_code=fake_code,
+                            status="active",
+                            registration_step="completed",
+                            registration_message=f"[DRY_RUN] code {fake_code}",
+                            registered_at=now,
+                            last_keyword_change=now,
+                            updated_at=now,
+                        )
+                    )
+                    await session.commit()
+                await _send_callback(campaign_id, "active", campaign_code=fake_code)
+                return {
+                    "success": True,
+                    "campaign_code": fake_code,
+                    "campaign_id": campaign_id,
+                    "dry_run": True,
+                }
+
             # Step 1: Login
             async with async_session_factory() as session:
                 await _update_step(session, campaign_id, "logging_in", "Logging in to superap.io...")

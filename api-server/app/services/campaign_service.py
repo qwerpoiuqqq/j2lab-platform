@@ -93,11 +93,22 @@ async def get_campaign_by_code(
 
 
 async def delete_campaign(db: AsyncSession, campaign: Campaign) -> None:
-    """Delete a campaign. Prevents deletion of active campaigns."""
+    """Delete a campaign. Prevents deletion of active campaigns.
+
+    Clears FK references from pipeline_states before deleting.
+    """
     if campaign.status in ("active", "pending_keyword_change", "registering"):
         raise ValueError(
             f"활성 상태({campaign.status})인 캠페인은 삭제할 수 없습니다. 먼저 중지하세요."
         )
+    # Clear FK references from pipeline_states to avoid IntegrityError
+    from sqlalchemy import update
+    from app.models.pipeline_state import PipelineState
+    await db.execute(
+        update(PipelineState)
+        .where(PipelineState.campaign_id == campaign.id)
+        .values(campaign_id=None)
+    )
     await db.delete(campaign)
     await db.flush()
 
