@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -37,7 +37,7 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id = Column(BigInteger, primary_key=True)
-    order_id = Column(BigInteger, nullable=False)
+    order_id = Column(BigInteger, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     status = Column(String(20), nullable=False, default="pending")
 
     # Relationships

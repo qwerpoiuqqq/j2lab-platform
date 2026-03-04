@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     UniqueConstraint,
@@ -26,7 +27,7 @@ class CampaignKeywordPool(Base):
     __tablename__ = "campaign_keyword_pool"
 
     id = Column(BigInteger, primary_key=True)
-    campaign_id = Column(BigInteger, nullable=False)
+    campaign_id = Column(BigInteger, ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False)
     keyword = Column(String(255), nullable=False)
     is_used = Column(Boolean, default=False)
     used_at = Column(DateTime(timezone=True))
