@@ -42,6 +42,14 @@
   --color-sidebar-active: #0e3340;
 }
 
+/* Logo: dark theme → invert to white lines */
+.logo-themed {
+  filter: invert(1);
+}
+[data-theme="light"] .logo-themed {
+  filter: none;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

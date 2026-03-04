@@ -258,9 +258,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-border-subtle">
-          <div className="flex items-center gap-3">
-            <LogicLabLogo size={28} className="text-primary-400" />
-            <span className="text-sm font-bold tracking-widest text-gray-100">LOGIC LAB</span>
+          <div className="flex items-center">
+            <LogicLabLogo size={36} />
           </div>
           <button
             onClick={onClose}

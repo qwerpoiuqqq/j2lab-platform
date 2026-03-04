@@ -15,12 +15,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
-            <LogicLabLogo size={64} className="text-primary-400 drop-shadow-[0_0_12px_rgba(6,182,212,0.3)]" />
+          <div className="inline-flex items-center justify-center mb-3">
+            <LogicLabLogo size={140} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-100" style={{ letterSpacing: '0.2em' }}>LOGIC LAB</h1>
-          <p className="mt-1 text-sm text-gray-400">로직연구소</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="text-xs text-gray-500">
             광고 자동화 플랫폼
           </p>
         </div>
