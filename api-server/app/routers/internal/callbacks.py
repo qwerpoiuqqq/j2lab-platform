@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import verify_internal_secret
+from app.models.pipeline_state import PipelineStage
 from app.schemas.campaign import CampaignCallbackRequest
 from app.schemas.extraction_job import ExtractionCallbackRequest
 from app.services import campaign_service, extraction_service, pipeline_service
@@ -73,7 +74,7 @@ async def extraction_callback(
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,
-                        to_stage="extraction_running",
+                        to_stage=PipelineStage.EXTRACTION_RUNNING.value,
                         trigger_type="auto_extraction_running",
                         message="Extraction job started",
                     )
@@ -83,11 +84,11 @@ async def extraction_callback(
                 try:
                     # If still at extraction_queued (running callback was missed),
                     # transition through extraction_running first
-                    if pipeline_state.current_stage == "extraction_queued":
+                    if pipeline_state.current_stage == PipelineStage.EXTRACTION_QUEUED.value:
                         await pipeline_service.transition_stage(
                             db,
                             state=pipeline_state,
-                            to_stage="extraction_running",
+                            to_stage=PipelineStage.EXTRACTION_RUNNING.value,
                             trigger_type="auto_extraction_running",
                             message="Extraction running (inferred from completion)",
                         )
@@ -95,7 +96,7 @@ async def extraction_callback(
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,
-                        to_stage="extraction_done",
+                        to_stage=PipelineStage.EXTRACTION_DONE.value,
                         trigger_type="auto_extraction_complete",
                         message=f"Extraction completed: {body.result_count} keywords",
                     )
@@ -121,7 +122,7 @@ async def extraction_callback(
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,
-                        to_stage="failed",
+                        to_stage=PipelineStage.FAILED.value,
                         trigger_type="error",
                         error_message=body.error_message,
                     )
@@ -189,7 +190,7 @@ async def campaign_callback(
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,
-                        to_stage="campaign_active",
+                        to_stage=PipelineStage.CAMPAIGN_ACTIVE.value,
                         trigger_type="auto_registration_complete",
                         message=f"Campaign registered: {body.campaign_code}",
                     )
@@ -231,7 +232,7 @@ async def campaign_callback(
                     await pipeline_service.transition_stage(
                         db,
                         state=pipeline_state,
-                        to_stage="failed",
+                        to_stage=PipelineStage.FAILED.value,
                         trigger_type="error",
                         error_message=body.error_message,
                     )

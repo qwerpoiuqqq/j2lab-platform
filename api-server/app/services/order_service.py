@@ -14,12 +14,13 @@ State machine:
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order import (
+    AssignmentStatus,
     Order,
     OrderItem,
     OrderStatus,
@@ -28,7 +29,6 @@ from app.models.order import (
     VALID_ORDER_TRANSITIONS,
 )
 from app.models.product import Product
-from app.models.superap_account import SuperapAccount
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreate
 from app.services import price_service, superap_account_service
@@ -280,12 +280,9 @@ async def create_order(
     is_no_revenue = data.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value)
 
     # Validate assigned_account_id for no-revenue orders
-    assigned_account: SuperapAccount | None = None
+    assigned_account = None
     if is_no_revenue and data.assigned_account_id:
-        result = await db.execute(
-            select(SuperapAccount).where(SuperapAccount.id == data.assigned_account_id)
-        )
-        assigned_account = result.scalar_one_or_none()
+        assigned_account = await superap_account_service.get_account_by_id(db, data.assigned_account_id)
         if assigned_account is None:
             raise ValueError(f"SuperapAccount {data.assigned_account_id} not found")
         if not assigned_account.is_active:
@@ -306,17 +303,21 @@ async def create_order(
     await db.flush()
 
     total_amount = 0
+    product_cache: dict[int, Product] = {}
 
     for idx, item_data in enumerate(data.items, start=1):
-        # Resolve product
-        product_result = await db.execute(
-            select(Product).where(Product.id == item_data.product_id)
-        )
-        product = product_result.scalar_one_or_none()
-        if product is None:
-            raise ValueError(f"Product with id {item_data.product_id} not found")
-        if not product.is_active:
-            raise ValueError(f"Product '{product.name}' is not active")
+        # Resolve product (with cache to avoid duplicate queries)
+        if item_data.product_id not in product_cache:
+            product_result = await db.execute(
+                select(Product).where(Product.id == item_data.product_id)
+            )
+            product = product_result.scalar_one_or_none()
+            if product is None:
+                raise ValueError(f"Product with id {item_data.product_id} not found")
+            if not product.is_active:
+                raise ValueError(f"Product '{product.name}' is not active")
+            product_cache[item_data.product_id] = product
+        product = product_cache[item_data.product_id]
 
         # Validate item_data against form_schema
         validation_errors = validate_item_data(product, item_data.item_data)
@@ -351,7 +352,7 @@ async def create_order(
         # Manual account assignment for no-revenue orders
         if is_no_revenue and assigned_account is not None:
             order_item.assigned_account_id = assigned_account.id
-            order_item.assignment_status = "confirmed"
+            order_item.assignment_status = AssignmentStatus.CONFIRMED.value
             order_item.assigned_at = datetime.now(timezone.utc)
             # Select cost based on campaign_type from item_data
             _idata = item_data.item_data if isinstance(item_data.item_data, dict) else {}
@@ -367,16 +368,12 @@ async def create_order(
     order.total_amount = total_amount
     order.vat_amount = vat_amount
 
-    # Auto-calculate deadline from product's max_work_days
+    # Auto-calculate deadline from product's max_work_days (reuse cached product)
     if data.items:
-        first_product_id = data.items[0].product_id
-        prod_result = await db.execute(
-            select(Product).where(Product.id == first_product_id)
-        )
-        prod = prod_result.scalar_one_or_none()
-        if prod and prod.max_work_days:
-            from datetime import timedelta
-            order.completed_at = datetime.now(timezone.utc) + timedelta(days=prod.max_work_days)
+        first_product = product_cache.get(data.items[0].product_id)
+        if first_product and first_product.max_work_days:
+
+            order.completed_at = datetime.now(timezone.utc) + timedelta(days=first_product.max_work_days)
 
     await db.flush()
     await db.refresh(order)
@@ -443,7 +440,6 @@ async def create_order_from_excel(
     order.vat_amount = vat_amount
 
     if product.max_work_days:
-        from datetime import timedelta
         order.completed_at = datetime.now(timezone.utc) + timedelta(days=product.max_work_days)
 
     await db.flush()
@@ -812,7 +808,6 @@ async def create_simplified_order(
         total_limit = item.daily_limit * item.duration_days
 
         # Calculate end_date
-        from datetime import timedelta
         try:
             start_dt = date.fromisoformat(item.start_date)
             end_dt = start_dt + timedelta(days=item.duration_days)

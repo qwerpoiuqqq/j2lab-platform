@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.extraction_job import ExtractionJob
-from app.models.order import Order, OrderItem, OrderStatus
+from app.models.order import Order, OrderItem, OrderStatus, OrderType
 from app.models.pipeline_state import PipelineState
 from app.models.product import Product
 from app.schemas.campaign import CampaignCreate
@@ -46,7 +46,7 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
     Monthly guarantee / managed orders skip the full pipeline.
     """
     # Skip pipeline for no-revenue order types (manual account assignment)
-    if order.order_type in ("monthly_guarantee", "managed"):
+    if order.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value):
         order.status = OrderStatus.PROCESSING.value
         await db.flush()
         return
