@@ -18,6 +18,7 @@ class NetworkPresetCreate(BaseModel):
     media_config: dict[str, Any] = Field(default_factory=dict)
     handler_user_id: str | None = None
     cost_price: int = 0
+    extension_threshold: int = Field(default=10000, ge=0)
     description: str | None = None
     is_active: bool = True
 
@@ -30,6 +31,7 @@ class NetworkPresetUpdate(BaseModel):
     media_config: dict[str, Any] | None = None
     handler_user_id: str | None = None
     cost_price: int | None = None
+    extension_threshold: int | None = Field(default=None, ge=0)
     description: str | None = None
     is_active: bool | None = None
 
@@ -45,6 +47,7 @@ class NetworkPresetResponse(BaseModel):
     media_config: dict[str, Any] | None = None
     handler_user_id: str | None = None
     cost_price: int | None = 0
+    extension_threshold: int = 10000
     description: str | None = None
     is_active: bool
     created_at: datetime

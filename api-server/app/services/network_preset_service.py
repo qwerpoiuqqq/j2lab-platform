@@ -70,6 +70,7 @@ async def create_preset(
         media_config=data.media_config,
         handler_user_id=data.handler_user_id,
         cost_price=data.cost_price,
+        extension_threshold=data.extension_threshold,
         description=data.description,
         is_active=data.is_active,
     )

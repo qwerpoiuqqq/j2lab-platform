@@ -57,6 +57,13 @@ class NetworkPreset(Base):
     cost_price: Mapped[Optional[int]] = mapped_column(
         Numeric(12, 0), default=0, comment="네트워크 원가 (타당)"
     )
+    extension_threshold: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=10000,
+        server_default="10000",
+        comment="연장/신규 판단 기준 타수 (네트워크별)",
+    )
     description: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -76,13 +76,21 @@ async def _order(db, user_id, company_id):
     return o
 
 
-async def _preset(db, company_id, campaign_type="traffic", tier_order=1, name="Net 1"):
+async def _preset(
+    db,
+    company_id,
+    campaign_type="traffic",
+    tier_order=1,
+    name="Net 1",
+    extension_threshold=10000,
+):
     np = NetworkPreset(
         company_id=company_id,
         campaign_type=campaign_type,
         tier_order=tier_order,
         name=name,
         media_config={"머니워크": True},
+        extension_threshold=extension_threshold,
         is_active=True,
     )
     db.add(np)
@@ -320,6 +328,52 @@ class TestAutoAssignExtension:
         assert result.is_extension is False
         assert result.network_preset_id == preset2.id
         assert result.assigned_account_id == acc2.id
+
+    async def test_extension_uses_network_specific_threshold(
+        self,
+        db_session: AsyncSession,
+        test_company: Company,
+        distributor: User,
+    ):
+        """Extend when combined total is below the existing network threshold."""
+        place = await _place(db_session)
+        product = await _product(db_session)
+        order = await _order(db_session, distributor.id, test_company.id)
+        oi = await _order_item(db_session, order.id, product.id, place.id)
+
+        preset1 = await _preset(
+            db_session,
+            test_company.id,
+            tier_order=1,
+            extension_threshold=15000,
+        )
+        await _preset(db_session, test_company.id, tier_order=2, name="Net 2")
+        acc1 = await _account(db_session, test_company.id, preset1.id, login_id="acc1")
+
+        today = date.today()
+        existing = await _campaign(
+            db_session, place.id, "traffic",
+            end_date=today - timedelta(days=2),
+            total_limit=8000,
+            account_id=acc1.id,
+            preset_id=preset1.id,
+            status="completed",
+        )
+        await db_session.flush()
+
+        result = await assignment_service.auto_assign(
+            db_session,
+            order_item=oi,
+            campaign_type="traffic",
+            place_id=place.id,
+            company_id=test_company.id,
+            total_limit=5000,  # 8000 + 5000 = 13000 < 15000 (network-specific)
+        )
+
+        assert result.is_extension is True
+        assert result.extend_target_campaign_id == existing.id
+        assert result.assigned_account_id == acc1.id
+        assert result.network_preset_id == preset1.id
 
     async def test_no_extension_old_campaign(
         self,

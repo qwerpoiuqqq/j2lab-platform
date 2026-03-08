@@ -4,8 +4,9 @@ Implements the 3-step assignment algorithm from INTEGRATION_PLAN:
 
 Step 1: Extension Check
   - Same place_id with recent campaign (end_date within 7 days)
-  - If total_limit combined < 10,000 -> extend (same account, same network)
-  - If >= 10,000 -> new setup (next network)
+  - Uses network_preset.extension_threshold (fallback 10,000)
+  - If total_limit combined < threshold -> extend (same account, same network)
+  - If >= threshold -> new setup (next network)
 
 Step 2: Network Selection (for new setups)
   - Find unused network_presets for this place_id + campaign_type
@@ -200,6 +201,26 @@ async def get_recommendation(
     )
 
 
+async def _get_extension_threshold_for_campaign(
+    db: AsyncSession,
+    campaign: Campaign,
+) -> int:
+    """Get extension threshold from campaign's network preset, fallback 10000."""
+    if campaign.network_preset_id:
+        result = await db.execute(
+            select(NetworkPreset.extension_threshold).where(
+                NetworkPreset.id == campaign.network_preset_id
+            )
+        )
+        value = result.scalar_one_or_none()
+        if value is not None:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                pass
+    return 10000
+
+
 async def _check_extension(
     db: AsyncSession,
     place_id: int,
@@ -229,10 +250,15 @@ async def _check_extension(
     if existing is None:
         return None
 
-    existing_total = existing.total_limit or 0
-    combined = existing_total + (new_total or 0)
+    # If incoming total is unknown, default to "new" to avoid incorrect extension.
+    if new_total is None:
+        return (existing, False)
 
-    if combined < 10000:
+    existing_total = existing.total_limit or 0
+    combined = existing_total + new_total
+
+    threshold = await _get_extension_threshold_for_campaign(db, existing)
+    if combined < threshold:
         return (existing, True)  # Extend
     else:
         return (existing, False)  # New setup needed
