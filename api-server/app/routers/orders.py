@@ -92,10 +92,27 @@ async def _confirm_and_start_pipeline(
                 pipeline_warnings.append(f"Item #{item.row_number or item.id}: {w}")
 
     # Phase 1 (synchronous): create pipeline_state records + set order→processing
+    # REQ 6: 입금 확인 시 actor 정보를 타임라인 로그에 기록
     try:
-        await pipeline_orchestrator.start_pipeline_for_order(db, confirmed)
+        await pipeline_orchestrator.start_pipeline_for_order(
+            db, confirmed,
+            actor_id=current_user.id,
+            actor_name=current_user.name,
+        )
     except Exception:
         logger.exception("Synchronous pipeline start failed for order %s", order_id)
+
+    # Commit before background dispatch to avoid race where the background task
+    # runs before pipeline/extraction records become visible to a new session.
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Commit before extraction dispatch failed for order %s", order_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="입금확인 처리 중 커밋 실패",
+        )
 
     # Re-read order after pipeline creation (status is now 'processing')
     confirmed = await order_service.get_order_by_id(db, order_id)
@@ -604,7 +621,7 @@ async def bulk_payment_confirm(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Bulk payment confirmation for multiple orders (submitted -> payment_confirmed)."""
@@ -618,9 +635,9 @@ async def bulk_payment_confirm(
             errors.append(f"Order {oid}: not found")
             continue
 
-        # company_admin can only confirm orders in their company
+        # company_admin / order_handler can only confirm orders in their company
         user_role = UserRole(current_user.role)
-        if user_role == UserRole.COMPANY_ADMIN:
+        if user_role in (UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER):
             if order.company_id != current_user.company_id:
                 errors.append(f"Order {oid}: not in your company")
                 continue
@@ -668,7 +685,7 @@ async def bulk_delete_orders(
                 continue
 
         try:
-            await order_service.delete_order(db, order)
+            await order_service.delete_order(db, order, current_user)
             success_count += 1
         except ValueError as e:
             errors.append(f"Order {oid}: {str(e)}")
@@ -755,7 +772,7 @@ async def delete_order(
     _check_company_scope(current_user, order)
 
     try:
-        await order_service.delete_order(db, order)
+        await order_service.delete_order(db, order, current_user)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return MessageResponse(message=f"Order {order_id} deleted successfully")
@@ -834,12 +851,12 @@ async def confirm_payment(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Confirm payment: submitted -> payment_confirmed.
 
-    Deducts balance from the order's user. company_admin or system_admin only.
+    Deducts balance from the order's user. company_admin, order_handler, or system_admin.
     Pipeline is started in the background after response is sent.
     """
     return await _confirm_and_start_pipeline(order_id, background_tasks, db, current_user)

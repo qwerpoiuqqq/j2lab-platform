@@ -89,6 +89,15 @@ class ExtractionService:
 
             start_time = time.time()
 
+            # Notify api-server that extraction has started so pipeline stage
+            # can move from extraction_queued -> extraction_running immediately.
+            await self._send_callback(
+                job_id,
+                "running",
+                0,
+                db_place_id,
+            )
+
             # Phase 0: Parse URL
             parsed = parse_place_url(job_naver_url)
             if not parsed.is_valid:
