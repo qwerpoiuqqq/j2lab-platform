@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
     allowedRoles: ['system_admin', 'company_admin', 'distributor', 'sub_account'],
   },
   {
-    name: '주문 내역',
+    name: '주문 관리',
     path: '/orders',
     icon: ClipboardDocumentListIcon,
     allowedRoles: ALL_ROLES,
@@ -70,7 +70,7 @@ const navItems: NavItem[] = [
     allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
     children: [
       {
-        name: '캠페인 대시보드',
+        name: '캠페인 목록',
         path: '/campaigns',
         icon: ChartBarIcon,
         allowedRoles: ['system_admin', 'company_admin', 'order_handler'],

@@ -31,6 +31,7 @@ export interface AssignmentQueueResponse {
 export const assignmentsApi = {
   getQueue: async (params?: {
     assignment_status?: string;
+    order_item_id?: number;
     skip?: number;
     limit?: number;
   }): Promise<AssignmentQueueResponse> => {

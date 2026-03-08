@@ -82,6 +82,7 @@ async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
 @router.get("/queue")
 async def get_assignment_queue(
     assignment_status: str | None = None,
+    order_item_id: int | None = None,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -102,6 +103,7 @@ async def get_assignment_queue(
         db,
         company_id=company_id,
         assignment_status=assignment_status,
+        order_item_id=order_item_id,
         skip=skip,
         limit=limit,
         handler_user_ids=handler_user_ids,

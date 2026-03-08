@@ -4,7 +4,6 @@ import { getCampaignExtendedStatusLabel, getCampaignExtendedStatusColor, getKeyw
 import Pagination from '@/components/common/Pagination';
 import CampaignDetailModal from './CampaignDetailModal';
 import CampaignEditModal from './CampaignEditModal';
-import CampaignExtendModal from './CampaignExtendModal';
 import KeywordAddModal from './KeywordAddModal';
 import { campaignsApi } from '@/api/campaigns';
 
@@ -56,7 +55,6 @@ export default function CampaignTable({
 }: CampaignTableProps) {
   const [keywordModal, setKeywordModal] = useState<{ id: number; name: string } | null>(null);
   const [editModal, setEditModal] = useState<CampaignListItem | null>(null);
-  const [extendModal, setExtendModal] = useState<CampaignListItem | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -309,15 +307,9 @@ export default function CampaignTable({
                           재시도
                         </button>
                       )}
-                      {/* Active: Extend, Rotate, Sync */}
+                      {/* Active: Rotate, Sync */}
                       {c.status === 'active' && (
                         <>
-                          <button
-                            onClick={() => setExtendModal(c)}
-                            className="text-xs px-2 py-1 bg-purple-900/20 text-purple-400 rounded-md hover:bg-purple-900/30"
-                          >
-                            연장
-                          </button>
                           <button
                             onClick={() => handleRotateKeywords(c.id)}
                             disabled={actionLoading === c.id}
@@ -392,14 +384,6 @@ export default function CampaignTable({
         <CampaignEditModal
           campaign={editModal}
           onClose={() => setEditModal(null)}
-          onSuccess={onRefresh}
-        />
-      )}
-
-      {extendModal && (
-        <CampaignExtendModal
-          campaign={extendModal}
-          onClose={() => setExtendModal(null)}
           onSuccess={onRefresh}
         />
       )}

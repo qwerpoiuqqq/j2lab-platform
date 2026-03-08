@@ -96,9 +96,9 @@ export default function CampaignsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">캠페인 대시보드</h1>
+        <h1 className="text-2xl font-bold text-gray-100">캠페인 관리</h1>
         <p className="mt-1 text-sm text-gray-400">
-          캠페인 현황을 모니터링하고 관리합니다.
+          세팅 완료된 캠페인을 조회하고 운영 작업을 관리합니다.
         </p>
       </div>
 

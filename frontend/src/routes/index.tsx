@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: '/assignments',
-                element: <Navigate to="/orders?tab=queue" replace />,
+                element: <Navigate to="/orders" replace />,
               },
             ],
           },

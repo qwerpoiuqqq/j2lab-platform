@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import OrderList from '@/components/features/orders/OrderList';
 import Pagination from '@/components/common/Pagination';
 import Button from '@/components/common/Button';
@@ -15,7 +15,6 @@ import type { Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi } from '@/api/orders';
 import { downloadBlob } from '@/utils/format';
-import AssignmentQueuePage from '@/pages/AssignmentQueuePage';
 
 const statusOptions: { value: string; label: string }[] = [
   { value: '', label: '전체 상태' },
@@ -45,11 +44,7 @@ const bulkStatusOptions: { value: string; label: string }[] = [
 
 export default function OrdersPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
-
-  const canViewQueue = user && ['system_admin', 'company_admin', 'order_handler'].includes(user.role);
-  const activeTab = searchParams.get('tab') === 'queue' && canViewQueue ? 'queue' : 'orders';
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +56,6 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkStatus, setBulkStatus] = useState('');
@@ -185,217 +179,171 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">주문 관리</h1>
           <p className="mt-1 text-sm text-gray-400">
-            {activeTab === 'orders'
-              ? '주문 목록을 조회하고 관리합니다.'
-              : '자동 배정된 계정을 확인하고 캠페인 등록을 진행합니다.'}
+            접수, 입금 확인, 추출, 세팅 진행 현황을 주문 단위로 관리합니다.
           </p>
         </div>
-        {activeTab === 'orders' && (
-          <div className="flex gap-2">
-            {canBulk && (
-              <Button
-                variant="secondary"
-                onClick={handleExport}
-                loading={exporting}
-                icon={<ArrowDownTrayIcon className="h-4 w-4" />}
-              >
-                Excel
-              </Button>
-            )}
-            {canCreate && (
-              <Button
-                onClick={() => navigate('/orders/grid')}
-                icon={<PlusIcon className="h-4 w-4" />}
-              >
-                주문 접수
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex gap-2">
+          {canBulk && (
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              loading={exporting}
+              icon={<ArrowDownTrayIcon className="h-4 w-4" />}
+            >
+              Excel
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              onClick={() => navigate('/orders/grid')}
+              icon={<PlusIcon className="h-4 w-4" />}
+            >
+              주문 접수
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setSearchParams({})}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 text-sm font-medium transition-colors ${
-              activeTab === 'orders'
-                ? 'border-primary-500 text-primary-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-border-strong'
-            }`}
-          >
-            주문 내역
-          </button>
-          {canViewQueue && (
-            <button
-              onClick={() => setSearchParams({ tab: 'queue' })}
-              className={`whitespace-nowrap pb-3 px-1 border-b-2 text-sm font-medium transition-colors ${
-                activeTab === 'queue'
-                  ? 'border-primary-500 text-primary-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-border-strong'
-              }`}
-            >
-              배정 대기열
-            </button>
-          )}
-        </nav>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'queue' ? (
-        <AssignmentQueuePage />
-      ) : (
-        <>
-          {/* Bulk Actions */}
-          {canBulk && selectedIds.size > 0 && (
-            <div className="flex items-center gap-3 bg-primary-900/20 border border-primary-800 rounded-lg p-3">
-              <span className="text-sm font-medium text-primary-300">{selectedIds.size}건 선택</span>
-              <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
-                일괄 상태변경
-              </Button>
-              <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)} icon={<TrashIcon className="h-3 w-3" />}>
-                일괄 삭제
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                선택 해제
-              </Button>
-            </div>
-          )}
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="주문번호, 주문자 검색..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as OrderStatus | '');
-                setPage(1);
-              }}
-              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
-            >
-              {statusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={orderTypeFilter}
-              onChange={(e) => {
-                setOrderTypeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
-            >
-              {orderTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Table with checkboxes */}
-          {canBulk && orders.length > 0 && (
-            <div className="flex items-center gap-2 px-1">
-              <input
-                type="checkbox"
-                checked={selectedIds.size === orders.length && orders.length > 0}
-                onChange={toggleSelectAll}
-                className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
-              />
-              <span className="text-xs text-gray-400">전체 선택</span>
-            </div>
-          )}
-          <OrderList
-            orders={orders}
-            loading={loading}
-            selectable={canBulk || false}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-          />
-
-          {/* Pagination */}
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            totalItems={totalItems}
-            pageSize={20}
-          />
-
-          {/* Bulk Delete Modal */}
-          <Modal
-            isOpen={showDeleteModal}
-            onClose={() => setShowDeleteModal(false)}
-            title="일괄 삭제"
-            size="sm"
-          >
-            <div className="space-y-4 p-1">
-              <p className="text-sm text-gray-400">
-                {selectedIds.size}건의 주문을 삭제하시겠습니까?
-              </p>
-              <p className="text-xs text-red-500">
-                임시저장/취소/반려 상태의 주문만 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>취소</Button>
-                <Button variant="danger" onClick={handleBulkDelete} loading={deleteLoading}>
-                  삭제 확인
-                </Button>
-              </div>
-            </div>
-          </Modal>
-
-          {/* Bulk Status Modal */}
-          <Modal
-            isOpen={showBulkModal}
-            onClose={() => setShowBulkModal(false)}
-            title="일괄 상태 변경"
-            size="sm"
-          >
-            <div className="space-y-4 p-1">
-              <p className="text-sm text-gray-400">{selectedIds.size}건의 주문 상태를 변경합니다.</p>
-              <select
-                value={bulkStatus}
-                onChange={(e) => setBulkStatus(e.target.value)}
-                className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-              >
-                <option value="">상태 선택</option>
-                {bulkStatusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setShowBulkModal(false)}>취소</Button>
-                <Button onClick={handleBulkStatus} loading={bulkLoading} disabled={!bulkStatus}>변경</Button>
-              </div>
-            </div>
-          </Modal>
-        </>
+      {canBulk && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 bg-primary-900/20 border border-primary-800 rounded-lg p-3">
+          <span className="text-sm font-medium text-primary-300">{selectedIds.size}건 선택</span>
+          <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
+            일괄 상태변경
+          </Button>
+          <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)} icon={<TrashIcon className="h-3 w-3" />}>
+            일괄 삭제
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            선택 해제
+          </Button>
+        </div>
       )}
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="주문번호, 주문자 검색..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as OrderStatus | '');
+            setPage(1);
+          }}
+          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
+        >
+          {statusOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={orderTypeFilter}
+          onChange={(e) => {
+            setOrderTypeFilter(e.target.value);
+            setPage(1);
+          }}
+          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
+        >
+          {orderTypeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {canBulk && orders.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <input
+            type="checkbox"
+            checked={selectedIds.size === orders.length && orders.length > 0}
+            onChange={toggleSelectAll}
+            className="rounded border-border-strong text-primary-400 focus:ring-primary-400/40"
+          />
+          <span className="text-xs text-gray-400">전체 선택</span>
+        </div>
+      )}
+
+      <OrderList
+        orders={orders}
+        loading={loading}
+        selectable={canBulk || false}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+      />
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={totalItems}
+        pageSize={20}
+      />
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="일괄 삭제"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-400">
+            {selectedIds.size}건의 주문을 삭제하시겠습니까?
+          </p>
+          <p className="text-xs text-red-500">
+            임시저장/취소/반려 상태의 주문만 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>취소</Button>
+            <Button variant="danger" onClick={handleBulkDelete} loading={deleteLoading}>
+              삭제 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showBulkModal}
+        onClose={() => setShowBulkModal(false)}
+        title="일괄 상태 변경"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-400">{selectedIds.size}건의 주문 상태를 변경합니다.</p>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value)}
+            className="w-full rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+          >
+            <option value="">상태 선택</option>
+            {bulkStatusOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowBulkModal(false)}>취소</Button>
+            <Button onClick={handleBulkStatus} loading={bulkLoading} disabled={!bulkStatus}>변경</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

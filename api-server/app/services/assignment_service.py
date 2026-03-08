@@ -447,6 +447,7 @@ async def get_assignment_queue(
     db: AsyncSession,
     company_id: int | None = None,
     assignment_status: str | None = None,
+    order_item_id: int | None = None,
     skip: int = 0,
     limit: int = 50,
     handler_user_ids: list | None = None,
@@ -482,6 +483,8 @@ async def get_assignment_queue(
         query = query.where(Order.company_id == company_id)
     if handler_user_ids is not None:
         query = query.where(Order.user_id.in_(handler_user_ids))
+    if order_item_id is not None:
+        query = query.where(OrderItem.id == order_item_id)
 
     query = query.order_by(OrderItem.created_at.asc()).offset(skip).limit(limit)
 
@@ -493,6 +496,7 @@ async def get_assignment_queue_enriched(
     db: AsyncSession,
     company_id: int | None = None,
     assignment_status: str | None = None,
+    order_item_id: int | None = None,
     skip: int = 0,
     limit: int = 50,
     handler_user_ids: list | None = None,
@@ -503,7 +507,8 @@ async def get_assignment_queue_enriched(
 
     items = await get_assignment_queue(
         db, company_id=company_id, assignment_status=assignment_status,
-        skip=skip, limit=limit, handler_user_ids=handler_user_ids,
+        order_item_id=order_item_id, skip=skip, limit=limit,
+        handler_user_ids=handler_user_ids,
     )
 
     enriched = []
