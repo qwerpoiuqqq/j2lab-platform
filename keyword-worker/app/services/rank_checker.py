@@ -85,6 +85,7 @@ class RankChecker:
     DEFAULT_Y = "37.5666103"
 
     BOOKING_SUFFIX = "실시간 예약"
+    RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
     # Restaurant-like categories eligible for booking keywords
     BOOKING_ELIGIBLE_CATEGORIES = [
@@ -174,29 +175,39 @@ class RankChecker:
         """
 
         try:
-            resp = await self._client.post(
-                self.GRAPHQL_URL,
-                json={
-                    "operationName": "getPlacesList",
-                    "query": query,
-                    "variables": {
-                        "input": {
-                            "query": keyword,
-                            "display": max_rank,
-                            "deviceType": "mobile",
-                            "x": self.x,
-                            "y": self.y,
-                        }
+            resp = None
+            for attempt in range(5):
+                resp = await self._client.post(
+                    self.GRAPHQL_URL,
+                    json={
+                        "operationName": "getPlacesList",
+                        "query": query,
+                        "variables": {
+                            "input": {
+                                "query": keyword,
+                                "display": max_rank,
+                                "deviceType": "mobile",
+                                "x": self.x,
+                                "y": self.y,
+                            }
+                        },
                     },
-                },
-                headers={
-                    "Content-Type": "application/json",
-                    "Referer": "https://m.place.naver.com/",
-                    "Origin": "https://m.place.naver.com",
-                },
-            )
+                    headers={
+                        "Content-Type": "application/json",
+                        "Referer": "https://m.place.naver.com/",
+                        "Origin": "https://m.place.naver.com",
+                    },
+                )
 
-            if resp.status_code == 200:
+                if resp.status_code == 200:
+                    break
+
+                if resp.status_code in self.RETRYABLE_STATUS_CODES and attempt < 4:
+                    await asyncio.sleep(0.2 * (attempt + 1))
+                    continue
+                break
+
+            if resp is not None and resp.status_code == 200:
                 data = resp.json()
                 businesses = data.get("data", {}).get("businesses", {})
                 items = businesses.get("items", [])

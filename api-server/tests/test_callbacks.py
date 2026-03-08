@@ -174,6 +174,36 @@ class TestExtractionCallback:
         )
         assert resp.status_code == 200
 
+    async def test_extraction_cancelled_with_partial_results(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        test_company: Company,
+        distributor: User,
+    ):
+        oi, job, state = await _create_extraction_setup(
+            db_session, test_company, distributor,
+        )
+        await db_session.commit()
+
+        resp = await client.post(
+            f"/internal/callback/extraction/{job.id}",
+            json={
+                "status": "cancelled",
+                "result_count": 87,
+                "place_id": 1234567890,
+                "place_name": "Test Place",
+                "error_message": "조건 충족 재시도 시간 초과(600초)",
+            },
+        )
+        assert resp.status_code == 200
+
+        await db_session.refresh(job)
+        await db_session.refresh(state)
+        assert job.status == ExtractionJobStatus.CANCELLED.value
+        assert job.result_count == 87
+        assert state.current_stage == PipelineStage.CANCELLED.value
+
     async def test_extraction_not_found(
         self,
         client: AsyncClient,

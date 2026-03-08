@@ -58,8 +58,8 @@ class ExtractionCallbackRequest(BaseModel):
 
     status: str = Field(
         ...,
-        pattern="^(completed|failed|running)$",
-        description="completed, failed, or running",
+        pattern="^(completed|failed|running|cancelled)$",
+        description="completed, failed, running, or cancelled",
     )
     result_count: int | None = None
     place_id: int | None = None

@@ -214,3 +214,43 @@ class TestExtractionServiceCancel:
         service = ExtractionService()
         service.cancel_job(999)  # Should not raise
         assert service._is_running(999) is False
+
+
+class TestExtractionServicePartialSelection:
+    """Test partial keyword selection for timeout cancellation."""
+
+    def test_select_partial_ranked_keywords(self):
+        service = ExtractionService()
+        rank_results = [
+            RankCheckResult(
+                keyword="키워드A",
+                keyword_type="pll",
+                rank=3,
+                map_type="신지도",
+                result_count=10,
+            ),
+            RankCheckResult(
+                keyword="키워드B",
+                keyword_type="plt",
+                rank=1,
+                map_type="신지도",
+                result_count=9,
+            ),
+            RankCheckResult(
+                keyword="키워드C",
+                keyword_type="pll",
+                rank=35,
+                map_type="신지도",
+                result_count=20,
+            ),
+        ]
+
+        selected = service._select_partial_ranked_keywords(
+            rank_results=rank_results,
+            target_count=2,
+            max_rank=20,
+        )
+
+        assert len(selected) == 2
+        assert selected[0].keyword == "키워드B"
+        assert selected[1].keyword == "키워드A"

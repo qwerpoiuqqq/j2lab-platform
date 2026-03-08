@@ -67,6 +67,7 @@ VALID_PIPELINE_TRANSITIONS = {
     PipelineStage.EXTRACTION_RUNNING: [
         PipelineStage.EXTRACTION_DONE,
         PipelineStage.FAILED,
+        PipelineStage.CANCELLED,
     ],
     PipelineStage.EXTRACTION_DONE: [
         PipelineStage.ACCOUNT_ASSIGNED,

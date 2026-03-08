@@ -116,6 +116,7 @@ async def handle_extraction_callback(
     """Handle callback from keyword-worker.
 
     Updates job status and links to place if extraction completed.
+    Cancelled callbacks can carry partial extraction counts.
     """
     now = datetime.now(timezone.utc)
 
@@ -127,6 +128,13 @@ async def handle_extraction_callback(
         job.completed_at = now
     elif status == "failed":
         job.status = ExtractionJobStatus.FAILED.value
+        job.error_message = error_message
+        job.completed_at = now
+    elif status == "cancelled":
+        job.status = ExtractionJobStatus.CANCELLED.value
+        job.result_count = result_count or 0
+        job.place_id = place_id
+        job.place_name = place_name
         job.error_message = error_message
         job.completed_at = now
     elif status == "running":

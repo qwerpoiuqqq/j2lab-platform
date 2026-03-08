@@ -76,7 +76,7 @@ async def extraction_callback(
                         state=pipeline_state,
                         to_stage=PipelineStage.EXTRACTION_RUNNING.value,
                         trigger_type="auto_extraction_running",
-                        message="Extraction job started",
+                        message="키워드 추출이 시작되었습니다.",
                     )
                 except ValueError:
                     pass  # Already past extraction_queued
@@ -90,7 +90,7 @@ async def extraction_callback(
                             state=pipeline_state,
                             to_stage=PipelineStage.EXTRACTION_RUNNING.value,
                             trigger_type="auto_extraction_running",
-                            message="Extraction running (inferred from completion)",
+                            message="추출 완료 콜백으로 추출 진행 단계를 보정했습니다.",
                         )
 
                     await pipeline_service.transition_stage(
@@ -98,7 +98,7 @@ async def extraction_callback(
                         state=pipeline_state,
                         to_stage=PipelineStage.EXTRACTION_DONE.value,
                         trigger_type="auto_extraction_complete",
-                        message=f"Extraction completed: {body.result_count} keywords",
+                        message=f"키워드 추출이 완료되었습니다. (추출 {body.result_count or 0}개)",
                     )
                     # Link extraction job to pipeline
                     pipeline_state.extraction_job_id = updated_job.id
@@ -123,9 +123,25 @@ async def extraction_callback(
                         db,
                         state=pipeline_state,
                         to_stage=PipelineStage.FAILED.value,
-                        trigger_type="error",
+                        trigger_type="extraction_failed",
                         error_message=body.error_message,
                     )
+                except ValueError:
+                    pass
+            elif body.status == "cancelled":
+                try:
+                    await pipeline_service.transition_stage(
+                        db,
+                        state=pipeline_state,
+                        to_stage=PipelineStage.CANCELLED.value,
+                        trigger_type="extraction_cancelled",
+                        message=(
+                            "키워드 추출이 취소되었습니다. "
+                            f"(부분 추출 {body.result_count or 0}개)"
+                        ),
+                    )
+                    pipeline_state.extraction_job_id = updated_job.id
+                    await db.flush()
                 except ValueError:
                     pass
 
@@ -192,7 +208,7 @@ async def campaign_callback(
                         state=pipeline_state,
                         to_stage=PipelineStage.CAMPAIGN_ACTIVE.value,
                         trigger_type="auto_registration_complete",
-                        message=f"Campaign registered: {body.campaign_code}",
+                        message=f"캠페인 등록이 완료되었습니다. 코드: {body.campaign_code}",
                     )
                     # Link campaign to pipeline
                     pipeline_state.campaign_id = updated_campaign.id
@@ -233,7 +249,7 @@ async def campaign_callback(
                         db,
                         state=pipeline_state,
                         to_stage=PipelineStage.FAILED.value,
-                        trigger_type="error",
+                        trigger_type="campaign_failed",
                         error_message=body.error_message,
                     )
                 except ValueError:

@@ -150,45 +150,115 @@ class ExtractionService:
                 len(keyword_pool),
             )
 
-            # Phase 3: Rank check with timeout
+            # Phase 3: Rank check with timeout (retry until conditions match)
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
                 return
 
             all_keywords = [item["keyword"] for item in keyword_pool]
-            elapsed = time.time() - start_time
-            remaining = max(0, timeout_seconds - elapsed)
-
+            deadline = start_time + timeout_seconds
             timed_out = False
-            try:
-                rank_results, final_keywords = await asyncio.wait_for(
-                    self._check_ranks(
-                        keywords=all_keywords,
-                        place_id=place_id_str,
-                        max_rank=job_max_rank,
-                        target_count=job_target_count,
-                        job_id=job_id,
-                    ),
-                    timeout=remaining,
-                )
-            except asyncio.TimeoutError:
-                timed_out = True
-                rank_results = list(self._partial_rank_results.get(job_id, []))
-                final_keywords = all_keywords
-                logger.warning(
-                    "Job %d: Timeout after %ds, using %d partial rank results",
+            attempt = 0
+            rank_results: List[RankCheckResult] = []
+            final_keywords = all_keywords
+            selected_results: List[RankCheckResult] = []
+            condition_met = False
+            last_selection_error = ""
+
+            while self._is_running(job_id):
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+
+                attempt += 1
+                self._partial_rank_results[job_id] = []
+                logger.info(
+                    "Job %d: Attempt %d rank check (remaining %.1fs)",
                     job_id,
-                    timeout_seconds,
-                    len(rank_results),
+                    attempt,
+                    remaining,
                 )
 
-            ranked_count = len([r for r in rank_results if r.rank is not None])
-            logger.info(
-                "Job %d: Rank check %s. %d ranked keywords found",
-                job_id,
-                "timed out (partial)" if timed_out else "complete",
-                ranked_count,
-            )
+                try:
+                    attempt_results, attempt_final_keywords = await asyncio.wait_for(
+                        self._check_ranks(
+                            keywords=all_keywords,
+                            place_id=place_id_str,
+                            max_rank=job_max_rank,
+                            target_count=job_target_count,
+                            job_id=job_id,
+                        ),
+                        timeout=remaining,
+                    )
+                except asyncio.TimeoutError:
+                    timed_out = True
+                    rank_results = list(self._partial_rank_results.get(job_id, []))
+                    final_keywords = all_keywords
+                    logger.warning(
+                        "Job %d: Timeout after %ds, using %d partial rank results",
+                        job_id,
+                        timeout_seconds,
+                        len(rank_results),
+                    )
+                    break
+
+                rank_results = attempt_results
+                final_keywords = attempt_final_keywords
+
+                ranked_count = len([r for r in rank_results if r.rank is not None])
+                logger.info(
+                    "Job %d: Attempt %d checked. %d ranked keywords found",
+                    job_id,
+                    attempt,
+                    ranked_count,
+                )
+
+                try:
+                    selected_results = self._select_ranked_keywords_by_ratio(
+                        rank_results=rank_results,
+                        target_count=job_target_count,
+                        name_keyword_ratio=job_name_keyword_ratio,
+                        max_rank=job_max_rank,
+                    )
+                    condition_met = True
+                    break
+                except ValueError as e:
+                    last_selection_error = str(e)
+                    logger.info(
+                        "Job %d: Attempt %d did not meet conditions: %s",
+                        job_id,
+                        attempt,
+                        last_selection_error,
+                    )
+
+            if not self._is_running(job_id):
+                await self._cancel_job(job_id)
+                return
+
+            if not condition_met:
+                if timed_out:
+                    selected_results = self._select_partial_ranked_keywords(
+                        rank_results=rank_results,
+                        target_count=job_target_count,
+                        max_rank=job_max_rank,
+                    )
+                else:
+                    error_message = (
+                        last_selection_error
+                        or "키워드 조건 충족 전에 작업이 중단되었습니다."
+                    )
+                    await self._fail_job(job_id, error_message)
+                    await self._send_callback(
+                        job_id,
+                        "failed",
+                        0,
+                        db_place_id,
+                        place_name=place_data.name,
+                        error_message=error_message,
+                    )
+                    logger.warning("Job %d failed validation: %s", job_id, error_message)
+                    return
 
             # Phase 4: Save results
             if not self._is_running(job_id):
@@ -196,19 +266,49 @@ class ExtractionService:
                 return
 
             saved_count = await self._save_keywords(
-                db_place_id, rank_results, final_keywords, job_target_count
+                db_place_id, selected_results, final_keywords, job_target_count
             )
 
-            # Finalize job
-            results_json = [r.to_dict() for r in rank_results if r.rank is not None]
-            await self._complete_job(job_id, results_json, saved_count)
+            results_json = [r.to_dict() for r in selected_results]
+            if timed_out:
+                timeout_message = (
+                    f"조건 충족 재시도 시간 초과({timeout_seconds}초): "
+                    f"부분 키워드 {saved_count}개 반영"
+                )
+                await self._cancel_job_with_results(
+                    job_id,
+                    results_json,
+                    saved_count,
+                    timeout_message,
+                )
+                await self._send_callback(
+                    job_id,
+                    "cancelled",
+                    saved_count,
+                    db_place_id,
+                    place_name=place_data.name,
+                    error_message=timeout_message,
+                )
+                logger.warning(
+                    "Job %d: Timed out and cancelled with partial results (%d)",
+                    job_id,
+                    saved_count,
+                )
+            else:
+                await self._complete_job(job_id, results_json, saved_count)
 
-            # Send callback to api-server
-            await self._send_callback(job_id, "completed", saved_count, db_place_id, place_name=place_data.name)
+                # Send callback to api-server
+                await self._send_callback(
+                    job_id,
+                    "completed",
+                    saved_count,
+                    db_place_id,
+                    place_name=place_data.name,
+                )
 
-            logger.info(
-                "Job %d: Completed. %d keywords saved", job_id, saved_count
-            )
+                logger.info(
+                    "Job %d: Completed. %d keywords saved", job_id, saved_count
+                )
 
         except asyncio.CancelledError:
             await self._cancel_job(job_id)
@@ -229,6 +329,63 @@ class ExtractionService:
     def _is_running(self, job_id: int) -> bool:
         """Check if a job should continue running."""
         return self._running_jobs.get(job_id, False)
+
+    @staticmethod
+    def _select_ranked_keywords_by_ratio(
+        rank_results: List[RankCheckResult],
+        target_count: int,
+        name_keyword_ratio: float,
+        max_rank: int,
+    ) -> List[RankCheckResult]:
+        """Select exactly target_count keywords by rank and PLT ratio."""
+        qualified = [
+            r
+            for r in rank_results
+            if r.rank is not None and isinstance(r.rank, int) and r.rank <= max_rank
+        ]
+
+        if len(qualified) < target_count:
+            raise ValueError(
+                f"조건 충족 키워드가 부족합니다. (필요: {target_count}, 확보: {len(qualified)}, 조건: rank<={max_rank})"
+            )
+
+        plt_target = int(round(target_count * name_keyword_ratio))
+        plt_target = max(0, min(plt_target, target_count))
+        pll_target = target_count - plt_target
+
+        plt_candidates = [r for r in qualified if r.keyword_type == "plt"]
+        pll_candidates = [r for r in qualified if r.keyword_type != "plt"]
+
+        if len(plt_candidates) < plt_target:
+            raise ValueError(
+                f"PLT 키워드 비중을 맞출 수 없습니다. (필요: {plt_target}, 확보: {len(plt_candidates)})"
+            )
+        if len(pll_candidates) < pll_target:
+            raise ValueError(
+                f"PLL 키워드 수가 부족합니다. (필요: {pll_target}, 확보: {len(pll_candidates)})"
+            )
+
+        plt_candidates.sort(key=lambda r: (r.rank, r.result_count, r.keyword))
+        pll_candidates.sort(key=lambda r: (r.rank, r.result_count, r.keyword))
+
+        selected = plt_candidates[:plt_target] + pll_candidates[:pll_target]
+        selected.sort(key=lambda r: (r.rank, r.keyword_type, r.keyword))
+        return selected
+
+    @staticmethod
+    def _select_partial_ranked_keywords(
+        rank_results: List[RankCheckResult],
+        target_count: int,
+        max_rank: int,
+    ) -> List[RankCheckResult]:
+        """Select up to target_count qualified keywords for partial save."""
+        qualified = [
+            r
+            for r in rank_results
+            if r.rank is not None and isinstance(r.rank, int) and r.rank <= max_rank
+        ]
+        qualified.sort(key=lambda r: (r.rank, r.keyword_type, r.keyword))
+        return qualified[:target_count]
 
     # ==================== Phase 1: Scraping ====================
 
@@ -283,7 +440,7 @@ class ExtractionService:
                     keywords=keywords,
                     place_id=place_id,
                     max_rank=max_rank,
-                    max_concurrent=5,
+                    max_concurrent=2,
                     map_type=map_type,
                     on_result=_on_result,
                 )
@@ -414,7 +571,7 @@ class ExtractionService:
         now = datetime.now(timezone.utc)
         today = date.today()
 
-        # Build keyword data: prioritize ranked keywords, fill with unranked
+        # Build keyword data from selected ranked keywords only
         keyword_data: Dict[str, Dict] = {}
 
         # Add ranked results first
@@ -426,17 +583,6 @@ class ExtractionService:
                     "current_rank": r.rank,
                     "current_map_type": r.map_type,
                     "last_checked_at": now,
-                }
-
-        # Fill with remaining keywords up to target
-        for kw in final_keywords:
-            if kw not in keyword_data and len(keyword_data) < target_count:
-                keyword_data[kw] = {
-                    "keyword": kw,
-                    "keyword_type": "pll",
-                    "current_rank": None,
-                    "current_map_type": None,
-                    "last_checked_at": None,
                 }
 
         if not keyword_data:
@@ -534,6 +680,24 @@ class ExtractionService:
             job = await db.get(ExtractionJob, job_id)
             if job:
                 job.status = ExtractionJobStatus.CANCELLED.value
+                job.completed_at = datetime.now(timezone.utc)
+                await db.commit()
+
+    async def _cancel_job_with_results(
+        self,
+        job_id: int,
+        results_json: List[Dict],
+        result_count: int,
+        error_message: str,
+    ) -> None:
+        """Mark job as cancelled while persisting partial results."""
+        async with async_session_factory() as db:
+            job = await db.get(ExtractionJob, job_id)
+            if job:
+                job.status = ExtractionJobStatus.CANCELLED.value
+                job.results = results_json
+                job.result_count = result_count
+                job.error_message = error_message
                 job.completed_at = datetime.now(timezone.utc)
                 await db.commit()
 

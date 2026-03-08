@@ -408,9 +408,8 @@ def generate_keyword_pool(
         target_count,
     )
 
-    # Sort by priority and trim to target
+    # Sort by priority and keep full candidate pool.
+    # Downstream rank filtering enforces final target/ratio rules.
     pool.sort(key=lambda x: x["priority"])
-    if len(pool) > target_count * 3:
-        pool = pool[: target_count * 3]
 
     return pool
