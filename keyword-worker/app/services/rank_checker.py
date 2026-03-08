@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# Global semaphore: limits total concurrent Naver API requests across ALL jobs
+_global_naver_semaphore = asyncio.Semaphore(5)
 
 try:
     import httpx
@@ -203,7 +207,8 @@ class RankChecker:
                     break
 
                 if resp.status_code in self.RETRYABLE_STATUS_CODES and attempt < 4:
-                    await asyncio.sleep(0.2 * (attempt + 1))
+                    wait = min(2 ** attempt + random.uniform(0, 1), 30.0)
+                    await asyncio.sleep(wait)
                     continue
                 break
 
@@ -270,7 +275,8 @@ class RankChecker:
 
         async def check_one(kw: str) -> RankCheckResult:
             nonlocal found_place_info
-            async with semaphore:
+            async with _global_naver_semaphore:
+                await asyncio.sleep(random.uniform(0.3, 0.7))
                 result, pinfo = await self.check_rank(kw, place_id, max_rank, map_type)
                 if pinfo and not found_place_info:
                     found_place_info = pinfo

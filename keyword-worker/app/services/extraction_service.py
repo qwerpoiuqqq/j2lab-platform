@@ -481,7 +481,7 @@ class ExtractionService:
                     keywords=keywords,
                     place_id=place_id,
                     max_rank=max_rank,
-                    max_concurrent=10,
+                    max_concurrent=5,
                     map_type=map_type,
                     on_result=_on_result,
                 )
