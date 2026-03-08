@@ -59,11 +59,20 @@ async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
             continue
 
         try:
+            campaign.status = "queued"
+            campaign.registration_step = "queued"
+            campaign.registration_message = "Registration queued for campaign-worker"
+            await db.commit()
+
             await dispatch_campaign_registration(
                 campaign_id=campaign.id,
                 account_id=campaign.superap_account_id,
             )
-        except WorkerDispatchError:
+        except WorkerDispatchError as exc:
+            campaign.status = "failed"
+            campaign.registration_step = "failed"
+            campaign.registration_message = f"Dispatch failed: {exc}"
+            await db.commit()
             logger.exception(
                 "Post-commit campaign dispatch failed for campaign %s",
                 campaign.id,

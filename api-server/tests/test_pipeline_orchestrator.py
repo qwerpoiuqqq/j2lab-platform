@@ -486,16 +486,15 @@ class TestOnAssignmentConfirmed:
         assert campaign.campaign_type == "traffic"
         assert campaign.daily_limit == 300
         assert campaign.extraction_job_id == job.id
+        assert campaign.original_keywords == "맛집,카페,레스토랑"
 
         # Verify pipeline transitioned
         await db_session.refresh(state)
         assert state.current_stage == PipelineStage.CAMPAIGN_REGISTERING.value
         assert state.campaign_id == campaign.id
 
-        # Verify dispatch was called
-        mock_dispatch.assert_called_once()
-        call_args = mock_dispatch.call_args
-        assert call_args.kwargs.get("campaign_id") == campaign.id or call_args[1].get("campaign_id") == campaign.id
+        # Registration dispatch happens after commit in the router layer.
+        mock_dispatch.assert_not_awaited()
 
     @patch("app.services.pipeline_orchestrator.dispatch_campaign_registration", new_callable=AsyncMock)
     async def test_keywords_added_to_pool(
@@ -580,6 +579,7 @@ class TestOnAssignmentConfirmed:
             )
         )
         keywords = list(kw_result.scalars().all())
+        assert campaign.original_keywords == "키워드1,키워드2,키워드3"
         assert len(keywords) == 3
         kw_texts = {kw.keyword for kw in keywords}
         assert kw_texts == {"키워드1", "키워드2", "키워드3"}

@@ -195,6 +195,45 @@ docker compose exec api-server alembic upgrade head
 bash scripts/seed-data.sh
 ```
 
+### EC2 CLI 배포 (AWS CLI + SSM)
+
+GitHub Actions 없이도 로컬에서 AWS CLI만으로 EC2 배포 가능.
+
+선행조건:
+- EC2에 SSM Agent + IAM Role 연결
+- 로컬에 `aws` CLI 로그인 완료
+- EC2의 `/home/ubuntu/j2lab-platform/.env` 와 `nginx/ssl` 유지
+- EC2 `.env` 에 `DB_PASSWORD`, `SECRET_KEY`, `AES_ENCRYPTION_KEY`, `INTERNAL_API_SECRET`, `DRY_RUN` 설정
+
+```bash
+AWS_REGION=ap-northeast-2 \
+EC2_INSTANCE_ID=i-0070e75146cac1672 \
+./scripts/deploy-ec2-cli.sh
+
+AWS_REGION=ap-northeast-2 \
+EC2_INSTANCE_ID=i-0070e75146cac1672 \
+./scripts/deploy-ec2-cli.sh status
+```
+
+옵션 예시:
+
+```bash
+AWS_REGION=ap-northeast-2 \
+EC2_INSTANCE_ID=i-0070e75146cac1672 \
+COMMIT_SHA=$(git rev-parse HEAD) \
+BUILD_SERVICES="api-server frontend keyword-worker campaign-worker" \
+RUN_SEED=false \
+./scripts/deploy-ec2-cli.sh
+```
+
+GitHub에서 자동 배포하려면 `.github/workflows/deploy-ec2.yml`를 사용하고,
+다음 Secrets를 저장:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `EC2_INSTANCE_ID`
+- `EC2_DEPLOY_PATH`
+
 ---
 
 ## 기본 로그인 계정
@@ -212,5 +251,6 @@ bash scripts/seed-data.sh
 
 - 이 repo는 **반드시 Private 유지**
 - `.env` 파일은 절대 커밋하지 않음 (.gitignore 등록)
+- 운영 배포 시 `SECRET_KEY`, `AES_ENCRYPTION_KEY`, `INTERNAL_API_SECRET`는 반드시 실제 값으로 설정
 - `reference/quantum-campaign/data/quantum.db`는 마이그레이션 참조용 스냅샷
 - superap.io 실제 캠페인 생성은 `DRY_RUN=true` (기본값)으로 방지

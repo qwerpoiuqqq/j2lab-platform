@@ -29,6 +29,8 @@ class CampaignCreate(BaseModel):
     network_preset_id: int | None = None
     company_id: int | None = None
     template_id: int | None = None
+    original_keywords: str | None = None
+    managed_by: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def validate_dates(self):

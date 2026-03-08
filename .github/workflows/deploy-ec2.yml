@@ -1,0 +1,65 @@
+name: Deploy EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Optional commit SHA to deploy
+        required: false
+        type: string
+      run_seed:
+        description: Run seed-data.sh after migration
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-ec2-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Resolve deploy options
+        id: options
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${{ github.event.inputs.commit_sha }}" ]]; then
+            echo "commit_sha=${{ github.event.inputs.commit_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "commit_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ github.event.inputs.run_seed }}" == "true" ]]; then
+            echo "run_seed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_seed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate deploy script
+        run: bash -n scripts/deploy-ec2-cli.sh
+
+      - name: Deploy to EC2 via SSM
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          DEPLOY_PATH: ${{ secrets.EC2_DEPLOY_PATH }}
+          COMMIT_SHA: ${{ steps.options.outputs.commit_sha }}
+          RUN_SEED: ${{ steps.options.outputs.run_seed }}
+        run: ./scripts/deploy-ec2-cli.sh deploy

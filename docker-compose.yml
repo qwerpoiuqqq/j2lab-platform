@@ -48,8 +48,11 @@ services:
       DB_USER: ${DB_USER:-j2lab}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      AES_ENCRYPTION_KEY: ${AES_ENCRYPTION_KEY:-}
       DEBUG: ${DEBUG:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+      SETTLEMENT_SECRET_PASSWORD: ${SETTLEMENT_SECRET_PASSWORD:-j2lab-settlement-2026}
       KEYWORD_WORKER_URL: http://keyword-worker:8001
       CAMPAIGN_WORKER_URL: http://campaign-worker:8002
     depends_on:
@@ -82,6 +85,7 @@ services:
       DECODO_PASSWORD: ${DECODO_PASSWORD:-}
       DECODO_ENDPOINT_COUNT: ${DECODO_ENDPOINT_COUNT:-500}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       DEBUG: ${DEBUG:-false}
       PLAYWRIGHT_HEADLESS: "true"
     depends_on:
@@ -111,6 +115,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       API_SERVER_URL: http://api-server:8000
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       DEBUG: ${DEBUG:-false}
       PLAYWRIGHT_HEADLESS: "true"
       DRY_RUN: ${DRY_RUN:-true}

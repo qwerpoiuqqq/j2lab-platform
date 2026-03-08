@@ -39,14 +39,15 @@ from app.modules.base import ModuleError
 from app.modules.registry import ModuleRegistry
 from app.utils.crypto import decrypt_password
 
-# campaign_type(영문) → campaign_template.code(한글) 매핑
-_CAMPAIGN_TYPE_TO_TEMPLATE_CODE = {
-    "traffic": "트래픽",
-    "save": "저장하기",
-    "landmark": "명소",
-    "share_directions_traffic": "share_directions_traffic",
-    "traffic1": "traffic1",
-    "save1": "save1",
+# campaign_type -> active template lookup candidates.
+# Prefer english `code`, but keep legacy Korean names as fallback.
+_CAMPAIGN_TEMPLATE_CANDIDATES = {
+    "traffic": ("traffic", "트래픽"),
+    "save": ("save", "저장하기"),
+    "landmark": ("landmark", "명소"),
+    "share_directions_traffic": ("share_directions_traffic", "공유+길찾기+트래픽"),
+    "traffic1": ("traffic1", "트래픽1"),
+    "save1": ("save1", "저장하기1"),
 }
 from app.utils.template_vars import apply_template_variables
 
@@ -61,6 +62,79 @@ def _get_account_lock(account_id: int) -> asyncio.Lock:
     if account_id not in _account_locks:
         _account_locks[account_id] = asyncio.Lock()
     return _account_locks[account_id]
+
+
+def _get_template_candidates(campaign_type: str) -> tuple[str, ...]:
+    candidates = list(_CAMPAIGN_TEMPLATE_CANDIDATES.get(campaign_type, (campaign_type,)))
+    if campaign_type not in candidates:
+        candidates.insert(0, campaign_type)
+
+    unique_candidates: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in unique_candidates:
+            unique_candidates.append(candidate)
+    return tuple(unique_candidates)
+
+
+async def _get_active_template(
+    session: AsyncSession,
+    campaign_type: str,
+    template_id: int | None = None,
+) -> CampaignTemplate | None:
+    if template_id is not None:
+        result = await session.execute(
+            select(CampaignTemplate).where(
+                CampaignTemplate.id == template_id,
+                CampaignTemplate.is_active.is_(True),
+            )
+        )
+        template = result.scalar_one_or_none()
+        if template is not None:
+            return template
+
+    for candidate in _get_template_candidates(campaign_type):
+        result = await session.execute(
+            select(CampaignTemplate).where(
+                CampaignTemplate.code == candidate,
+                CampaignTemplate.is_active.is_(True),
+            )
+        )
+        template = result.scalar_one_or_none()
+        if template is not None:
+            return template
+
+    for candidate in _get_template_candidates(campaign_type):
+        result = await session.execute(
+            select(CampaignTemplate).where(
+                CampaignTemplate.type_name == candidate,
+                CampaignTemplate.is_active.is_(True),
+            )
+        )
+        template = result.scalar_one_or_none()
+        if template is not None:
+            return template
+
+    return None
+
+
+async def _load_registration_keywords(
+    session: AsyncSession,
+    campaign: Campaign,
+) -> list[str]:
+    keywords = [
+        kw.strip()
+        for kw in (campaign.original_keywords or "").split(",")
+        if kw.strip()
+    ]
+    if keywords:
+        return keywords
+
+    result = await session.execute(
+        select(CampaignKeywordPool.keyword)
+        .where(CampaignKeywordPool.campaign_id == campaign.id)
+        .order_by(CampaignKeywordPool.is_used.asc(), CampaignKeywordPool.id.asc())
+    )
+    return [str(row[0]).strip() for row in result.all() if str(row[0]).strip()]
 
 
 def extract_place_id(url: str) -> Optional[str]:
@@ -198,7 +272,11 @@ async def _send_callback(
         logger.warning(f"Callback error for campaign {campaign_id}: {e}")
 
 
-async def register_campaign(campaign_id: int) -> dict:
+async def register_campaign(
+    campaign_id: int,
+    account_id: int | None = None,
+    template_id: int | None = None,
+) -> dict:
     """Register a single campaign on superap.io.
 
     Full flow:
@@ -238,8 +316,9 @@ async def register_campaign(campaign_id: int) -> dict:
         await session.commit()
 
         # Load superap account
+        effective_account_id = account_id or campaign.superap_account_id
         account_stmt = select(SuperapAccount).where(
-            SuperapAccount.id == campaign.superap_account_id
+            SuperapAccount.id == effective_account_id
         )
         account_result = await session.execute(account_stmt)
         account = account_result.scalar_one_or_none()
@@ -247,21 +326,16 @@ async def register_campaign(campaign_id: int) -> dict:
         if not account:
             await _update_step(
                 session, campaign_id, "failed",
-                f"Superap account {campaign.superap_account_id} not found",
+                f"Superap account {effective_account_id} not found",
             )
             await _send_callback(campaign_id, "failed", error_message="Account not found")
             return {"success": False, "error": "Account not found"}
 
-        # Load template (map english campaign_type to Korean template code)
-        template_code = _CAMPAIGN_TYPE_TO_TEMPLATE_CODE.get(
-            campaign.campaign_type, campaign.campaign_type
+        template = await _get_active_template(
+            session,
+            campaign.campaign_type,
+            template_id=template_id,
         )
-        template_stmt = select(CampaignTemplate).where(
-            CampaignTemplate.code == template_code,
-            CampaignTemplate.is_active.is_(True),
-        )
-        template_result = await session.execute(template_stmt)
-        template = template_result.scalar_one_or_none()
 
         if not template:
             await _update_step(
@@ -431,11 +505,8 @@ async def register_campaign(campaign_id: int) -> dict:
                 campaign.place_name, superap_campaign_type
             )
 
-            keywords = [
-                kw.strip()
-                for kw in (campaign.original_keywords or "").split(",")
-                if kw.strip()
-            ]
+            async with async_session_factory() as session:
+                keywords = await _load_registration_keywords(session, campaign)
 
             conversion_text = None
             if template.conversion_text_template:

@@ -320,6 +320,7 @@ class TestRegisterEndpoint:
             data = response.json()
             assert data["success"] is True
             assert data["message"] == "Registration queued"
+            mock_register.assert_awaited_once_with(1, None, None)
 
 
 class TestExtendEndpoint:

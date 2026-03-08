@@ -34,7 +34,11 @@ class SuperapAccount(Base):
     created_at = Column(DateTime)
 
     # Relationships
-    campaigns = relationship("Campaign", back_populates="superap_account")
+    campaigns = relationship(
+        "Campaign",
+        back_populates="superap_account",
+        foreign_keys="Campaign.superap_account_id",
+    )
 
     def __repr__(self) -> str:
         return f"<SuperapAccount(id={self.id}, user_id='{self.user_id_superap}')>"

@@ -44,18 +44,24 @@ from app.services.worker_clients import (
 
 logger = logging.getLogger(__name__)
 
-# campaign_type(영문) → campaign_template.code(한글) 매핑
-_CAMPAIGN_TYPE_TO_TEMPLATE_CODE = {
-    "traffic": "트래픽",
-    "save": "저장하기",
-    "landmark": "명소",
-    "share_directions_traffic": "share_directions_traffic",
-    "traffic1": "traffic1",
-    "save1": "save1",
+# campaign_type -> active template lookup candidates.
+# Prefer english `code`, but keep legacy Korean names as fallback.
+_CAMPAIGN_TEMPLATE_CANDIDATES = {
+    "traffic": ("traffic", "트래픽"),
+    "save": ("save", "저장하기"),
+    "landmark": ("landmark", "명소"),
+    "share_directions_traffic": ("share_directions_traffic", "공유+길찾기+트래픽"),
+    "traffic1": ("traffic1", "트래픽1"),
+    "save1": ("save1", "저장하기1"),
 }
 
 
-async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
+async def start_pipeline_for_order(
+    db: AsyncSession,
+    order: Order,
+    actor_id: object | None = None,
+    actor_name: str | None = None,
+) -> None:
     """Start the pipeline after payment confirmation.
 
     PHASE 3: Items now stay in payment_confirmed state waiting for deadline.
@@ -64,6 +70,14 @@ async def start_pipeline_for_order(db: AsyncSession, order: Order) -> None:
 
     Monthly guarantee / managed orders skip the full pipeline.
     """
+    if actor_id is not None or actor_name is not None:
+        logger.info(
+            "Starting pipeline for order %s by actor_id=%s actor_name=%s",
+            order.id,
+            actor_id,
+            actor_name,
+        )
+
     # Skip pipeline for no-revenue order types (manual account assignment)
     if order.order_type in (OrderType.MONTHLY_GUARANTEE.value, OrderType.MANAGED.value):
         order.status = OrderStatus.PROCESSING.value
@@ -110,6 +124,51 @@ async def complete_managed_order(db: AsyncSession, order_id: int) -> None:
     order.completed_at = datetime.now(timezone.utc)
     await db.flush()
     logger.info("Order %s (%s) manually completed", order_id, order.order_type)
+
+
+def _get_template_candidates(campaign_type: str) -> tuple[str, ...]:
+    candidates = list(_CAMPAIGN_TEMPLATE_CANDIDATES.get(campaign_type, (campaign_type,)))
+    if campaign_type not in candidates:
+        candidates.insert(0, campaign_type)
+
+    unique_candidates: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in unique_candidates:
+            unique_candidates.append(candidate)
+    return tuple(unique_candidates)
+
+
+async def _get_active_template(
+    db: AsyncSession,
+    campaign_type: str,
+) -> CampaignTemplate | None:
+    for candidate in _get_template_candidates(campaign_type):
+        result = await db.execute(
+            select(CampaignTemplate)
+            .where(
+                CampaignTemplate.code == candidate,
+                CampaignTemplate.is_active == True,
+            )
+            .limit(1)
+        )
+        template = result.scalar_one_or_none()
+        if template is not None:
+            return template
+
+    for candidate in _get_template_candidates(campaign_type):
+        result = await db.execute(
+            select(CampaignTemplate)
+            .where(
+                CampaignTemplate.type_name == candidate,
+                CampaignTemplate.is_active == True,
+            )
+            .limit(1)
+        )
+        template = result.scalar_one_or_none()
+        if template is not None:
+            return template
+
+    return None
 
 
 async def _start_pipeline_for_item(
@@ -518,7 +577,11 @@ async def on_assignment_choice(
 async def on_assignment_confirmed(
     db: AsyncSession, order_item_id: int
 ) -> None:
-    """Handle assignment confirmation: create campaign and dispatch registration."""
+    """Handle assignment confirmation: create campaign and queue registration state.
+
+    Actual worker dispatch happens after commit in the router layer to avoid
+    race conditions with campaign-worker reading uncommitted rows.
+    """
     result = await db.execute(
         select(OrderItem).where(OrderItem.id == order_item_id)
     )
@@ -566,7 +629,7 @@ async def on_assignment_confirmed(
 
     item_data = item.item_data or {}
     place_url = _extract_place_url(item) or ""
-    place_name = ""
+    place_name = item_data.get("place_name") or ""
     if extraction_job and extraction_job.place_name:
         place_name = extraction_job.place_name
 
@@ -577,17 +640,13 @@ async def on_assignment_confirmed(
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
 
-    template_code = _CAMPAIGN_TYPE_TO_TEMPLATE_CODE.get(campaign_type, campaign_type)
-    template_result = await db.execute(
-        select(CampaignTemplate)
-        .where(
-            CampaignTemplate.code == template_code,
-            CampaignTemplate.is_active == True,
-        )
-        .limit(1)
-    )
-    template = template_result.scalar_one_or_none()
+    template = await _get_active_template(db, campaign_type)
     template_id = template.id if template else None
+
+    keywords: list[str] = []
+    if extraction_job and extraction_job.results:
+        keywords = _extract_keywords_from_results(extraction_job.results)
+    original_keywords = ",".join(keywords) if keywords else None
 
     # Resolve network_preset_id from the assigned account
     network_preset_id = None
@@ -612,16 +671,16 @@ async def on_assignment_confirmed(
             network_preset_id=network_preset_id,
             company_id=order.company_id,
             template_id=template_id,
+            original_keywords=original_keywords,
+            managed_by=item.assigned_by,
         ),
     )
 
     if extraction_job:
         campaign.extraction_job_id = extraction_job.id
 
-    if extraction_job and extraction_job.results:
-        keywords = _extract_keywords_from_results(extraction_job.results)
-        if keywords:
-            await campaign_service.add_keywords_to_pool(db, campaign.id, keywords)
+    if keywords:
+        await campaign_service.add_keywords_to_pool(db, campaign.id, keywords)
 
     state.campaign_id = campaign.id
     await db.flush()
@@ -632,25 +691,12 @@ async def on_assignment_confirmed(
             state=state,
             to_stage="campaign_registering",
             trigger_type="auto_campaign_register",
-            message=f"Campaign {campaign.id} created, dispatching registration",
+            message=f"Campaign {campaign.id} created, awaiting registration dispatch",
         )
     except ValueError:
         logger.warning(
             "Pipeline transition to campaign_registering failed for item %s",
             order_item_id,
-        )
-
-    try:
-        await dispatch_campaign_registration(
-            campaign_id=campaign.id,
-            account_id=item.assigned_account_id,
-            template_id=template_id,
-        )
-        logger.info("Dispatched campaign %s registration to campaign-worker", campaign.id)
-    except WorkerDispatchError:
-        logger.exception(
-            "Failed to dispatch campaign %s registration (DB record preserved)",
-            campaign.id,
         )
 
 

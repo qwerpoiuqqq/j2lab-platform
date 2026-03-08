@@ -144,7 +144,12 @@ async def api_register_campaign(
     campaign_id = request.campaign_id
 
     # Run registration in background
-    background_tasks.add_task(register_campaign, campaign_id)
+    background_tasks.add_task(
+        register_campaign,
+        campaign_id,
+        request.account_id,
+        request.template_id,
+    )
 
     logger.info(f"Campaign {campaign_id} registration queued")
 

@@ -132,6 +132,8 @@ async def create_campaign(
         superap_account_id=data.superap_account_id,
         network_preset_id=data.network_preset_id,
         company_id=data.company_id,
+        original_keywords=data.original_keywords,
+        managed_by=data.managed_by,
         status=CampaignStatus.PENDING.value,
     )
     db.add(campaign)
