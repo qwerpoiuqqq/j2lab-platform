@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import { ChevronDownIcon, ChevronUpIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { assignmentsApi, type AssignmentQueueItem } from '@/api/assignments';
 import { pipelineApi, type PipelineLogItem } from '@/api/pipeline';
 import { useAuthStore } from '@/store/auth';
 import type { PipelineState } from '@/types';
+import { getCampaignTypeLabel } from '@/utils/format';
 
 const PIPELINE_STAGES = [
   { key: 'draft', label: '임시저장' },
@@ -25,19 +27,22 @@ const PIPELINE_STAGES = [
 ];
 
 // Map pipeline_state.current_stage values to PIPELINE_STAGES keys
+// Backend PipelineStage enum values match display keys directly
 const STAGE_KEY_MAP: Record<string, string> = {
-  order_received: 'submitted',
+  draft: 'draft',
+  submitted: 'submitted',
   payment_confirmed: 'payment_confirmed',
   extraction_queued: 'extraction_queued',
-  extracting: 'extraction_running',
+  extraction_running: 'extraction_running',
   extraction_done: 'extraction_done',
-  auto_assign: 'account_assigned',
+  account_assigned: 'account_assigned',
   assignment_confirmed: 'assignment_confirmed',
-  registration_queued: 'campaign_registering',
-  registering: 'campaign_registering',
-  active: 'campaign_active',
+  campaign_registering: 'campaign_registering',
+  campaign_active: 'campaign_active',
+  management: 'management',
   completed: 'completed',
   failed: 'failed',
+  cancelled: 'cancelled',
 };
 
 interface Props {
@@ -115,23 +120,59 @@ function getConnectorColor(status: 'passed' | 'current' | 'future' | 'failed' | 
 
 export default function PipelineStatusWidget({ orderItemId, extractionJobId, campaignId }: Props) {
   const [pipelineState, setPipelineState] = useState<PipelineState | null>(null);
+  const [assignmentItem, setAssignmentItem] = useState<AssignmentQueueItem | null>(null);
   const [logs, setLogs] = useState<PipelineLogItem[]>([]);
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startingExtraction, setStartingExtraction] = useState(false);
+  const [choosingAction, setChoosingAction] = useState<'new' | 'extend' | null>(null);
   const user = useAuthStore((s) => s.user);
   const canStartExtraction = user && ['system_admin', 'company_admin', 'order_handler'].includes(user.role);
+  const canManageAssignment = canStartExtraction;
+
+  const fetchPipeline = useCallback(async () => {
+    setError(null);
+    const state = await pipelineApi.getState(orderItemId);
+    setPipelineState(state);
+    return state;
+  }, [orderItemId]);
+
+  const fetchAssignmentItem = useCallback(async () => {
+    if (!canManageAssignment) {
+      setAssignmentItem(null);
+      return null;
+    }
+
+    try {
+      const response = await assignmentsApi.getQueue({
+        order_item_id: orderItemId,
+        limit: 1,
+      });
+      const item = response.items[0] ?? null;
+      setAssignmentItem(item);
+      return item;
+    } catch {
+      setAssignmentItem(null);
+      return null;
+    }
+  }, [canManageAssignment, orderItemId]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchPipeline() {
+    async function load() {
       try {
-        setError(null);
-        const state = await pipelineApi.getState(orderItemId);
+        const state = await fetchPipeline();
         if (!cancelled) {
-          setPipelineState(state);
+          if (
+            canManageAssignment
+            && ['account_assigned', 'assignment_confirmed', 'campaign_registering'].includes(state.current_stage)
+          ) {
+            await fetchAssignmentItem();
+          } else {
+            setAssignmentItem(null);
+          }
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -149,11 +190,11 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
       }
     }
 
-    fetchPipeline();
+    load();
     return () => {
       cancelled = true;
     };
-  }, [orderItemId]);
+  }, [canManageAssignment, fetchAssignmentItem, fetchPipeline]);
 
   useEffect(() => {
     if (!logsExpanded || !pipelineState) return;
@@ -218,6 +259,19 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
 
   const effectiveExtractionJobId = extractionJobId ?? pipelineState.extraction_job_id;
   const effectiveCampaignId = campaignId ?? pipelineState.campaign_id;
+  const isExtendRecommended = assignmentItem?.ai_recommendation === 'extend' && assignmentItem.extend_target_campaign_id != null;
+
+  const handleChooseAssignment = async (action: 'new' | 'extend') => {
+    setChoosingAction(action);
+    try {
+      await assignmentsApi.choose(orderItemId, action);
+      await Promise.all([fetchPipeline(), fetchAssignmentItem()]);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '세팅 선택에 실패했습니다.');
+    } finally {
+      setChoosingAction(null);
+    }
+  };
 
   return (
     <div className="bg-surface-raised rounded-lg p-4 space-y-3">
@@ -288,6 +342,53 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
             세팅 시작
           </Button>
           <span className="text-xs text-gray-400">마감시간 전에 수동으로 키워드 추출을 시작합니다</span>
+        </div>
+      )}
+
+      {assignmentItem?.assignment_status === 'auto_assigned' && canManageAssignment && (
+        <div className="rounded-lg border border-border bg-surface p-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+            <span>배정 계정: <span className="font-medium text-gray-200">{assignmentItem.assigned_account_name || '-'}</span></span>
+            {assignmentItem.campaign_type && (
+              <span>유형: <span className="font-medium text-gray-200">{getCampaignTypeLabel(assignmentItem.campaign_type)}</span></span>
+            )}
+            <Badge variant={isExtendRecommended ? 'info' : 'default'}>
+              {isExtendRecommended ? '연장 추천' : '신규 세팅'}
+            </Badge>
+          </div>
+
+          {assignmentItem.extend_target_info && (
+            <div className="text-xs text-gray-400 rounded-md bg-surface-raised px-3 py-2">
+              기존 캠페인 #{assignmentItem.extend_target_info.campaign_id}
+              {assignmentItem.extend_target_info.total_limit != null && (
+                <span> / 총 한도 {assignmentItem.extend_target_info.total_limit.toLocaleString()}</span>
+              )}
+              {assignmentItem.extend_target_info.end_date && (
+                <span> / 종료일 {assignmentItem.extend_target_info.end_date}</span>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {isExtendRecommended && (
+              <Button
+                size="sm"
+                variant="primary"
+                loading={choosingAction === 'extend'}
+                onClick={() => handleChooseAssignment('extend')}
+              >
+                연장 세팅
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="success"
+              loading={choosingAction === 'new'}
+              onClick={() => handleChooseAssignment('new')}
+            >
+              신규 세팅
+            </Button>
+          </div>
         </div>
       )}
 

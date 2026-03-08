@@ -169,6 +169,7 @@ class ExtractionService:
             timed_out = False
             attempt = 0
             rank_results: List[RankCheckResult] = []
+            best_rank_results: List[RankCheckResult] = []  # Keep best across attempts
             final_keywords = all_keywords
             selected_results: List[RankCheckResult] = []
             condition_met = False
@@ -202,18 +203,28 @@ class ExtractionService:
                     )
                 except asyncio.TimeoutError:
                     timed_out = True
-                    rank_results = list(self._partial_rank_results.get(job_id, []))
+                    # Merge partial results from this attempt with best previous results
+                    partial = list(self._partial_rank_results.get(job_id, []))
+                    partial_ranked = len([r for r in partial if r.rank is not None])
+                    best_ranked = len([r for r in best_rank_results if r.rank is not None])
+                    rank_results = partial if partial_ranked > best_ranked else best_rank_results
                     final_keywords = all_keywords
                     logger.warning(
-                        "Job %d: Timeout after %ds, using %d partial rank results",
+                        "Job %d: Timeout after %ds, using best of %d (partial) vs %d (previous best) rank results",
                         job_id,
                         timeout_seconds,
-                        len(rank_results),
+                        partial_ranked,
+                        best_ranked,
                     )
                     break
 
                 rank_results = attempt_results
                 final_keywords = attempt_final_keywords
+                # Track best complete results across attempts
+                cur_ranked = len([r for r in rank_results if r.rank is not None])
+                best_ranked = len([r for r in best_rank_results if r.rank is not None])
+                if cur_ranked > best_ranked:
+                    best_rank_results = list(rank_results)
 
                 ranked_count = len([r for r in rank_results if r.rank is not None])
                 logger.info(
