@@ -281,28 +281,44 @@ class ExtractionService:
             results_json = [r.to_dict() for r in selected_results]
             if timed_out:
                 timeout_message = (
-                    f"조건 충족 재시도 시간 초과({timeout_seconds}초): "
+                    f"시간 초과({timeout_seconds}초): "
                     f"부분 키워드 {saved_count}개 반영"
                 )
-                await self._cancel_job_with_results(
-                    job_id,
-                    results_json,
-                    saved_count,
-                    timeout_message,
-                )
-                await self._send_callback(
-                    job_id,
-                    "cancelled",
-                    saved_count,
-                    db_place_id,
-                    place_name=place_data.name,
-                    error_message=timeout_message,
-                )
-                logger.warning(
-                    "Job %d: Timed out and cancelled with partial results (%d)",
-                    job_id,
-                    saved_count,
-                )
+                if saved_count > 0:
+                    # Partial results available: treat as completed so pipeline continues
+                    await self._complete_job(job_id, results_json, saved_count)
+                    await self._send_callback(
+                        job_id,
+                        "completed",
+                        saved_count,
+                        db_place_id,
+                        place_name=place_data.name,
+                    )
+                    logger.info(
+                        "Job %d: Timed out but completed with partial results (%d)",
+                        job_id,
+                        saved_count,
+                    )
+                else:
+                    # No results at all: cancel
+                    await self._cancel_job_with_results(
+                        job_id,
+                        results_json,
+                        saved_count,
+                        timeout_message,
+                    )
+                    await self._send_callback(
+                        job_id,
+                        "cancelled",
+                        saved_count,
+                        db_place_id,
+                        place_name=place_data.name,
+                        error_message=timeout_message,
+                    )
+                    logger.warning(
+                        "Job %d: Timed out with no results",
+                        job_id,
+                    )
             else:
                 await self._complete_job(job_id, results_json, saved_count)
 
@@ -387,14 +403,18 @@ class ExtractionService:
         target_count: int,
         max_rank: int,
     ) -> List[RankCheckResult]:
-        """Select up to target_count qualified keywords for partial save."""
-        qualified = [
-            r
-            for r in rank_results
-            if r.rank is not None and isinstance(r.rank, int) and r.rank <= max_rank
+        """Select up to target_count keywords for partial save.
+
+        Includes all keywords that have rank data (regardless of max_rank),
+        prioritizing those within max_rank first, then the rest by rank.
+        """
+        with_rank = [
+            r for r in rank_results
+            if r.rank is not None and isinstance(r.rank, int)
         ]
-        qualified.sort(key=lambda r: (r.rank, r.keyword_type, r.keyword))
-        return qualified[:target_count]
+        # Sort: within max_rank first, then by rank ascending
+        with_rank.sort(key=lambda r: (0 if r.rank <= max_rank else 1, r.rank, r.keyword))
+        return with_rank[:target_count]
 
     # ==================== Phase 1: Scraping ====================
 
@@ -449,7 +469,7 @@ class ExtractionService:
                     keywords=keywords,
                     place_id=place_id,
                     max_rank=max_rank,
-                    max_concurrent=2,
+                    max_concurrent=10,
                     map_type=map_type,
                     on_result=_on_result,
                 )
