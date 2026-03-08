@@ -19,16 +19,54 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import verify_internal_secret
+from app.models.campaign import Campaign
 from app.models.pipeline_state import PipelineStage
+from app.models.pipeline_state import PipelineState
 from app.schemas.campaign import CampaignCallbackRequest
 from app.schemas.extraction_job import ExtractionCallbackRequest
 from app.services import campaign_service, extraction_service, pipeline_service
 from app.services import pipeline_orchestrator
 from app.services import notification_service
+from app.services.worker_clients import WorkerDispatchError, dispatch_campaign_registration
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal/callback", tags=["internal-callbacks"])
+
+
+async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
+    """Dispatch campaign registrations after transaction commit."""
+    result = await db.execute(
+        select(PipelineState).where(
+            PipelineState.current_stage == PipelineStage.CAMPAIGN_REGISTERING.value,
+            PipelineState.campaign_id.isnot(None),
+        )
+    )
+    states = list(result.scalars().all())
+
+    for state in states:
+        if not state.campaign_id:
+            continue
+
+        campaign_result = await db.execute(
+            select(Campaign).where(Campaign.id == state.campaign_id)
+        )
+        campaign = campaign_result.scalar_one_or_none()
+        if not campaign:
+            continue
+        if campaign.status != "pending" or campaign.campaign_code:
+            continue
+
+        try:
+            await dispatch_campaign_registration(
+                campaign_id=campaign.id,
+                account_id=campaign.superap_account_id,
+            )
+        except WorkerDispatchError:
+            logger.exception(
+                "Post-commit campaign dispatch failed for campaign %s",
+                campaign.id,
+            )
 
 
 @router.post("/extraction/{job_id}")
@@ -144,6 +182,21 @@ async def extraction_callback(
                     await db.flush()
                 except ValueError:
                     pass
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Extraction callback commit failed for job %s", job_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Extraction callback commit failed",
+        )
+
+    # Dispatch campaign registrations AFTER commit to avoid race where
+    # campaign-worker cannot read newly created campaign rows yet.
+    if body.status == "completed":
+        await _dispatch_pending_campaign_registrations(db)
 
     return {
         "message": f"Extraction callback processed: {body.status}",

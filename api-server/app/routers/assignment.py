@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import RoleChecker
+from app.models.campaign import Campaign
 from app.models.order import OrderItem
+from app.models.pipeline_state import PipelineState, PipelineStage
 from app.models.user import User, UserRole
 from app.schemas.assignment import (
     AssignmentChoiceRequest,
@@ -22,12 +24,50 @@ from app.schemas.assignment import (
 from app.schemas.common import MessageResponse
 from app.services import assignment_service, campaign_service
 from app.services import pipeline_orchestrator
+from app.services.worker_clients import WorkerDispatchError, dispatch_campaign_registration
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assignment", tags=["assignment"])
 
 admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+
+
+async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
+    """Dispatch campaign registrations after transaction commit."""
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(PipelineState).where(
+            PipelineState.current_stage == PipelineStage.CAMPAIGN_REGISTERING.value,
+            PipelineState.campaign_id.isnot(None),
+        )
+    )
+    states = list(result.scalars().all())
+
+    for state in states:
+        if not state.campaign_id:
+            continue
+
+        campaign_result = await db.execute(
+            select(Campaign).where(Campaign.id == state.campaign_id)
+        )
+        campaign = campaign_result.scalar_one_or_none()
+        if not campaign:
+            continue
+        if campaign.status != "pending" or campaign.campaign_code:
+            continue
+
+        try:
+            await dispatch_campaign_registration(
+                campaign_id=campaign.id,
+                account_id=campaign.superap_account_id,
+            )
+        except WorkerDispatchError:
+            logger.exception(
+                "Post-commit campaign dispatch failed for campaign %s",
+                campaign.id,
+            )
 
 
 @router.get("/queue")
@@ -193,6 +233,16 @@ async def confirm_assignment(
         await pipeline_orchestrator.on_assignment_confirmed(db, item_id)
     except Exception as e:
         logger.error("Campaign registration trigger failed for item %s: %s", item_id, e)
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Assignment confirm commit failed",
+        )
+
+    await _dispatch_pending_campaign_registrations(db)
 
     return {"message": "Assignment confirmed", "order_item_id": updated.id}
 
@@ -265,6 +315,17 @@ async def choose_assignment_action(
             detail=f"Dispatch failed: {str(e)}",
         )
 
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Assignment choice commit failed",
+        )
+
+    await _dispatch_pending_campaign_registrations(db)
+
     return {
         "message": f"Assignment {body.action} dispatched",
         "order_item_id": updated.id,
@@ -310,6 +371,9 @@ async def bulk_confirm(
                 )
         except ValueError as e:
             errors.append({"item_id": item_id, "error": str(e)})
+
+    await db.commit()
+    await _dispatch_pending_campaign_registrations(db)
 
     return {
         "confirmed": confirmed,
