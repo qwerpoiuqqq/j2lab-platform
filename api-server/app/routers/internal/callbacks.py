@@ -151,7 +151,7 @@ async def extraction_callback(
                     pipeline_state.extraction_job_id = updated_job.id
                     await db.flush()
 
-                    # Trigger auto-assignment
+                    # Trigger auto-assignment → auto-choice → campaign creation
                     try:
                         await pipeline_orchestrator.on_extraction_complete(
                             db, updated_job.order_item_id, updated_job
@@ -162,6 +162,9 @@ async def extraction_callback(
                             updated_job.order_item_id,
                             e,
                         )
+
+                    # Dispatch campaign registration after commit
+                    await _dispatch_pending_campaign_registrations(db)
                 except ValueError:
                     pass  # Transition not valid from current state
             elif body.status == "failed":

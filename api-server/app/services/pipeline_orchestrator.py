@@ -463,13 +463,22 @@ async def on_extraction_complete(
             )
             return
 
-        # PHASE 4: Do NOT auto-dispatch extensions anymore.
-        # Wait for user to choose via the /choose endpoint.
+        # Auto-proceed: determine new vs extend and dispatch immediately
+        action = "extend" if assignment_result.is_extension else "new"
         logger.info(
-            "OrderItem %s assigned, waiting for user choice (is_extension=%s)",
+            "OrderItem %s auto-proceeding with action=%s (is_extension=%s)",
             order_item_id,
+            action,
             assignment_result.is_extension,
         )
+        try:
+            await on_assignment_choice(db, order_item_id, action)
+        except Exception:
+            logger.exception(
+                "Auto assignment choice failed for OrderItem %s (action=%s)",
+                order_item_id,
+                action,
+            )
     else:
         suggestion = assignment_result.suggestion or assignment_result.error or "No account available"
         state.error_message = f"Auto-assignment: {suggestion}"
