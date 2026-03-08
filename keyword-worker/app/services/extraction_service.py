@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -648,18 +649,32 @@ class ExtractionService:
                         existing.last_checked_at = data["last_checked_at"]
                     keyword_id = existing.id
                 else:
-                    # Insert new keyword
-                    new_kw = Keyword(
-                        place_id=place_id,
-                        keyword=data["keyword"],
-                        keyword_type=data["keyword_type"],
-                        current_rank=data["current_rank"],
-                        current_map_type=data["current_map_type"],
-                        last_checked_at=data["last_checked_at"],
-                    )
-                    db.add(new_kw)
-                    await db.flush()
-                    keyword_id = new_kw.id
+                    # Insert new keyword with savepoint to handle race condition
+                    try:
+                        async with db.begin_nested():
+                            new_kw = Keyword(
+                                place_id=place_id,
+                                keyword=data["keyword"],
+                                keyword_type=data["keyword_type"],
+                                current_rank=data["current_rank"],
+                                current_map_type=data["current_map_type"],
+                                last_checked_at=data["last_checked_at"],
+                            )
+                            db.add(new_kw)
+                            await db.flush()
+                            keyword_id = new_kw.id
+                    except IntegrityError:
+                        # Another process inserted this keyword; fetch and update
+                        result = await db.execute(stmt)
+                        existing = result.scalar_one_or_none()
+                        if existing:
+                            existing.current_rank = data["current_rank"]
+                            existing.current_map_type = data["current_map_type"]
+                            existing.keyword_type = data["keyword_type"]
+                            existing.last_checked_at = data["last_checked_at"]
+                            keyword_id = existing.id
+                        else:
+                            continue
 
                 # Add rank history if we have rank data
                 if data["current_rank"] is not None:
