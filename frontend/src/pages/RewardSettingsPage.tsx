@@ -23,12 +23,14 @@ const CAMPAIGN_TYPES: CampaignType[] = ['traffic', 'save', 'directions'];
 interface NetworkForm {
   name: string;
   campaign_type: CampaignType;
+  extension_threshold: number;
   selectedAccountId: number | null;
 }
 
 const EMPTY_FORM: NetworkForm = {
   name: '',
   campaign_type: 'traffic',
+  extension_threshold: 10000,
   selectedAccountId: null,
 };
 
@@ -156,6 +158,7 @@ export default function RewardSettingsPage() {
     setForm({
       name: preset.name,
       campaign_type: preset.campaign_type as CampaignType,
+      extension_threshold: preset.extension_threshold ?? 10000,
       selectedAccountId: linked.length > 0 ? linked[0].id : null,
     });
     setModalOpen(true);
@@ -172,7 +175,10 @@ export default function RewardSettingsPage() {
     try {
       if (editPreset) {
         // === UPDATE ===
-        await networkPresetsApi.update(editPreset.id, { name: form.name });
+        await networkPresetsApi.update(editPreset.id, {
+          name: form.name,
+          extension_threshold: form.extension_threshold,
+        });
 
         const prevLinked = acctsByPreset[editPreset.id] || [];
         const newAcctId = form.selectedAccountId;
@@ -207,6 +213,7 @@ export default function RewardSettingsPage() {
           campaign_type: form.campaign_type,
           tier_order: nextTier,
           name: form.name,
+          extension_threshold: form.extension_threshold,
         });
 
         // 선택된 계정을 새 프리셋에 연결
@@ -424,6 +431,9 @@ export default function RewardSettingsPage() {
                               <div className="font-medium text-gray-100 text-sm">
                                 {preset.name}
                               </div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                연장 기준 {preset.extension_threshold ?? 10000}타
+                              </div>
                               {linked.length > 0 ? (
                                 <div className="text-xs text-gray-400 mt-0.5">
                                   {linked.map((a, i) => (
@@ -567,6 +577,22 @@ export default function RewardSettingsPage() {
               placeholder="예: 제이투랩 저장 1순위"
               className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              연장/신규 기준 타수
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={form.extension_threshold}
+              onChange={(e) => setField('extension_threshold', Number(e.target.value || 0))}
+              className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              (기존 + 신규) 총 한도가 이 값 미만이면 연장, 이상이면 신규로 배정됩니다.
+            </p>
           </div>
 
           {/* ---- Account selection (ALL accounts) ---- */}

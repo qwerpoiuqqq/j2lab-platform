@@ -798,6 +798,7 @@ export interface NetworkPreset {
   media_config?: Record<string, any>;
   handler_user_id?: string | null;
   cost_price?: number;
+  extension_threshold: number;
   description?: string;
   is_active: boolean;
   created_at: string;
@@ -812,6 +813,7 @@ export interface CreateNetworkPresetRequest {
   media_config?: Record<string, any>;
   handler_user_id?: string | null;
   cost_price?: number;
+  extension_threshold?: number;
   description?: string;
 }
 
@@ -821,6 +823,7 @@ export interface UpdateNetworkPresetRequest {
   media_config?: Record<string, any>;
   handler_user_id?: string | null;
   cost_price?: number;
+  extension_threshold?: number;
   description?: string;
   is_active?: boolean;
 }
