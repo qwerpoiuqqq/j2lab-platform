@@ -98,6 +98,12 @@ async def start_extraction_manually(
             detail=f"추출 시작에 실패했습니다: {str(e)}",
         )
 
+    # Dispatch to keyword-worker AFTER commit
+    try:
+        await pipeline_orchestrator.dispatch_pending_extraction_jobs(db)
+    except Exception:
+        logger.exception("Extraction dispatch failed for item %s (job created but not dispatched)", order_item_id)
+
     return MessageResponse(message=f"키워드 추출이 시작되었습니다 (order_item_id={order_item_id})")
 
 
