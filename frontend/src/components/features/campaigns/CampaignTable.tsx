@@ -307,25 +307,6 @@ export default function CampaignTable({
                           재시도
                         </button>
                       )}
-                      {/* Active: Rotate, Sync */}
-                      {c.status === 'active' && (
-                        <>
-                          <button
-                            onClick={() => handleRotateKeywords(c.id)}
-                            disabled={actionLoading === c.id}
-                            className="text-xs px-2 py-1 bg-teal-900/20 text-teal-400 rounded-md hover:bg-teal-900/30 disabled:opacity-50"
-                          >
-                            키워드변경
-                          </button>
-                          <button
-                            onClick={() => handleSync(c.id)}
-                            disabled={actionLoading === c.id}
-                            className="text-xs px-2 py-1 bg-indigo-900/20 text-indigo-400 rounded-md hover:bg-indigo-900/30 disabled:opacity-50"
-                          >
-                            동기화
-                          </button>
-                        </>
-                      )}
                       <button
                         onClick={() => setEditModal(c)}
                         className="text-xs px-2 py-1 bg-surface-raised text-gray-400 rounded-md hover:bg-surface-raised"
