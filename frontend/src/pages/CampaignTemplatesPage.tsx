@@ -126,6 +126,7 @@ export default function CampaignTemplatesPage() {
               <thead className="bg-surface-raised">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 이름</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">코드</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 타입</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">모듈</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
@@ -136,6 +137,9 @@ export default function CampaignTemplatesPage() {
                 {templates.map((t) => (
                   <tr key={t.id} className="hover:bg-surface-raised transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-100">{t.type_name}</td>
+                    <td className="px-6 py-4">
+                      <code className="text-xs bg-surface-raised px-2 py-0.5 rounded text-primary-400">{t.code}</code>
+                    </td>
                     <td className="px-6 py-4 text-gray-400">
                       {t.campaign_type_selection ? getCampaignTypeLabel(t.campaign_type_selection) : '-'}
                     </td>
@@ -216,6 +220,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
   const [error, setError] = useState<string | null>(null);
 
   const [typeName, setTypeName] = useState('');
+  const [code, setCode] = useState('');
   const [campaignType, setCampaignType] = useState('');
   const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
   const [conversionText, setConversionText] = useState('');
@@ -234,6 +239,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
       .get(templateId)
       .then((d) => {
         setTypeName(d.type_name);
+        setCode(d.code || '');
         setCampaignType(d.campaign_type_selection || '');
         setEnabledModules(new Set(d.modules));
         setDescTemplate(d.description_template);
@@ -275,6 +281,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
     const filteredLinks = links.filter((l) => l.trim());
     const payload = {
       type_name: typeName.trim(),
+      code: code.trim() || undefined,
       description_template: descTemplate,
       hint_text: hintText,
       campaign_type_selection: campaignType || undefined,
@@ -340,6 +347,21 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                   className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
                   placeholder="예: 트래픽, 저장하기, 명소"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  코드 <span className="text-xs text-gray-400 font-normal">(캠페인 타입 매칭용, 미입력 시 자동 생성)</span>
+                </label>
+                <input
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+                  placeholder="예: traffic, save, landmark, traffic1"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  파이프라인에서 캠페인 타입과 매칭됩니다. 예: traffic, save, landmark, traffic1, share_directions_traffic
+                </p>
               </div>
               {!isCreate && (
                 <div className="flex items-center gap-3">

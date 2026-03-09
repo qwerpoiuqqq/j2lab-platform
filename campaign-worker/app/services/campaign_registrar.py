@@ -402,6 +402,9 @@ async def register_campaign(
                         update_values["landmark_name"] = module_context["landmark_name"]
                     if "steps" in module_context:
                         update_values["step_count"] = module_context["steps"]
+                    # Update place_name from module if campaign has no place_name
+                    if module_context.get("real_place_name") and not campaign.place_name:
+                        update_values["place_name"] = module_context["real_place_name"]
 
                     async with async_session_factory() as session:
                         await session.execute(
@@ -416,6 +419,8 @@ async def register_campaign(
                         campaign.landmark_name = module_context["landmark_name"]
                     if "steps" in module_context:
                         campaign.step_count = module_context["steps"]
+                    if module_context.get("real_place_name") and not campaign.place_name:
+                        campaign.place_name = module_context["real_place_name"]
 
                 except ModuleError as e:
                     logger.warning(

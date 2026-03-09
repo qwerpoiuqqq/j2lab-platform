@@ -29,6 +29,7 @@ class CampaignTemplateCreate(BaseModel):
 class CampaignTemplateUpdate(BaseModel):
     """Schema for updating a campaign template."""
 
+    code: str | None = Field(None, max_length=50)
     description_template: str | None = None
     hint_text: str | None = None
     campaign_type_selection: str | None = None

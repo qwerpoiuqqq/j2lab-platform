@@ -834,6 +834,7 @@ export interface UpdateNetworkPresetRequest {
 
 export interface CampaignTemplate {
   id: number;
+  code: string;
   type_name: string;
   description_template: string;
   hint_text: string;
@@ -852,6 +853,7 @@ export interface CampaignTemplate {
 
 export interface CreateCampaignTemplateRequest {
   type_name: string;
+  code?: string;
   description_template: string;
   hint_text: string;
   campaign_type_selection?: string;
@@ -866,6 +868,7 @@ export interface CreateCampaignTemplateRequest {
 
 export interface UpdateCampaignTemplateRequest {
   type_name?: string;
+  code?: string;
   description_template?: string;
   hint_text?: string;
   campaign_type_selection?: string;

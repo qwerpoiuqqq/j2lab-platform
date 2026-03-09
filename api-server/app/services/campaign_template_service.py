@@ -10,9 +10,13 @@ from app.schemas.campaign_template import CampaignTemplateCreate, CampaignTempla
 from app.utils.text import slugify
 
 _KNOWN_TYPE_MAP = {
+    "트래픽1": "traffic1",
     "트래픽": "traffic",
+    "저장하기1": "save1",
     "저장하기": "save",
+    "명소": "landmark",
     "랜드마크": "landmark",
+    "공유+길찾기+트래픽": "share_directions_traffic",
     "길찾기": "directions",
 }
 
