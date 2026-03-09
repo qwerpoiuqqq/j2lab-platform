@@ -131,29 +131,6 @@ export default function CampaignTable({
     }
   };
 
-  const handleRotateKeywords = async (id: number) => {
-    try {
-      setActionLoading(id);
-      await campaignsApi.rotateKeywords(id);
-      onRefresh();
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || '키워드 로테이션 실패');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleSync = async (id: number) => {
-    try {
-      setActionLoading(id);
-      await campaignsApi.syncToSuperap(id);
-      onRefresh();
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || '동기화 실패');
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   if (loading) {
     return (
