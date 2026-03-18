@@ -26,6 +26,7 @@ from app.routers import (
     pipeline,
     places,
     products,
+    redirect,
     scheduler,
     settlements,
     superap_accounts,
@@ -93,6 +94,9 @@ app.include_router(notices.router, prefix="/api/v1")
 app.include_router(settlements.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")
 app.include_router(scheduler.router, prefix="/api/v1")
+
+# Redirect (public, no /api/v1 prefix)
+app.include_router(redirect.router)
 
 # Internal callback router (no /api/v1 prefix)
 app.include_router(callbacks.router)

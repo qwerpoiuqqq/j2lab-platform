@@ -69,6 +69,10 @@ class Campaign(Base):
     extend_target_id = Column(BigInteger)
     extension_history = Column(JSONB)
 
+    # Smart Traffic
+    landing_slug = Column(String(32), unique=True, index=True)
+    redirect_config = Column(JSONB)
+
     # Conversion threshold
     conversion_threshold_handled = Column(Boolean, default=False, server_default="false")
 

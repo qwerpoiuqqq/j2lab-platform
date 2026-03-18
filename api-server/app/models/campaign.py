@@ -120,6 +120,10 @@ class Campaign(Base):
     extend_target_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     extension_history: Mapped[Optional[Any]] = mapped_column(JSON)
 
+    # === Smart Traffic ===
+    landing_slug: Mapped[Optional[str]] = mapped_column(String(32), unique=True, index=True)
+    redirect_config: Mapped[Optional[Any]] = mapped_column(JSON)
+
     # === Conversion Threshold ===
     conversion_threshold_handled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false"),
@@ -177,4 +181,5 @@ class Campaign(Base):
         Index("idx_campaigns_company_id", "company_id"),
         Index("idx_campaigns_network_preset_id", "network_preset_id"),
         Index("idx_campaigns_managed_by", "managed_by"),
+        Index("idx_campaigns_landing_slug", "landing_slug"),
     )

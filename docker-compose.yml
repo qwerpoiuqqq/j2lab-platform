@@ -55,6 +55,7 @@ services:
       SETTLEMENT_SECRET_PASSWORD: ${SETTLEMENT_SECRET_PASSWORD:-j2lab-settlement-2026}
       KEYWORD_WORKER_URL: http://keyword-worker:8001
       CAMPAIGN_WORKER_URL: http://campaign-worker:8002
+      LANDING_BASE_URL: ${LANDING_BASE_URL:-https://logic-lab.kr}
     depends_on:
       db:
         condition: service_healthy
@@ -119,6 +120,7 @@ services:
       DEBUG: ${DEBUG:-false}
       PLAYWRIGHT_HEADLESS: "true"
       DRY_RUN: ${DRY_RUN:-true}
+      LANDING_BASE_URL: ${LANDING_BASE_URL:-https://logic-lab.kr}
     depends_on:
       db:
         condition: service_healthy

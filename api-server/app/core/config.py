@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     CAMPAIGN_WORKER_URL: str = "http://campaign-worker:8002"
     API_SERVER_URL: str = "http://api-server:8000"
 
+    # === Landing/Redirect ===
+    LANDING_BASE_URL: str = "https://logic-lab.kr"
+
     # === CORS ===
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

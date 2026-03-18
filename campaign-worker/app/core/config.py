@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # === Internal API Secret (for callback auth) ===
     INTERNAL_API_SECRET: str = "change_me_to_internal_secret"
 
+    # === Landing/Redirect ===
+    LANDING_BASE_URL: str = "https://logic-lab.kr"
+
     # === Playwright ===
     PLAYWRIGHT_HEADLESS: bool = True
 

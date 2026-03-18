@@ -10,9 +10,12 @@ and auto_registration.py, adapted for async PostgreSQL.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import re
+import secrets
+import string
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -205,6 +208,66 @@ def _generate_campaign_name(place_name: str, campaign_type: str) -> str:
     else:
         prefix = "".join(name_chars[:2])
     return f"{prefix} {suffix}"
+
+
+_DEFAULT_REDIRECT_CONFIG = {
+    "channels": {
+        "naver_app": {
+            "weight": 40,
+            "sub": {
+                "home": {"weight": 85},
+                "blog": {"weight": 15},
+            },
+        },
+        "map_app": {
+            "weight": 30,
+            "tabs": {
+                "map": {"weight": 25},
+                "map?tab=discovery": {"weight": 30},
+                "map?tab=navi": {"weight": 20},
+                "map?tab=pubtrans": {"weight": 15},
+                "map?tab=bookmark": {"weight": 10},
+            },
+        },
+        "browser": {
+            "weight": 30,
+            "sub": {
+                "home": {"weight": 85},
+                "blog": {"weight": 15},
+            },
+        },
+    },
+    "place_id": "",
+    "blog_url": "",
+}
+
+
+def _generate_landing_slug(length: int = 10) -> str:
+    """Generate a random landing slug for redirect URLs."""
+    chars = string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(chars) for _ in range(length))
+
+
+def _build_redirect_config(
+    template_config: dict | None,
+    place_id: int | None = None,
+    blog_url: str = "",
+    share_url: str = "",
+) -> dict:
+    """Build redirect config from template defaults + place data."""
+    if template_config:
+        config = copy.deepcopy(template_config)
+    else:
+        config = copy.deepcopy(_DEFAULT_REDIRECT_CONFIG)
+
+    if place_id:
+        config["place_id"] = str(place_id)
+    if blog_url:
+        config["blog_url"] = blog_url
+    if share_url:
+        config["share_url"] = share_url
+
+    return config
 
 
 async def _update_step(
@@ -510,19 +573,38 @@ async def register_campaign(
                         f"[DRY_RUN] Registration skipped — code: {fake_code}",
                     )
                 now = datetime.now(timezone.utc)
+
+                # Generate smart redirect data even in DRY_RUN
+                dry_landing_slug = None
+                dry_redirect_config = None
+                try:
+                    dry_landing_slug = _generate_landing_slug()
+                    dry_redirect_config = _build_redirect_config(
+                        template_config=getattr(template, 'default_redirect_config', None),
+                        place_id=campaign.place_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"[DRY_RUN] redirect setup failed: {e}")
+
+                dry_update_values = {
+                    "campaign_code": fake_code,
+                    "status": "active",
+                    "registration_step": "completed",
+                    "registration_message": f"[DRY_RUN] code {fake_code}",
+                    "registered_at": now,
+                    "last_keyword_change": now,
+                    "updated_at": now,
+                }
+                if dry_landing_slug:
+                    dry_update_values["landing_slug"] = dry_landing_slug
+                if dry_redirect_config:
+                    dry_update_values["redirect_config"] = dry_redirect_config
+
                 async with async_session_factory() as session:
                     await session.execute(
                         update(Campaign)
                         .where(Campaign.id == campaign_id)
-                        .values(
-                            campaign_code=fake_code,
-                            status="active",
-                            registration_step="completed",
-                            registration_message=f"[DRY_RUN] code {fake_code}",
-                            registered_at=now,
-                            last_keyword_change=now,
-                            updated_at=now,
-                        )
+                        .values(**dry_update_values)
                     )
                     await session.commit()
                 await _send_callback(campaign_id, "active", campaign_code=fake_code)
@@ -589,6 +671,55 @@ async def register_campaign(
                     conversion_context,
                 )
 
+            # === Smart redirect: generate slug + redirect config ===
+            landing_slug = None
+            redirect_config = None
+            form_links = template.links or []
+
+            try:
+                from app.services.place_data_collector import collect_place_data
+                from app.core.config import settings
+
+                # Collect place data (blog URL, coordinates)
+                place_data = {}
+                if campaign.place_id:
+                    try:
+                        place_data = await collect_place_data(
+                            str(campaign.place_id), campaign.place_url
+                        )
+                        logger.info(
+                            f"[PlaceData] campaign={campaign_id} "
+                            f"blog={'있음' if place_data.get('blog_url') else '없음'}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"[PlaceData] collection failed: {e}")
+
+                # Generate slug and build redirect config
+                landing_slug = _generate_landing_slug()
+                redirect_config = _build_redirect_config(
+                    template_config=getattr(template, 'default_redirect_config', None),
+                    place_id=campaign.place_id,
+                    blog_url=place_data.get("blog_url", ""),
+                    share_url=place_data.get("share_url", ""),
+                )
+
+                # Build mission link: /r/{slug}#{hashtag}
+                base_url = getattr(settings, 'LANDING_BASE_URL', 'https://logic-lab.kr')
+                hashtag = template.hashtag or ""
+                if hashtag and not hashtag.startswith("#"):
+                    hashtag = f"#{hashtag}"
+                redirect_url = f"{base_url.rstrip('/')}/r/{landing_slug}"
+                form_links = [f"{redirect_url}{hashtag}"]
+
+                logger.info(
+                    f"[SmartRedirect] campaign={campaign_id} "
+                    f"slug={landing_slug} link={form_links[0]}"
+                )
+            except ImportError:
+                logger.warning("place_data_collector not available, using template links")
+            except Exception as e:
+                logger.warning(f"[SmartRedirect] setup failed, using template links: {e}")
+
             form_data = CampaignFormData(
                 campaign_name=campaign_name,
                 place_name=campaign.place_name,
@@ -602,7 +733,7 @@ async def register_campaign(
                 end_date=campaign.end_date,
                 daily_limit=campaign.daily_limit,
                 total_limit=campaign.total_limit,
-                links=template.links or [],
+                links=form_links,
                 campaign_type=superap_campaign_type,
             )
 
@@ -669,18 +800,24 @@ async def register_campaign(
                             kw.is_used = True
                             kw.used_at = now
 
+                update_values = {
+                    "campaign_code": campaign_code,
+                    "status": "active",
+                    "registration_step": "completed",
+                    "registration_message": f"Registered: code {campaign_code}",
+                    "registered_at": now,
+                    "last_keyword_change": now,
+                    "updated_at": now,
+                }
+                if landing_slug:
+                    update_values["landing_slug"] = landing_slug
+                if redirect_config:
+                    update_values["redirect_config"] = redirect_config
+
                 await session.execute(
                     update(Campaign)
                     .where(Campaign.id == campaign_id)
-                    .values(
-                        campaign_code=campaign_code,
-                        status="active",
-                        registration_step="completed",
-                        registration_message=f"Registered: code {campaign_code}",
-                        registered_at=now,
-                        last_keyword_change=now,
-                        updated_at=now,
-                    )
+                    .values(**update_values)
                 )
                 await session.commit()
 

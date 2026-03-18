@@ -30,6 +30,7 @@ class CampaignTemplate(Base):
     conversion_text_template = Column(Text)
     steps_start = Column(Text)
     modules = Column(JSONB, default=list)
+    default_redirect_config = Column(JSONB)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True))

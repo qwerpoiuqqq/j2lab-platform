@@ -45,6 +45,7 @@ class CampaignTemplate(Base):
     conversion_text_template: Mapped[Optional[str]] = mapped_column(Text)
     steps_start: Mapped[Optional[str]] = mapped_column(Text)
     modules: Mapped[Optional[Any]] = mapped_column(JSON, default=[])
+    default_redirect_config: Mapped[Optional[Any]] = mapped_column(JSON)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
