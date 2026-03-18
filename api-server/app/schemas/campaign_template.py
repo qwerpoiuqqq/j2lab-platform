@@ -23,6 +23,7 @@ class CampaignTemplateCreate(BaseModel):
     conversion_text_template: str | None = None
     steps_start: str | None = None
     modules: list[Any] | None = None
+    default_redirect_config: dict[str, Any] | None = None
     is_active: bool = True
 
 
@@ -40,6 +41,7 @@ class CampaignTemplateUpdate(BaseModel):
     conversion_text_template: str | None = None
     steps_start: str | None = None
     modules: list[Any] | None = None
+    default_redirect_config: dict[str, Any] | None = None
     is_active: bool | None = None
 
 
@@ -59,6 +61,7 @@ class CampaignTemplateResponse(BaseModel):
     conversion_text_template: str | None = None
     steps_start: str | None = None
     modules: list[Any] | None = None
+    default_redirect_config: dict[str, Any] | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime | None = None
