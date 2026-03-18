@@ -47,12 +47,11 @@ logger = logging.getLogger(__name__)
 # campaign_type -> active template lookup candidates.
 # Prefer english `code`, but keep legacy Korean names as fallback.
 _CAMPAIGN_TEMPLATE_CANDIDATES = {
-    "traffic": ("traffic", "트래픽"),
-    "save": ("save", "저장하기"),
-    "landmark": ("landmark", "명소"),
-    "share_directions_traffic": ("share_directions_traffic", "공유+길찾기+트래픽"),
-    "traffic1": ("traffic1", "트래픽1"),
-    "save1": ("save1", "저장하기1"),
+    "smart_traffic": ("smart_traffic", "스마트 트래픽"),
+    "smart_save": ("smart_save", "스마트 저장하기"),
+    # 레거시 호환
+    "traffic": ("smart_traffic", "스마트 트래픽"),
+    "save": ("smart_save", "스마트 저장하기"),
 }
 
 

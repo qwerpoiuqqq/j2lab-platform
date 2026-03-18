@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+import logging
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.campaign import Campaign
 from app.models.campaign_template import CampaignTemplate
 from app.schemas.campaign_template import CampaignTemplateCreate, CampaignTemplateUpdate
 from app.utils.text import slugify
 
+logger = logging.getLogger(__name__)
+
 _KNOWN_TYPE_MAP = {
-    "트래픽1": "traffic1",
-    "트래픽": "traffic",
-    "저장하기1": "save1",
-    "저장하기": "save",
-    "명소": "landmark",
-    "랜드마크": "landmark",
-    "공유+길찾기+트래픽": "share_directions_traffic",
-    "길찾기": "directions",
+    "스마트 트래픽": "smart_traffic",
+    "스마트 저장하기": "smart_save",
+    "트래픽": "smart_traffic",
+    "저장하기": "smart_save",
 }
 
 
@@ -104,13 +105,53 @@ async def create_template(
 async def update_template(
     db: AsyncSession, template: CampaignTemplate, data: CampaignTemplateUpdate
 ) -> CampaignTemplate:
-    """Update an existing campaign template."""
+    """Update an existing campaign template.
+
+    If default_redirect_config changes, propagate to all active campaigns
+    that match this template's code or type_name.
+    """
     update_data = data.model_dump(exclude_unset=True)
+
+    # Check if redirect_config is being changed
+    new_redirect_config = update_data.get("default_redirect_config")
+    config_changed = (
+        new_redirect_config is not None
+        and new_redirect_config != template.default_redirect_config
+    )
+
     for key, value in update_data.items():
         setattr(template, key, value)
     await db.flush()
     await db.refresh(template)
+
+    # Propagate redirect_config to active campaigns
+    if config_changed and new_redirect_config:
+        propagated = await propagate_redirect_config(db, template)
+        logger.info(
+            "Template %s redirect_config propagated to %d active campaigns",
+            template.code, propagated,
+        )
+
     return template
+
+
+async def propagate_redirect_config(
+    db: AsyncSession, template: CampaignTemplate
+) -> int:
+    """Propagate template's redirect_config to all active campaigns matching this template."""
+    active_statuses = [
+        "active", "daily_exhausted", "pending_keyword_change",
+        "registering", "queued", "pending",
+    ]
+    result = await db.execute(
+        update(Campaign)
+        .where(
+            Campaign.campaign_type.in_([template.code, template.type_name]),
+            Campaign.status.in_(active_statuses),
+        )
+        .values(redirect_config=template.default_redirect_config)
+    )
+    return result.rowcount
 
 
 async def delete_template(

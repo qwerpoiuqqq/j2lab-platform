@@ -373,7 +373,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
                   placeholder="예: traffic, save, landmark, traffic1"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  파이프라인에서 캠페인 타입과 매칭됩니다. 예: traffic, save, landmark, traffic1, share_directions_traffic
+                  파이프라인에서 캠페인 타입과 매칭됩니다. 예: smart_traffic, smart_save
                 </p>
               </div>
               {!isCreate && (
