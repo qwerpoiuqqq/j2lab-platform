@@ -129,6 +129,7 @@ export default function CampaignTemplatesPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">코드</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 타입</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">모듈</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">리다이렉트</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
                 </tr>
@@ -145,6 +146,15 @@ export default function CampaignTemplatesPage() {
                     </td>
                     <td className="px-6 py-4 text-gray-400 text-xs">
                       {t.modules.length > 0 ? t.modules.join(', ') : '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      {t.default_redirect_config ? (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-cyan-900/30 text-cyan-400">
+                          스마트
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">기본</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -232,6 +242,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
   const [imageUrl720, setImageUrl720] = useState('');
   const [stepsStart, setStepsStart] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [redirectConfig, setRedirectConfig] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (isCreate || !templateId) return;
@@ -251,6 +262,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
         setConversionText(d.conversion_text_template || '');
         setStepsStart(d.steps_start || '');
         setIsActive(d.is_active);
+        setRedirectConfig(d.default_redirect_config || null);
       })
       .catch(() => setError('템플릿 정보를 불러올 수 없습니다.'))
       .finally(() => setLoading(false));
@@ -292,6 +304,7 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
       conversion_text_template: conversionText.trim() || undefined,
       steps_start: stepsStart.trim() || undefined,
       modules: Array.from(enabledModules),
+      default_redirect_config: redirectConfig || undefined,
       ...(!isCreate ? { is_active: isActive } : {}),
     };
 
@@ -478,6 +491,18 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
               )}
             </FormSection>
 
+            {/* Section: Smart Traffic Channel Config */}
+            <FormSection title="채널 비중 설정 (스마트 리다이렉트)">
+              <p className="text-xs text-gray-400 mb-3">
+                미션 링크 클릭 시 사용자를 분배할 채널별 비중을 설정합니다.
+                비워두면 기본값(네이버앱 40%, 지도앱 30%, 브라우저 30%)이 적용됩니다.
+              </p>
+              <RedirectConfigEditor
+                config={redirectConfig}
+                onChange={setRedirectConfig}
+              />
+            </FormSection>
+
             {/* Section: Participation settings */}
             <FormSection title="참여 설정">
               <div>
@@ -624,6 +649,187 @@ function TemplateEditModal({ templateId, modules, onClose, onSaved }: TemplateEd
         </div>
       )}
     </Modal>
+  );
+}
+
+// ---- RedirectConfigEditor ----
+
+interface RedirectConfigEditorProps {
+  config: Record<string, any> | null;
+  onChange: (config: Record<string, any> | null) => void;
+}
+
+function RedirectConfigEditor({ config, onChange }: RedirectConfigEditorProps) {
+  const DEFAULT_CONFIG = {
+    channels: {
+      naver_app: { weight: 40, sub: { home: { weight: 85 }, blog: { weight: 15 } } },
+      map_app: {
+        weight: 30,
+        tabs: {
+          'map': { weight: 25 },
+          'map?tab=discovery': { weight: 30 },
+          'map?tab=navi': { weight: 20 },
+          'map?tab=pubtrans': { weight: 15 },
+          'map?tab=bookmark': { weight: 10 },
+        },
+      },
+      browser: { weight: 30, sub: { home: { weight: 85 }, blog: { weight: 15 } } },
+    },
+  };
+
+  const channels = config?.channels || DEFAULT_CONFIG.channels;
+  const isEnabled = config !== null;
+
+  const toggleEnabled = () => {
+    if (isEnabled) {
+      onChange(null);
+    } else {
+      onChange(DEFAULT_CONFIG);
+    }
+  };
+
+  const updateWeight = (channelKey: string, weight: number) => {
+    const updated = { ...config || DEFAULT_CONFIG };
+    updated.channels = { ...updated.channels };
+    updated.channels[channelKey] = { ...updated.channels[channelKey], weight };
+    onChange(updated);
+  };
+
+  const updateSubWeight = (channelKey: string, subType: string, subKey: string, weight: number) => {
+    const updated = JSON.parse(JSON.stringify(config || DEFAULT_CONFIG));
+    if (!updated.channels[channelKey][subType]) return;
+    updated.channels[channelKey][subType][subKey] = { ...updated.channels[channelKey][subType][subKey], weight };
+    onChange(updated);
+  };
+
+  const CHANNEL_LABELS: Record<string, string> = {
+    naver_app: '네이버앱',
+    map_app: '지도앱',
+    browser: '브라우저',
+  };
+
+  const SUB_LABELS: Record<string, string> = {
+    home: '홈(m.naver.com)',
+    blog: '블로그',
+  };
+
+  const TAB_LABELS: Record<string, string> = {
+    'map': '홈/지도탭',
+    'map?tab=discovery': '주변/발견탭',
+    'map?tab=navi': '내비탭',
+    'map?tab=pubtrans': '대중교통탭',
+    'map?tab=bookmark': '저장탭',
+  };
+
+  const totalWeight = Object.values(channels).reduce(
+    (sum: number, ch: any) => sum + (ch.weight || 0), 0
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={toggleEnabled}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isEnabled ? 'bg-primary-500' : 'bg-gray-600'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              isEnabled ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+        <span className="text-sm text-gray-300">
+          {isEnabled ? '스마트 리다이렉트 활성' : '스마트 리다이렉트 비활성 (기본 링크 사용)'}
+        </span>
+      </div>
+
+      {isEnabled && (
+        <div className="space-y-4 pt-2">
+          {/* Channel weights */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-400 uppercase">1단계: 진입 방식</span>
+              <span className={`text-xs ${totalWeight === 100 ? 'text-green-400' : 'text-red-400'}`}>
+                합계: {totalWeight}%
+              </span>
+            </div>
+            {Object.entries(channels).map(([key, ch]: [string, any]) => (
+              <div key={key} className="bg-surface-raised rounded-lg p-3 border border-border">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-sm font-medium text-gray-200 w-20">
+                    {CHANNEL_LABELS[key] || key}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={ch.weight || 0}
+                    onChange={(e) => updateWeight(key, parseInt(e.target.value) || 0)}
+                    className="w-16 border border-border-strong rounded px-2 py-1 text-sm text-center bg-surface text-gray-200"
+                  />
+                  <span className="text-xs text-gray-400">%</span>
+                  <div className="flex-1 bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-primary-500 rounded-full h-2 transition-all"
+                      style={{ width: `${Math.min(ch.weight || 0, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Sub-destinations for naver_app and browser */}
+                {ch.sub && (
+                  <div className="ml-6 mt-2 space-y-1.5">
+                    <span className="text-xs text-gray-400">목적지:</span>
+                    {Object.entries(ch.sub).map(([subKey, subVal]: [string, any]) => (
+                      <div key={subKey} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-300 w-28">
+                          {SUB_LABELS[subKey] || subKey}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={subVal.weight || 0}
+                          onChange={(e) => updateSubWeight(key, 'sub', subKey, parseInt(e.target.value) || 0)}
+                          className="w-14 border border-border-strong rounded px-2 py-0.5 text-xs text-center bg-surface text-gray-200"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tabs for map_app */}
+                {ch.tabs && (
+                  <div className="ml-6 mt-2 space-y-1.5">
+                    <span className="text-xs text-gray-400">탭 분배:</span>
+                    {Object.entries(ch.tabs).map(([tabKey, tabVal]: [string, any]) => (
+                      <div key={tabKey} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-300 w-28">
+                          {TAB_LABELS[tabKey] || tabKey}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={tabVal.weight || 0}
+                          onChange={(e) => updateSubWeight(key, 'tabs', tabKey, parseInt(e.target.value) || 0)}
+                          className="w-14 border border-border-strong rounded px-2 py-0.5 text-xs text-center bg-surface text-gray-200"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -846,6 +846,7 @@ export interface CampaignTemplate {
   conversion_text_template?: string;
   steps_start?: string;
   modules: string[];
+  default_redirect_config?: Record<string, any>;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -864,6 +865,7 @@ export interface CreateCampaignTemplateRequest {
   conversion_text_template?: string;
   steps_start?: string;
   modules?: string[];
+  default_redirect_config?: Record<string, any>;
 }
 
 export interface UpdateCampaignTemplateRequest {
@@ -879,6 +881,7 @@ export interface UpdateCampaignTemplateRequest {
   conversion_text_template?: string;
   steps_start?: string;
   modules?: string[];
+  default_redirect_config?: Record<string, any>;
   is_active?: boolean;
 }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
+import { networkPresetsApi } from '@/api/networkPresets';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
-import type { SuperapAccount } from '@/types';
+import type { SuperapAccount, NetworkPreset } from '@/types';
 
 export default function SuperapAccountsPage() {
   const queryClient = useQueryClient();
@@ -83,6 +84,7 @@ export default function SuperapAccountsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">아이디</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">회사</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">대행사명</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">네트워크</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">트래픽 단가</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">저장 단가</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">캠페인 수</th>
@@ -97,6 +99,7 @@ export default function SuperapAccountsPage() {
                     <td className="px-6 py-4 font-medium text-gray-100">{a.user_id_superap}</td>
                     <td className="px-6 py-4 text-gray-400">{a.company_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-400">{a.agency_name || '-'}</td>
+                    <td className="px-6 py-4 text-gray-400 text-xs">{a.network_preset_id || '-'}</td>
                     <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_traffic}원</td>
                     <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_save}원</td>
                     <td className="px-6 py-4 text-gray-400">{a.campaign_count}</td>
@@ -174,9 +177,21 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
+  const [networkPresetId, setNetworkPresetId] = useState<number | undefined>(undefined);
+  const [unitCostTraffic, setUnitCostTraffic] = useState(21);
+  const [unitCostSave, setUnitCostSave] = useState(31);
+  const [assignmentOrder, setAssignmentOrder] = useState(0);
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(isCreate);
+
+  // Load network presets for dropdown
+  const { data: presetsData } = useQuery({
+    queryKey: ['network-presets'],
+    queryFn: () => networkPresetsApi.list({ size: 100 }),
+  });
+  const presets: NetworkPreset[] = presetsData?.items ?? [];
 
   // Load existing account data for edit mode
   const { data: accountsData } = useQuery({
@@ -192,6 +207,11 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
       if (acc) {
         setUserId(acc.user_id_superap);
         setAgencyName(acc.agency_name || '');
+        setNetworkPresetId(acc.network_preset_id || undefined);
+        setUnitCostTraffic(acc.unit_cost_traffic ?? 21);
+        setUnitCostSave(acc.unit_cost_save ?? 31);
+        setAssignmentOrder(acc.assignment_order ?? 0);
+        setIsActive(acc.is_active ?? true);
         setLoaded(true);
       }
     }
@@ -215,10 +235,19 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
           user_id_superap: userId.trim(),
           password,
           agency_name: agencyName.trim() || undefined,
+          network_preset_id: networkPresetId || undefined,
+          unit_cost_traffic: unitCostTraffic,
+          unit_cost_save: unitCostSave,
+          assignment_order: assignmentOrder,
         });
       } else {
-        const data: { password?: string; agency_name?: string; is_active?: boolean } = {
+        const data: Record<string, any> = {
           agency_name: agencyName.trim() || undefined,
+          network_preset_id: networkPresetId || null,
+          unit_cost_traffic: unitCostTraffic,
+          unit_cost_save: unitCostSave,
+          assignment_order: assignmentOrder,
+          is_active: isActive,
         };
         if (password) data.password = password;
         await campaignAccountsApi.update(accountId!, data);
@@ -286,6 +315,77 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
               placeholder="대행사명 (선택)"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">네트워크 프리셋</label>
+            <select
+              value={networkPresetId || ''}
+              onChange={(e) => setNetworkPresetId(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary-400/40 text-gray-200"
+            >
+              <option value="">-- 선택 안 함 --</option>
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">트래픽 단가 (원)</label>
+              <input
+                type="number"
+                min={0}
+                value={unitCostTraffic}
+                onChange={(e) => setUnitCostTraffic(parseInt(e.target.value) || 0)}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">저장 단가 (원)</label>
+              <input
+                type="number"
+                min={0}
+                value={unitCostSave}
+                onChange={(e) => setUnitCostSave(parseInt(e.target.value) || 0)}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">배정 순서</label>
+            <input
+              type="number"
+              min={0}
+              value={assignmentOrder}
+              onChange={(e) => setAssignmentOrder(parseInt(e.target.value) || 0)}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+            <p className="text-xs text-gray-400 mt-1">낮은 숫자가 먼저 배정됩니다.</p>
+          </div>
+
+          {!isCreate && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-300">활성 상태</label>
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isActive ? 'bg-primary-500' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isActive ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
+                {isActive ? '활성' : '비활성'}
+              </span>
+            </div>
+          )}
 
           {error && <div className="text-sm text-red-600">{error}</div>}
         </div>
