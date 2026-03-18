@@ -231,7 +231,12 @@ export default function OrderGridPage() {
 
   const handleSelectCategory = (bucket: CategoryBucket) => {
     setSelectedCategory(bucket.key);
-    setSelectedProduct(null);
+    // Auto-skip step 2 if category has only 1 product
+    if (bucket.products.length === 1) {
+      setSelectedProduct(bucket.products[0]);
+    } else {
+      setSelectedProduct(null);
+    }
   };
 
   const handleBackToCategories = () => {
