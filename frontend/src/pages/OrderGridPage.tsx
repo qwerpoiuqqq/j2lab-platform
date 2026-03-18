@@ -107,20 +107,58 @@ export default function OrderGridPage() {
                 </svg>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
-                    className="text-left p-4 border border-border rounded-lg hover:border-primary-400 hover:bg-primary-900/20 transition-colors"
+                    className="group text-left rounded-xl border border-border overflow-hidden hover:border-primary-400 hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200"
                   >
-                    <div className="font-medium text-gray-100">{product.name}</div>
-                    {product.category && (
-                      <div className="mt-1 text-xs text-gray-400">{product.category}</div>
-                    )}
-                    {product.description && (
-                      <div className="mt-1 text-xs text-gray-400 line-clamp-2">{product.description}</div>
-                    )}
+                    {/* Card Header with gradient */}
+                    <div className={`h-28 flex items-center justify-center relative overflow-hidden ${
+                      product.category?.includes('쇼핑')
+                        ? 'bg-gradient-to-br from-emerald-900/60 to-teal-900/40'
+                        : product.category?.includes('영수증')
+                        ? 'bg-gradient-to-br from-amber-900/60 to-orange-900/40'
+                        : 'bg-gradient-to-br from-primary-900/60 to-cyan-900/40'
+                    }`}>
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.05),transparent)]" />
+                      <div className={`text-4xl ${
+                        product.category?.includes('쇼핑')
+                          ? 'text-emerald-400/80'
+                          : product.category?.includes('영수증')
+                          ? 'text-amber-400/80'
+                          : 'text-primary-400/80'
+                      } group-hover:scale-110 transition-transform duration-200`}>
+                        {product.category?.includes('쇼핑') ? (
+                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+                        ) : product.category?.includes('영수증') ? (
+                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                        ) : (
+                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                        )}
+                      </div>
+                    </div>
+                    {/* Card Body */}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-100 group-hover:text-primary-400 transition-colors">
+                        {product.name}
+                      </h3>
+                      {product.category && (
+                        <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full ${
+                          product.category?.includes('쇼핑')
+                            ? 'bg-emerald-900/40 text-emerald-400'
+                            : product.category?.includes('영수증')
+                            ? 'bg-amber-900/40 text-amber-400'
+                            : 'bg-primary-900/40 text-primary-400'
+                        }`}>
+                          {product.category}
+                        </span>
+                      )}
+                      {product.description && (
+                        <p className="mt-2 text-xs text-gray-400 line-clamp-2">{product.description}</p>
+                      )}
+                    </div>
                   </button>
                 ))}
                 {products.length === 0 && (
