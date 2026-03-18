@@ -8,40 +8,11 @@ import { pricesApi } from '@/api/prices';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
 import type { Product, OrderType, SuperapAccount } from '@/types';
 import { normalizeSchema } from '@/utils/schema';
+import { formatCurrency } from '@/utils/format';
 import OrderGrid, { type OrderGridRow } from '@/components/features/orders/OrderGrid';
+import Badge from '@/components/common/Badge';
 import Button from '@/components/common/Button';
 import { useAuthStore } from '@/store/auth';
-
-// Category icon mapping (same as CategoriesPage)
-const categoryIconMap: Record<string, string> = {
-  'naver-place': '\u{1F4CD}',   // 📍
-  'naver': '\u{1F6D2}',         // 🛒
-  'receipt': '\u{1F9FE}',       // 🧾
-  'chart-bar': '\u{1F4CA}',     // 📊
-  'bookmark': '\u{1F516}',      // 🔖
-  'sparkles': '\u{2728}',       // ✨
-  'grid': '\u{1F4CB}',          // 📋
-  'shopping-cart': '\u{1F6D2}', // 🛒
-  'tag': '\u{1F3F7}\uFE0F',    // 🏷️
-  'star': '\u{2B50}',           // ⭐
-};
-
-// Category name → icon key fallback
-function getCategoryEmoji(categoryName?: string): string {
-  if (!categoryName) return '\u{1F4CB}';
-  if (categoryName.includes('쇼핑')) return '\u{1F6D2}';
-  if (categoryName.includes('영수증')) return '\u{1F9FE}';
-  if (categoryName.includes('플레이스')) return '\u{1F4CD}';
-  return '\u{1F4CB}';
-}
-
-// Category name → gradient color
-function getCategoryColor(categoryName?: string): { bg: string; text: string; badge: string } {
-  if (!categoryName) return { bg: 'from-gray-800/60 to-gray-900/40', text: 'text-gray-400', badge: 'bg-gray-800/40 text-gray-400' };
-  if (categoryName.includes('쇼핑')) return { bg: 'from-emerald-900/60 to-teal-900/40', text: 'text-emerald-400', badge: 'bg-emerald-900/40 text-emerald-400' };
-  if (categoryName.includes('영수증')) return { bg: 'from-amber-900/60 to-orange-900/40', text: 'text-amber-400', badge: 'bg-amber-900/40 text-amber-400' };
-  return { bg: 'from-primary-900/60 to-cyan-900/40', text: 'text-primary-400', badge: 'bg-primary-900/40 text-primary-400' };
-}
 
 const orderTypeOptions: { value: OrderType; label: string }[] = [
   { value: 'regular', label: '일반' },
@@ -140,34 +111,50 @@ export default function OrderGridPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((product) => {
-                  const emoji = getCategoryEmoji(product.category);
-                  const colors = getCategoryColor(product.category);
+                  const schema = normalizeSchema(product.form_schema);
                   return (
                     <button
                       key={product.id}
                       onClick={() => setSelectedProduct(product)}
-                      className="group text-left rounded-xl border border-border overflow-hidden hover:border-primary-400 hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200"
+                      className="group text-left bg-surface rounded-xl border border-border overflow-hidden hover:border-primary-400 hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200"
                     >
-                      {/* Card Header */}
-                      <div className={`h-32 flex items-center justify-center bg-gradient-to-br ${colors.bg} relative`}>
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.06),transparent)]" />
-                        <span className="text-5xl group-hover:scale-110 transition-transform duration-200 drop-shadow-lg">
-                          {emoji}
-                        </span>
-                      </div>
                       {/* Card Body */}
-                      <div className="p-4 space-y-2">
-                        <h3 className="font-semibold text-gray-100 group-hover:text-primary-400 transition-colors">
+                      <div className="p-5 space-y-3">
+                        {/* Top: Badge row */}
+                        <div className="flex items-center justify-between">
+                          <Badge variant="info">{product.category || '기타'}</Badge>
+                          <Badge variant={product.is_active ? 'success' : 'default'}>
+                            {product.is_active ? '활성' : '비활성'}
+                          </Badge>
+                        </div>
+
+                        {/* Product name */}
+                        <h3 className="text-lg font-semibold text-gray-100 group-hover:text-primary-400 transition-colors">
                           {product.name}
                         </h3>
-                        {product.category && (
-                          <span className={`inline-block text-xs px-2.5 py-0.5 rounded-full font-medium ${colors.badge}`}>
-                            {product.category}
-                          </span>
-                        )}
+
+                        {/* Description */}
                         {product.description && (
-                          <p className="text-xs text-gray-400 line-clamp-2">{product.description}</p>
+                          <p className="text-sm text-gray-400 line-clamp-2">{product.description}</p>
                         )}
+
+                        {/* Meta info row */}
+                        <div className="flex items-center gap-4 pt-2 border-t border-border-subtle">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500">기본단가</span>
+                            <span className="text-sm font-medium text-gray-200">{formatCurrency(product.base_price)}</span>
+                          </div>
+                          {product.cost_price ? (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] uppercase tracking-wider text-gray-500">원가</span>
+                              <span className="text-sm text-gray-400">{formatCurrency(product.cost_price)}</span>
+                            </div>
+                          ) : null}
+                          <div className="flex flex-col ml-auto text-right">
+                            <span className="text-[10px] uppercase tracking-wider text-gray-500">스키마</span>
+                            <span className="text-sm text-gray-400">{schema.length}개 필드</span>
+                          </div>
+                        </div>
                       </div>
                     </button>
                   );
