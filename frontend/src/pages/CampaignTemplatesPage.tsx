@@ -662,18 +662,18 @@ interface RedirectConfigEditorProps {
 function RedirectConfigEditor({ config, onChange }: RedirectConfigEditorProps) {
   const DEFAULT_CONFIG = {
     channels: {
-      naver_app: { weight: 40, sub: { home: { weight: 85 }, blog: { weight: 15 } } },
+      naver_app: { weight: 25, sub: { home: { weight: 97 }, blog: { weight: 3 } } },
       map_app: {
-        weight: 30,
+        weight: 50,
         tabs: {
-          'map': { weight: 25 },
-          'map?tab=discovery': { weight: 30 },
+          'map?tab=discovery': { weight: 25 },
+          'map?tab=booking': { weight: 20 },
           'map?tab=navi': { weight: 20 },
           'map?tab=pubtrans': { weight: 15 },
-          'map?tab=bookmark': { weight: 10 },
+          'map?tab=bookmark': { weight: 20 },
         },
       },
-      browser: { weight: 30, sub: { home: { weight: 85 }, blog: { weight: 15 } } },
+      browser: { weight: 25, sub: { home: { weight: 97 }, blog: { weight: 3 } } },
     },
   };
 
@@ -716,6 +716,7 @@ function RedirectConfigEditor({ config, onChange }: RedirectConfigEditorProps) {
   const TAB_LABELS: Record<string, string> = {
     'map': '홈/지도탭',
     'map?tab=discovery': '주변/발견탭',
+    'map?tab=booking': '예약탭',
     'map?tab=navi': '내비탭',
     'map?tab=pubtrans': '대중교통탭',
     'map?tab=bookmark': '저장탭',
