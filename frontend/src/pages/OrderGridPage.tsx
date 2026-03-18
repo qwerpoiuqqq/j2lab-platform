@@ -12,6 +12,37 @@ import OrderGrid, { type OrderGridRow } from '@/components/features/orders/Order
 import Button from '@/components/common/Button';
 import { useAuthStore } from '@/store/auth';
 
+// Category icon mapping (same as CategoriesPage)
+const categoryIconMap: Record<string, string> = {
+  'naver-place': '\u{1F4CD}',   // 📍
+  'naver': '\u{1F6D2}',         // 🛒
+  'receipt': '\u{1F9FE}',       // 🧾
+  'chart-bar': '\u{1F4CA}',     // 📊
+  'bookmark': '\u{1F516}',      // 🔖
+  'sparkles': '\u{2728}',       // ✨
+  'grid': '\u{1F4CB}',          // 📋
+  'shopping-cart': '\u{1F6D2}', // 🛒
+  'tag': '\u{1F3F7}\uFE0F',    // 🏷️
+  'star': '\u{2B50}',           // ⭐
+};
+
+// Category name → icon key fallback
+function getCategoryEmoji(categoryName?: string): string {
+  if (!categoryName) return '\u{1F4CB}';
+  if (categoryName.includes('쇼핑')) return '\u{1F6D2}';
+  if (categoryName.includes('영수증')) return '\u{1F9FE}';
+  if (categoryName.includes('플레이스')) return '\u{1F4CD}';
+  return '\u{1F4CB}';
+}
+
+// Category name → gradient color
+function getCategoryColor(categoryName?: string): { bg: string; text: string; badge: string } {
+  if (!categoryName) return { bg: 'from-gray-800/60 to-gray-900/40', text: 'text-gray-400', badge: 'bg-gray-800/40 text-gray-400' };
+  if (categoryName.includes('쇼핑')) return { bg: 'from-emerald-900/60 to-teal-900/40', text: 'text-emerald-400', badge: 'bg-emerald-900/40 text-emerald-400' };
+  if (categoryName.includes('영수증')) return { bg: 'from-amber-900/60 to-orange-900/40', text: 'text-amber-400', badge: 'bg-amber-900/40 text-amber-400' };
+  return { bg: 'from-primary-900/60 to-cyan-900/40', text: 'text-primary-400', badge: 'bg-primary-900/40 text-primary-400' };
+}
+
 const orderTypeOptions: { value: OrderType; label: string }[] = [
   { value: 'regular', label: '일반' },
   { value: 'monthly_guarantee', label: '월보장' },
@@ -108,59 +139,39 @@ export default function OrderGridPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map((product) => (
-                  <button
-                    key={product.id}
-                    onClick={() => setSelectedProduct(product)}
-                    className="group text-left rounded-xl border border-border overflow-hidden hover:border-primary-400 hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200"
-                  >
-                    {/* Card Header with gradient */}
-                    <div className={`h-28 flex items-center justify-center relative overflow-hidden ${
-                      product.category?.includes('쇼핑')
-                        ? 'bg-gradient-to-br from-emerald-900/60 to-teal-900/40'
-                        : product.category?.includes('영수증')
-                        ? 'bg-gradient-to-br from-amber-900/60 to-orange-900/40'
-                        : 'bg-gradient-to-br from-primary-900/60 to-cyan-900/40'
-                    }`}>
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.05),transparent)]" />
-                      <div className={`text-4xl ${
-                        product.category?.includes('쇼핑')
-                          ? 'text-emerald-400/80'
-                          : product.category?.includes('영수증')
-                          ? 'text-amber-400/80'
-                          : 'text-primary-400/80'
-                      } group-hover:scale-110 transition-transform duration-200`}>
-                        {product.category?.includes('쇼핑') ? (
-                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
-                        ) : product.category?.includes('영수증') ? (
-                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
-                        ) : (
-                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                {products.map((product) => {
+                  const emoji = getCategoryEmoji(product.category);
+                  const colors = getCategoryColor(product.category);
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => setSelectedProduct(product)}
+                      className="group text-left rounded-xl border border-border overflow-hidden hover:border-primary-400 hover:shadow-lg hover:shadow-primary-500/10 transition-all duration-200"
+                    >
+                      {/* Card Header */}
+                      <div className={`h-32 flex items-center justify-center bg-gradient-to-br ${colors.bg} relative`}>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.06),transparent)]" />
+                        <span className="text-5xl group-hover:scale-110 transition-transform duration-200 drop-shadow-lg">
+                          {emoji}
+                        </span>
+                      </div>
+                      {/* Card Body */}
+                      <div className="p-4 space-y-2">
+                        <h3 className="font-semibold text-gray-100 group-hover:text-primary-400 transition-colors">
+                          {product.name}
+                        </h3>
+                        {product.category && (
+                          <span className={`inline-block text-xs px-2.5 py-0.5 rounded-full font-medium ${colors.badge}`}>
+                            {product.category}
+                          </span>
+                        )}
+                        {product.description && (
+                          <p className="text-xs text-gray-400 line-clamp-2">{product.description}</p>
                         )}
                       </div>
-                    </div>
-                    {/* Card Body */}
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-100 group-hover:text-primary-400 transition-colors">
-                        {product.name}
-                      </h3>
-                      {product.category && (
-                        <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full ${
-                          product.category?.includes('쇼핑')
-                            ? 'bg-emerald-900/40 text-emerald-400'
-                            : product.category?.includes('영수증')
-                            ? 'bg-amber-900/40 text-amber-400'
-                            : 'bg-primary-900/40 text-primary-400'
-                        }`}>
-                          {product.category}
-                        </span>
-                      )}
-                      {product.description && (
-                        <p className="mt-2 text-xs text-gray-400 line-clamp-2">{product.description}</p>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
                 {products.length === 0 && (
                   <div className="col-span-full text-center py-12 text-gray-400">
                     활성 상품이 없습니다.
