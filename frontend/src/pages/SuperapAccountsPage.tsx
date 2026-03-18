@@ -83,7 +83,6 @@ export default function SuperapAccountsPage() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">아이디</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">회사</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">대행사명</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">네트워크</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">트래픽 단가</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">저장 단가</th>
@@ -98,7 +97,6 @@ export default function SuperapAccountsPage() {
                   <tr key={a.id} className="hover:bg-surface-raised transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-100">{a.user_id_superap}</td>
                     <td className="px-6 py-4 text-gray-400">{a.company_name || '-'}</td>
-                    <td className="px-6 py-4 text-gray-400">{a.agency_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs">{a.network_preset_id || '-'}</td>
                     <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_traffic}원</td>
                     <td className="px-6 py-4 text-right text-gray-400">{a.unit_cost_save}원</td>
@@ -176,7 +174,6 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
 
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [agencyName, setAgencyName] = useState('');
   const [networkPresetId, setNetworkPresetId] = useState<number | undefined>(undefined);
   const [unitCostTraffic, setUnitCostTraffic] = useState(21);
   const [unitCostSave, setUnitCostSave] = useState(31);
@@ -206,7 +203,6 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
       const acc = accountsData.items.find((a: SuperapAccount) => a.id === accountId);
       if (acc) {
         setUserId(acc.user_id_superap);
-        setAgencyName(acc.agency_name || '');
         setNetworkPresetId(acc.network_preset_id || undefined);
         setUnitCostTraffic(acc.unit_cost_traffic ?? 21);
         setUnitCostSave(acc.unit_cost_save ?? 31);
@@ -234,7 +230,6 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
         await campaignAccountsApi.create({
           user_id_superap: userId.trim(),
           password,
-          agency_name: agencyName.trim() || undefined,
           network_preset_id: networkPresetId || undefined,
           unit_cost_traffic: unitCostTraffic,
           unit_cost_save: unitCostSave,
@@ -242,7 +237,6 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
         });
       } else {
         const data: Record<string, any> = {
-          agency_name: agencyName.trim() || undefined,
           network_preset_id: networkPresetId || null,
           unit_cost_traffic: unitCostTraffic,
           unit_cost_save: unitCostSave,
@@ -302,17 +296,6 @@ function AccountEditModal({ accountId, onClose, onSaved }: AccountEditModalProps
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
               placeholder={isCreate ? '비밀번호 입력' : '변경 시에만 입력'}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">대행사명</label>
-            <input
-              type="text"
-              value={agencyName}
-              onChange={(e) => setAgencyName(e.target.value)}
-              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-              placeholder="대행사명 (선택)"
             />
           </div>
 

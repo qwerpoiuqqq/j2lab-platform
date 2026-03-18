@@ -182,7 +182,7 @@ export default function OrderGridPage() {
                   <option value="">계정 선택 (필수)</option>
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
-                      {acc.user_id_superap}{acc.agency_name ? ` (${acc.agency_name})` : ''}
+                      {acc.user_id_superap}{acc.company_name ? ` (${acc.company_name})` : ''}
                     </option>
                   ))}
                 </select>

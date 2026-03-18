@@ -25,12 +25,14 @@ export default function CampaignsPage() {
   });
   const accounts: SuperapAccount[] = accountsData?.items ?? [];
 
-  // Fetch agencies
-  const { data: agenciesData } = useQuery({
-    queryKey: ['agencies'],
-    queryFn: () => campaignAccountsApi.getAgencies(),
-  });
-  const agencies: string[] = agenciesData?.agencies ?? [];
+  // Fetch companies from accounts (unique)
+  const companies = Array.from(
+    new Map(
+      accounts
+        .filter((a) => a.company_id && a.company_name)
+        .map((a) => [a.company_id, { id: a.company_id!, name: a.company_name! }])
+    ).values()
+  );
 
   // Fetch stats
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -143,7 +145,7 @@ export default function CampaignsPage() {
       <SchedulerStatus />
 
       {/* Filters */}
-      <FilterBar agencies={agencies} onFilter={handleFilter} />
+      <FilterBar companies={companies} onFilter={handleFilter} />
 
       {/* Campaign Table */}
       <CampaignTable

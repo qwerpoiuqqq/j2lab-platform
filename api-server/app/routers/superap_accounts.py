@@ -142,19 +142,3 @@ async def delete_account(
         )
 
 
-@router.get("/agencies")
-async def list_agencies(
-    db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(admin_viewer),
-):
-    """Get distinct agency names from superap accounts."""
-    from sqlalchemy import select, distinct
-    from app.models.superap_account import SuperapAccount
-
-    result = await db.execute(
-        select(distinct(SuperapAccount.agency_name))
-        .where(SuperapAccount.agency_name.isnot(None))
-        .order_by(SuperapAccount.agency_name)
-    )
-    agencies = [row[0] for row in result.all() if row[0]]
-    return {"agencies": agencies}

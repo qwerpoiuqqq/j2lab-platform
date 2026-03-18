@@ -110,7 +110,6 @@ async def create_account(
     account = SuperapAccount(
         user_id_superap=data.user_id_superap,
         password_encrypted=encrypt_password(data.password),
-        agency_name=data.agency_name,
         company_id=data.company_id,
         network_preset_id=data.network_preset_id,
         unit_cost_traffic=data.unit_cost_traffic,

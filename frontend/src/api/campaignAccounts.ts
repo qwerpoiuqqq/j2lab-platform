@@ -32,8 +32,4 @@ export const campaignAccountsApi = {
     await apiClient.delete(`/superap-accounts/${id}`);
   },
 
-  getAgencies: async (): Promise<{ agencies: string[] }> => {
-    const response = await apiClient.get('/superap-accounts/agencies');
-    return response.data;
-  },
 };

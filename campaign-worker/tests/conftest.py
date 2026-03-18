@@ -103,7 +103,6 @@ def sample_account_data():
         "id": 1,
         "user_id_superap": "트래픽 제이투랩",
         "password_encrypted": "test_encrypted_password",
-        "agency_name": "제이투랩",
         "company_id": 1,
         "is_active": True,
     }

@@ -37,7 +37,6 @@ class SuperapAccount(Base):
         String(100), unique=True, nullable=False
     )
     password_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    agency_name: Mapped[Optional[str]] = mapped_column(String(100))
 
     # Multi-tenant
     company_id: Mapped[Optional[int]] = mapped_column(

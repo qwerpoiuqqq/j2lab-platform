@@ -177,7 +177,7 @@ export default function CampaignAddPage() {
               <option value="">선택</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.user_id_superap} {a.agency_name ? `(${a.agency_name})` : ''}
+                  {a.user_id_superap} {a.company_name ? `(${a.company_name})` : ''}
                 </option>
               ))}
             </select>

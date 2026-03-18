@@ -22,7 +22,6 @@ class SuperapAccount(Base):
     id = Column(Integer, primary_key=True)
     user_id_superap = Column(String(100), unique=True, nullable=False)
     password_encrypted = Column(Text, nullable=False)
-    agency_name = Column(String(100))
 
     company_id = Column(Integer)
     network_preset_id = Column(Integer)

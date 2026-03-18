@@ -757,7 +757,6 @@ export interface RegistrationProgressItem {
 export interface SuperapAccount {
   id: number;
   user_id_superap: string;
-  agency_name?: string;
   company_id?: number;
   company_name?: string;
   network_preset_id?: number;
@@ -772,7 +771,6 @@ export interface SuperapAccount {
 export interface CreateSuperapAccountRequest {
   user_id_superap: string;
   password: string;
-  agency_name?: string;
   company_id?: number;
   network_preset_id?: number;
   unit_cost_traffic?: number;
@@ -782,7 +780,6 @@ export interface CreateSuperapAccountRequest {
 
 export interface UpdateSuperapAccountRequest {
   password?: string;
-  agency_name?: string;
   network_preset_id?: number | null;
   unit_cost_traffic?: number;
   unit_cost_save?: number;

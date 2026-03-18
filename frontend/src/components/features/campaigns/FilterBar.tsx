@@ -3,7 +3,7 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import Button from '@/components/common/Button';
 
 interface FilterBarProps {
-  agencies: string[];
+  companies: { id: number; name: string }[];
   onFilter: (filters: { agency_name?: string; status?: string; search?: string }) => void;
 }
 
@@ -23,36 +23,36 @@ const STATUS_OPTIONS = [
   { value: 'expired', label: '만료' },
 ];
 
-export default function FilterBar({ agencies, onFilter }: FilterBarProps) {
-  const [agency, setAgency] = useState('');
+export default function FilterBar({ companies, onFilter }: FilterBarProps) {
+  const [company, setCompany] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
 
-  const handleAgency = (v: string) => {
-    setAgency(v);
+  const handleCompany = (v: string) => {
+    setCompany(v);
     onFilter({ agency_name: v || undefined, status: status || undefined, search: search || undefined });
   };
 
   const handleStatus = (v: string) => {
     setStatus(v);
-    onFilter({ agency_name: agency || undefined, status: v || undefined, search: search || undefined });
+    onFilter({ agency_name: company || undefined, status: v || undefined, search: search || undefined });
   };
 
   const handleSearch = () => {
-    onFilter({ agency_name: agency || undefined, status: status || undefined, search: search || undefined });
+    onFilter({ agency_name: company || undefined, status: status || undefined, search: search || undefined });
   };
 
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-surface rounded-xl border border-border p-4">
       <select
-        value={agency}
-        onChange={(e) => handleAgency(e.target.value)}
+        value={company}
+        onChange={(e) => handleCompany(e.target.value)}
         className="rounded-lg border border-border-strong px-3 py-2 text-sm bg-surface text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400"
       >
-        <option value="">전체 대행사</option>
-        {agencies.map((a) => (
-          <option key={a} value={a}>
-            {a}
+        <option value="">전체 회사</option>
+        {companies.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.name}
           </option>
         ))}
       </select>

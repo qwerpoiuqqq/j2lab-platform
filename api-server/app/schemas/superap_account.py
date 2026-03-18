@@ -12,7 +12,6 @@ class SuperapAccountCreate(BaseModel):
 
     user_id_superap: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, description="Plain text, will be encrypted")
-    agency_name: str | None = Field(None, max_length=100)
     company_id: int | None = None
     network_preset_id: int | None = None
     unit_cost_traffic: int = 21
@@ -25,7 +24,6 @@ class SuperapAccountUpdate(BaseModel):
     """Schema for updating a superap account."""
 
     password: str | None = Field(None, min_length=1, description="New password (will be encrypted)")
-    agency_name: str | None = None
     network_preset_id: int | None = None
     unit_cost_traffic: int | None = None
     unit_cost_save: int | None = None
@@ -38,7 +36,6 @@ class SuperapAccountResponse(BaseModel):
 
     id: int
     user_id_superap: str
-    agency_name: str | None = None
     company_id: int | None = None
     company_name: str | None = None
     network_preset_id: int | None = None
