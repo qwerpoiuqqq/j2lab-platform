@@ -12,6 +12,7 @@ export type UserRole =
 export interface User {
   id: string;
   email: string;
+  login_id?: string;
   name: string;
   phone?: string;
   company_id?: number;
@@ -22,6 +23,7 @@ export interface User {
   is_active: boolean;
   created_at: string;
   updated_at?: string;
+  last_login_at?: string;
 }
 
 export interface LoginRequest {
@@ -41,7 +43,8 @@ export interface RefreshResponse {
 }
 
 export interface CreateUserRequest {
-  email: string;
+  email?: string;
+  login_id?: string;
   password: string;
   name: string;
   phone?: string;
@@ -66,6 +69,7 @@ export interface Company {
   id: number;
   name: string;
   code: string;
+  has_settlement_password?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -104,6 +108,9 @@ export interface Product {
   daily_deadline: string;
   deadline_timezone: string;
   setup_delay_minutes?: number;
+  product_number?: number;
+  is_ilryu_reward?: boolean;
+  category_id?: number;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
