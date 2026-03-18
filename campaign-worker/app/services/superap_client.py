@@ -115,31 +115,31 @@ class CampaignFormData:
         self._calculate_total_limit()
 
     def _process_templates(self) -> None:
-        guide = self.participation_guide
+        """Replace &상호명& and &명소명& markers in participation_guide."""
+        guide = self.participation_guide or ""
         masked_place_name = self._mask_place_name(self.place_name)
         guide = guide.replace("&상호명&", masked_place_name)
-        guide = guide.replace("&명소명&", self.landmark_name)
+        guide = guide.replace("&명소명&", self.landmark_name or "")
         self._processed_guide = guide
 
-    def _mask_place_name(self, name: str) -> str:
-        """Mask every 2nd character with X.
-
-        Example: "일류곱창 마포공덕본점" -> "일X곱X 마X공X본X"
+    @staticmethod
+    def _mask_place_name(name: str) -> str:
+        """Mask place name: replace every other character with X.
+        
+        e.g. '일류곱창' -> '일X곱X'
+        Spaces are preserved as-is.
         """
         if not name:
             return name
         result = []
         char_count = 0
         for char in name:
-            if char == " ":
+            if char == ' ':
                 result.append(char)
             else:
                 char_count += 1
-                if char_count % 2 == 0:
-                    result.append("X")
-                else:
-                    result.append(char)
-        return "".join(result)
+                result.append('X' if char_count % 2 == 0 else char)
+        return ''.join(result)
 
     def _process_keywords(self) -> None:
         if not self.keywords:
@@ -700,15 +700,33 @@ class SuperapClient:
         try:
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await page.wait_for_timeout(500)
+            value_str = str(walking_steps)
             conversion_input = await self._find_element(
                 page, self.CAMPAIGN_SELECTORS["conversion_input"]
             )
             if conversion_input:
                 await conversion_input.click()
-                await conversion_input.fill(str(walking_steps))
+                await conversion_input.fill(value_str)
                 await self._human_like_delay(page)
-                return True
-            return False
+                # 추가 버튼 클릭하여 hidden 필드에 값 전달
+                add_btn = await self._find_element(
+                    page, self.CAMPAIGN_SELECTORS["conversion_add_btn"]
+                )
+                if add_btn:
+                    await add_btn.click()
+                    await page.wait_for_timeout(500)
+            # hidden 필드에도 직접 값 설정 (안전망)
+            await page.evaluate("""(value) => {
+                const hidden = document.querySelector(
+                    'input#ad_event_name, input[name="ad_event_name"]'
+                );
+                if (hidden) {
+                    hidden.value = value;
+                    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }""", value_str)
+            return True
         except Exception:
             return False
 
@@ -723,8 +741,25 @@ class SuperapClient:
                 await conversion_input.click()
                 await conversion_input.fill(text)
                 await self._human_like_delay(page)
-                return True
-            return False
+                # 추가 버튼 클릭하여 hidden 필드에 값 전달
+                add_btn = await self._find_element(
+                    page, self.CAMPAIGN_SELECTORS["conversion_add_btn"]
+                )
+                if add_btn:
+                    await add_btn.click()
+                    await page.wait_for_timeout(500)
+            # hidden 필드에도 직접 값 설정 (안전망)
+            await page.evaluate("""(value) => {
+                const hidden = document.querySelector(
+                    'input#ad_event_name, input[name="ad_event_name"]'
+                );
+                if (hidden) {
+                    hidden.value = value;
+                    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+                    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }""", text)
+            return True
         except Exception:
             return False
 
@@ -879,10 +914,10 @@ class SuperapClient:
                     result.filled_fields.append("conversion_text")
                 else:
                     result.errors.append("Conversion text input failed")
-            elif form_data.walking_steps:
-                if await self._set_conversion_criteria(
-                    page, form_data.walking_steps
-                ):
+            elif form_data.walking_steps is not None:
+                # walking_steps=0이면 기본값 1000 사용 (빈 값 방지)
+                steps = form_data.walking_steps if form_data.walking_steps > 0 else 1000
+                if await self._set_conversion_criteria(page, steps):
                     result.filled_fields.append("walking_steps")
                 else:
                     result.errors.append("Walking steps input failed")

@@ -451,6 +451,32 @@ export default function SettlementPage() {
 
   // ─── Column definitions ────────────────────────────────────────
 
+  const profitColumns: Column<Settlement>[] = isAdmin ? [
+    {
+      key: 'cost',
+      header: '원가',
+      render: (s) => <span className="text-gray-400">{formatCurrency(s.cost)}</span>,
+    },
+    {
+      key: 'profit',
+      header: '이익',
+      render: (s) => (
+        <span className={`font-medium ${s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {formatCurrency(s.profit)}
+        </span>
+      ),
+    },
+    {
+      key: 'margin_pct',
+      header: '마진율',
+      render: (s) => (
+        <Badge className={s.margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : s.margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
+          {s.margin_pct.toFixed(1)}%
+        </Badge>
+      ),
+    },
+  ] : [];
+
   const allColumns: Column<Settlement>[] = [
     {
       key: 'order_number',
@@ -479,32 +505,10 @@ export default function SettlementPage() {
     },
     {
       key: 'subtotal',
-      header: '매출',
+      header: '소계',
       render: (s) => <span className="font-medium">{formatCurrency(s.subtotal)}</span>,
     },
-    {
-      key: 'cost',
-      header: '매입',
-      render: (s) => <span className="text-gray-400">{formatCurrency(s.cost)}</span>,
-    },
-    {
-      key: 'profit',
-      header: '이익',
-      render: (s) => (
-        <span className={`font-medium ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(s.profit)}
-        </span>
-      ),
-    },
-    {
-      key: 'margin_pct',
-      header: '마진율',
-      render: (s) => (
-        <Badge className={s.margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : s.margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
-          {s.margin_pct.toFixed(1)}%
-        </Badge>
-      ),
-    },
+    ...profitColumns,
     {
       key: 'created_at',
       header: '일자',
@@ -540,29 +544,31 @@ export default function SettlementPage() {
       header: '매출',
       render: (r) => <span className="font-medium">{formatCurrency(r.total_revenue)}</span>,
     },
-    {
-      key: 'total_cost',
-      header: '매입',
-      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
-    },
-    {
-      key: 'total_profit',
-      header: '이익',
-      render: (r) => (
-        <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(r.total_profit)}
-        </span>
-      ),
-    },
-    {
-      key: 'avg_margin_pct',
-      header: '마진율',
-      render: (r) => (
-        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
-          {r.avg_margin_pct.toFixed(1)}%
-        </Badge>
-      ),
-    },
+    ...(isAdmin ? [
+      {
+        key: 'total_cost',
+        header: '원가',
+        render: (r: SettlementByHandlerRow) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
+      },
+      {
+        key: 'total_profit',
+        header: '이익',
+        render: (r: SettlementByHandlerRow) => (
+          <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {formatCurrency(r.total_profit)}
+          </span>
+        ),
+      },
+      {
+        key: 'avg_margin_pct',
+        header: '마진율',
+        render: (r: SettlementByHandlerRow) => (
+          <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
+            {r.avg_margin_pct.toFixed(1)}%
+          </Badge>
+        ),
+      },
+    ] as Column<SettlementByHandlerRow>[] : []),
   ];
 
   const companyColumns: Column<SettlementByCompanyRow>[] = [
@@ -586,29 +592,31 @@ export default function SettlementPage() {
       header: '매출',
       render: (r) => <span className="font-medium">{formatCurrency(r.total_revenue)}</span>,
     },
-    {
-      key: 'total_cost',
-      header: '매입',
-      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
-    },
-    {
-      key: 'total_profit',
-      header: '이익',
-      render: (r) => (
-        <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(r.total_profit)}
-        </span>
-      ),
-    },
-    {
-      key: 'avg_margin_pct',
-      header: '마진율',
-      render: (r) => (
-        <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
-          {r.avg_margin_pct.toFixed(1)}%
-        </Badge>
-      ),
-    },
+    ...(isAdmin ? [
+      {
+        key: 'total_cost',
+        header: '원가',
+        render: (r: SettlementByCompanyRow) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
+      },
+      {
+        key: 'total_profit',
+        header: '이익',
+        render: (r: SettlementByCompanyRow) => (
+          <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {formatCurrency(r.total_profit)}
+          </span>
+        ),
+      },
+      {
+        key: 'avg_margin_pct',
+        header: '마진율',
+        render: (r: SettlementByCompanyRow) => (
+          <Badge className={r.avg_margin_pct >= 20 ? 'bg-green-900/30 text-green-400' : r.avg_margin_pct >= 10 ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}>
+            {r.avg_margin_pct.toFixed(1)}%
+          </Badge>
+        ),
+      },
+    ] as Column<SettlementByCompanyRow>[] : []),
   ];
 
   const dateColumns: Column<SettlementByDateRow>[] = [
@@ -632,20 +640,22 @@ export default function SettlementPage() {
       header: '매출',
       render: (r) => <span className="font-medium">{formatCurrency(r.total_revenue)}</span>,
     },
-    {
-      key: 'total_cost',
-      header: '매입',
-      render: (r) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
-    },
-    {
-      key: 'total_profit',
-      header: '이익',
-      render: (r) => (
-        <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {formatCurrency(r.total_profit)}
-        </span>
-      ),
-    },
+    ...(isAdmin ? [
+      {
+        key: 'total_cost',
+        header: '원가',
+        render: (r: SettlementByDateRow) => <span className="text-gray-400">{formatCurrency(r.total_cost)}</span>,
+      },
+      {
+        key: 'total_profit',
+        header: '이익',
+        render: (r: SettlementByDateRow) => (
+          <span className={`font-medium ${r.total_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {formatCurrency(r.total_profit)}
+          </span>
+        ),
+      },
+    ] as Column<SettlementByDateRow>[] : []),
   ];
 
   // ─── Render helpers ─────────────────────────────────────────────
@@ -659,17 +669,21 @@ export default function SettlementPage() {
     <>
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-4`}>
           <SummaryCard label="총 매출" value={formatCurrency(summary.total_revenue)} color="blue" />
-          <SummaryCard label="총 매입" value={formatCurrency(summary.total_cost)} color="yellow" />
+          {isAdmin && (
+            <SummaryCard label="총원가" value={formatCurrency(summary.total_cost)} color="yellow" />
+          )}
+          {isAdmin && (
+            <SummaryCard
+              label="총이익"
+              value={formatCurrency(summary.total_profit)}
+              color={summary.total_profit >= 0 ? 'green' : 'red'}
+            />
+          )}
           <SummaryCard
-            label="총 이익"
-            value={formatCurrency(summary.total_profit)}
-            color={summary.total_profit >= 0 ? 'green' : 'red'}
-          />
-          <SummaryCard
-            label="평균 마진율"
-            value={`${summary.avg_margin_pct.toFixed(1)}%`}
+            label={isAdmin ? '평균마진율' : '주문 현황'}
+            value={isAdmin ? `${summary.avg_margin_pct.toFixed(1)}%` : `${formatNumber(summary.order_count)}건`}
             subtitle={`주문 ${formatNumber(summary.order_count)}건 / 아이템 ${formatNumber(summary.item_count)}건`}
             color="purple"
           />

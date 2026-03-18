@@ -33,6 +33,10 @@ export default function OrderDetailPage() {
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [holdReason, setHoldReason] = useState('');
 
+  // Payment confirm modal (order_handler only)
+  const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState(false);
+  const [paymentConfirmLoading, setPaymentConfirmLoading] = useState(false);
+
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -77,12 +81,19 @@ export default function OrderDetailPage() {
         case 'submit':
           updated = await ordersApi.submit(Number(id));
           break;
-        case 'confirm-payment':
+        case 'confirm-payment': {
+          // order_handler: show confirmation modal before proceeding
+          if (user?.role === 'order_handler') {
+            setShowPaymentConfirmModal(true);
+            setActionLoading(false);
+            return;
+          }
           updated = await ordersApi.confirmPayment(Number(id));
           if ((updated as any).pipeline_warnings?.length > 0) {
             alert('파이프라인 경고:\n' + (updated as any).pipeline_warnings.join('\n'));
           }
           break;
+        }
         case 'approve':
           updated = await ordersApi.approve(Number(id));
           break;
@@ -144,6 +155,24 @@ export default function OrderDetailPage() {
       alert(err?.response?.data?.detail || '보류에 실패했습니다.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!id) return;
+    setPaymentConfirmLoading(true);
+    try {
+      const updated = await ordersApi.confirmPayment(Number(id));
+      if ((updated as any).pipeline_warnings?.length > 0) {
+        alert('파이프라인 경고:\n' + (updated as any).pipeline_warnings.join('\n'));
+      }
+      setOrder(updated);
+      setItems(updated.items || []);
+      setShowPaymentConfirmModal(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '입금 확인에 실패했습니다.');
+    } finally {
+      setPaymentConfirmLoading(false);
     }
   };
 
@@ -361,6 +390,35 @@ export default function OrderDetailPage() {
               loading={deleteLoading}
             >
               삭제 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Payment Confirm Modal (order_handler) */}
+      <Modal
+        isOpen={showPaymentConfirmModal}
+        onClose={() => setShowPaymentConfirmModal(false)}
+        title="입금 확인"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-300 whitespace-pre-line">
+            입금 확인을 진행하시겠습니까?{'\n'}입금 확인 후 자동으로 세팅이 시작됩니다.
+          </p>
+          <p className="text-sm text-red-500 font-medium">
+            ⚠️ 이 작업은 되돌릴 수 없습니다. 신중하게 확인해 주세요.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowPaymentConfirmModal(false)}>
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handlePaymentConfirm}
+              loading={paymentConfirmLoading}
+            >
+              입금 확인
             </Button>
           </div>
         </div>

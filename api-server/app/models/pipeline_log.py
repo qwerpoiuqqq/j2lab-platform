@@ -5,6 +5,7 @@ Audit trail for pipeline stage transitions.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
@@ -16,6 +17,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -45,6 +47,11 @@ class PipelineLog(Base):
     to_stage: Mapped[str] = mapped_column(String(30), nullable=False)
     trigger_type: Mapped[Optional[str]] = mapped_column(String(50))
     message: Mapped[Optional[str]] = mapped_column(Text)
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+    )
+    actor_name: Mapped[Optional[str]] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -31,6 +32,8 @@ async def create_pipeline_state(
     db: AsyncSession,
     order_item_id: int,
     initial_stage: str = PipelineStage.DRAFT.value,
+    actor_id: uuid.UUID | None = None,
+    actor_name: str | None = None,
 ) -> PipelineState:
     """Create a new pipeline state for an order item."""
     state = PipelineState(
@@ -47,7 +50,9 @@ async def create_pipeline_state(
         from_stage=None,
         to_stage=initial_stage,
         trigger_type="user_action",
-        message="Pipeline created",
+        message="파이프라인이 생성되었습니다.",
+        actor_id=actor_id,
+        actor_name=actor_name,
     )
     db.add(log)
     await db.flush()
@@ -62,6 +67,8 @@ async def transition_stage(
     trigger_type: str = "user_action",
     message: str | None = None,
     error_message: str | None = None,
+    actor_id: uuid.UUID | None = None,
+    actor_name: str | None = None,
 ) -> PipelineState:
     """Transition pipeline state to a new stage.
 
@@ -90,6 +97,8 @@ async def transition_stage(
         to_stage=to_stage,
         trigger_type=trigger_type,
         message=message or error_message,
+        actor_id=actor_id,
+        actor_name=actor_name,
     )
     db.add(log)
 

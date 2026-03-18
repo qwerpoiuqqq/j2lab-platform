@@ -335,6 +335,67 @@ class TestCampaignFormDataEdgeCases:
         )
         assert "서울역 방문하세요" == form.processed_guide
 
+    def test_template_vars_korean_aliases(self):
+        """출발지 and 목적지 aliases resolve correctly (Bug 4 regression)."""
+        from app.utils.template_vars import apply_template_variables
+        result = apply_template_variables(
+            "&출발지&에서 &목적지&까지",
+            {"landmark_name": "서울역", "place_name": "일류곱창"},
+        )
+        assert result == "서울역에서 일류곱창까지", f"Got: {result}"
+
+    def test_place_name_masking_in_form(self):
+        """상호명 template marker is replaced with masked place name (Bug 5 regression)."""
+        form = CampaignFormData(
+            campaign_name="test",
+            place_name="일류곱창",
+            landmark_name="test",
+            participation_guide="&상호명& 검색",
+            keywords=["kw1"],
+            hint="hint",
+        )
+        assert "&상호명&" not in form.processed_guide, (
+            f"Unreplaced marker in: {form.processed_guide}"
+        )
+        assert "일X곱X" in form.processed_guide, (
+            f"Expected masked name in: {form.processed_guide}"
+        )
+
+    def test_walking_steps_zero_is_valid(self):
+        """walking_steps=0 should be preserved (not treated as falsy, Bug 2 regression)."""
+        form = CampaignFormData(
+            campaign_name="test",
+            place_name="test",
+            landmark_name="test",
+            participation_guide="guide",
+            keywords=["kw1"],
+            hint="hint",
+            walking_steps=0,
+        )
+        assert form.walking_steps == 0, f"Expected 0, got: {form.walking_steps}"
+        assert form.walking_steps is not None
+
+    def test_real_place_name_condition_in_source(self):
+        """Verify real_place_name update uses != instead of 'not place_name' (Bug 1 regression)."""
+        import inspect
+        from app.services import campaign_registrar
+        source = inspect.getsource(campaign_registrar)
+        assert "real_place_name != campaign.place_name" in source, (
+            "Bug 1: real_place_name condition not fixed"
+        )
+
+    def test_steps_start_resolved_before_steps_module(self):
+        """Verify register_campaign uses manual iteration, not execute_modules (Bug 3 regression)."""
+        import inspect
+        from app.services import campaign_registrar
+        source = inspect.getsource(campaign_registrar.register_campaign)
+        assert "execute_modules" not in source, (
+            "Bug 3: execute_modules still called in register_campaign"
+        )
+        assert "_sort_by_dependencies" in source, (
+            "Bug 3: Manual iteration not added"
+        )
+
 
 # ============================================================
 # Edge case: Crypto

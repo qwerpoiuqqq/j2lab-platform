@@ -68,8 +68,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestSessionLocal() as session:
         _current_test_session = session
         yield session
-        # Commit any pending changes from fixtures
-        await session.commit()
+        # Commit pending changes; recover cleanly if a test left session rolled back
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
         _current_test_session = None
 
 

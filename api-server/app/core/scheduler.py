@@ -84,9 +84,9 @@ async def _run_deadline_check() -> None:
         return
 
     # Phase 2: Dispatch extraction jobs (AFTER commit)
-    if queued_count > 0:
-        try:
-            async with async_session_factory() as db:
-                await dispatch_pending_extraction_jobs(db)
-        except Exception:
-            logger.exception("Deadline check job failed (phase 2: dispatch)")
+    # Always attempt dispatch so already-queued jobs are not left behind.
+    try:
+        async with async_session_factory() as db:
+            await dispatch_pending_extraction_jobs(db)
+    except Exception:
+        logger.exception("Deadline check job failed (phase 2: dispatch)")

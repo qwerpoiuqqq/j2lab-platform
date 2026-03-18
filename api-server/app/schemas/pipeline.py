@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -34,6 +35,8 @@ class PipelineLogResponse(BaseModel):
     to_stage: str
     trigger_type: str | None = None
     message: str | None = None
+    actor_id: uuid.UUID | None = None
+    actor_name: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

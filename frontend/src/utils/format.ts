@@ -118,7 +118,7 @@ export function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
     system_admin: '시스템 관리자',
     company_admin: '회사 관리자',
-    order_handler: '접수 담당자',
+    order_handler: '운영자',
     distributor: '총판',
     sub_account: '하부계정',
   };

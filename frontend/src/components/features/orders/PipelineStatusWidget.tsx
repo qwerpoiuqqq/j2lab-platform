@@ -9,6 +9,25 @@ import { useAuthStore } from '@/store/auth';
 import type { PipelineState } from '@/types';
 import { getCampaignTypeLabel } from '@/utils/format';
 
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  user_action: '사용자 작업',
+  auto_extraction_dispatch: '자동 키워드 추출',
+  auto_assignment: '자동 계정 배정',
+  auto_campaign_register: '자동 캠페인 등록',
+  auto_extraction_running: '추출 진행',
+  auto_extraction_complete: '추출 완료',
+  auto_registration_complete: '등록 완료',
+  auto_dispatch: '자동 세팅 진행',
+  validation_error: '검증 오류',
+  extraction_failed: '추출 실패',
+  campaign_failed: '캠페인 실패',
+  payment_confirmed: '입금 확인',
+  user_choice_extend: '연장 선택',
+  extend_fallback: '연장 대체',
+  scheduler: '스케줄러',
+  system: '시스템',
+};
+
 const PIPELINE_STAGES = [
   { key: 'draft', label: '임시저장' },
   { key: 'submitted', label: '제출' },
@@ -419,44 +438,53 @@ export default function PipelineStatusWidget({ orderItemId, extractionJobId, cam
         )}
       </div>
 
-      {/* Collapsible timeline logs */}
-      <button
-        onClick={() => setLogsExpanded((prev) => !prev)}
-        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
-      >
-        {logsExpanded ? (
-          <ChevronUpIcon className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        )}
-        타임라인 로그
-      </button>
+      {/* Collapsible timeline logs — hidden for distributor/sub_account */}
+      {user && !['distributor', 'sub_account'].includes(user.role) && (
+        <>
+          <button
+            onClick={() => setLogsExpanded((prev) => !prev)}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+          >
+            {logsExpanded ? (
+              <ChevronUpIcon className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDownIcon className="w-3.5 h-3.5" />
+            )}
+            타임라인 로그
+          </button>
 
-      {logsExpanded && (
-        <div className="border-l-2 border-border ml-2 pl-3 space-y-2 max-h-60 overflow-y-auto">
-          {logs.length === 0 ? (
-            <p className="text-xs text-gray-400">로그가 없습니다.</p>
-          ) : (
-            logs.map((log) => (
-              <div key={log.id} className="text-xs">
-                <div className="flex items-center gap-2">
-                  <Badge variant={log.to_stage === 'failed' ? 'danger' : 'default'}>
-                    {log.from_stage ? `${log.from_stage} → ${log.to_stage}` : log.to_stage}
-                  </Badge>
-                  {log.trigger_type && (
-                    <span className="text-gray-400">[{log.trigger_type}]</span>
-                  )}
-                </div>
-                {log.message && (
-                  <p className="text-gray-400 mt-0.5">{log.message}</p>
-                )}
-                <p className="text-gray-400 mt-0.5">
-                  {formatTimestamp(log.created_at)}
-                </p>
-              </div>
-            ))
+          {logsExpanded && (
+            <div className="border-l-2 border-border ml-2 pl-3 space-y-2 max-h-60 overflow-y-auto">
+              {logs.length === 0 ? (
+                <p className="text-xs text-gray-400">로그가 없습니다.</p>
+              ) : (
+                logs.map((log) => (
+                  <div key={log.id} className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={log.to_stage === 'failed' ? 'danger' : 'default'}>
+                        {log.from_stage ? `${log.from_stage} → ${log.to_stage}` : log.to_stage}
+                      </Badge>
+                      {log.trigger_type && (
+                        <span className="text-gray-400">
+                          [{TRIGGER_TYPE_LABELS[log.trigger_type] || log.trigger_type}]
+                        </span>
+                      )}
+                      {log.actor_name && (
+                        <span className="text-gray-300">담당자: {log.actor_name}</span>
+                      )}
+                    </div>
+                    {log.message && (
+                      <p className="text-gray-400 mt-0.5">{log.message}</p>
+                    )}
+                    <p className="text-gray-400 mt-0.5">
+                      {formatTimestamp(log.created_at)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

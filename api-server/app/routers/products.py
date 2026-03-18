@@ -16,7 +16,7 @@ from app.services.pipeline_validation import validate_schema_for_pipeline
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
+product_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
 
 
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
@@ -53,9 +53,9 @@ async def list_products(
 async def create_product(
     body: ProductCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(product_admin_checker),
 ):
-    """Create a new product (system_admin only)."""
+    """Create a new product (system_admin or company_admin)."""
     product = await product_service.create_product(db, body)
     pipeline_warnings = validate_schema_for_pipeline(body.form_schema) if body.form_schema else []
     result = ProductResponse.model_validate(product).model_dump()
@@ -195,7 +195,7 @@ async def update_product(
     product_id: int,
     body: ProductUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(product_admin_checker),
 ):
     """Update a product (system_admin only)."""
     product = await product_service.get_product_by_id(db, product_id)
@@ -217,7 +217,7 @@ async def update_product(
 async def delete_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(product_admin_checker),
 ):
     """Hard-delete a product. system_admin only. Use PATCH to deactivate instead."""
     product = await product_service.get_product_by_id(db, product_id)
@@ -303,7 +303,7 @@ async def create_price_policy(
 async def delete_price_policy(
     policy_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(product_admin_checker),
 ):
     """Delete a price policy (system_admin only)."""
     policy = await price_service.get_price_policy_by_id(db, policy_id)

@@ -14,7 +14,7 @@ interface UserFormProps {
 
 const roleOptions: { value: UserRole; label: string }[] = [
   { value: 'company_admin', label: '회사 관리자' },
-  { value: 'order_handler', label: '접수 담당자' },
+  { value: 'order_handler', label: '운영자' },
   { value: 'distributor', label: '총판' },
   { value: 'sub_account', label: '하부계정' },
 ];
@@ -40,7 +40,7 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
 
   const availableRoles =
     currentUser?.role === 'system_admin'
-      ? [{ value: 'system_admin' as UserRole, label: '시스템 관리자' }, ...roleOptions]
+      ? roleOptions
       : currentUser?.role === 'company_admin'
         ? roleOptions.filter((r) =>
             ['order_handler', 'distributor', 'sub_account'].includes(r.value),
@@ -196,7 +196,7 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
             <p className="mt-1 text-xs text-amber-600">
               해당 역할의 상위 유저가 없습니다. 먼저{' '}
               {parentConfig.parentRole === 'order_handler'
-                ? '접수 담당자'
+                ? '운영자'
                 : '총판'}
               를 생성하세요.
             </p>

@@ -99,10 +99,15 @@ def require_roles(*roles: UserRole):
 
 
 async def verify_internal_secret(
-    x_internal_secret: str = Header(..., alias="X-Internal-Secret"),
+    x_internal_secret: str | None = Header(None, alias="X-Internal-Secret"),
 ) -> None:
     """Verify the internal API secret header for worker callbacks."""
     from app.core.config import settings
+
+    # If secret is not configured (default placeholder), allow internal callbacks.
+    # This keeps local/test flows working while avoiding 422 on missing header.
+    if settings.INTERNAL_API_SECRET == "change_me_to_internal_secret":
+        return
 
     if x_internal_secret != settings.INTERNAL_API_SECRET:
         raise HTTPException(
@@ -121,7 +126,8 @@ def can_create_role(creator_role: UserRole, target_role: UserRole) -> bool:
     - Others cannot create users
     """
     if creator_role == UserRole.SYSTEM_ADMIN:
-        return True
+        # system_admin은 system_admin을 생성할 수 없음
+        return target_role != UserRole.SYSTEM_ADMIN
     if creator_role == UserRole.COMPANY_ADMIN:
         return target_role in (
             UserRole.ORDER_HANDLER,

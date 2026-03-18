@@ -512,6 +512,20 @@ async def confirm_payment(
             "Only submitted orders can have payment confirmed."
         )
 
+    # Deduct balance for regular orders before finalizing payment confirmation.
+    if order.order_type == OrderType.REGULAR.value:
+        charge_amount = int(order.total_amount or 0)
+        if charge_amount > 0:
+            from app.services import balance_service
+
+            await balance_service.charge_for_order(
+                db,
+                user_id=order.user_id,
+                order_id=order.id,
+                amount=charge_amount,
+                created_by=confirmed_by.id,
+            )
+
     order.status = OrderStatus.PAYMENT_CONFIRMED.value
     order.payment_status = PaymentStatus.CONFIRMED.value
     order.payment_confirmed_by = confirmed_by.id
@@ -874,6 +888,7 @@ DELETABLE_STATUSES = {
 async def delete_order(
     db: AsyncSession,
     order: Order,
+    actor: User | None = None,
 ) -> None:
     """Delete an order permanently.
 
@@ -882,7 +897,9 @@ async def delete_order(
     Campaign.order_item_id and ExtractionJob.order_item_id are SET NULL.
     BalanceTransaction.order_id is SET NULL.
     """
-    if order.status not in DELETABLE_STATUSES:
+    is_system_admin = bool(actor and actor.role == UserRole.SYSTEM_ADMIN.value)
+
+    if not is_system_admin and order.status not in DELETABLE_STATUSES:
         raise ValueError(
             f"'{order.status}' 상태의 주문은 삭제할 수 없습니다. "
             "임시저장, 취소, 반려 상태의 주문만 삭제 가능합니다."

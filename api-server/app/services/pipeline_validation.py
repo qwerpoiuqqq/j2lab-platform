@@ -43,18 +43,18 @@ def validate_schema_for_pipeline(form_schema: list | dict | None) -> list[str]:
     field_names = _extract_field_names(form_schema)
 
     if not field_names:
-        warnings.append("form_schema is empty; pipeline cannot auto-fill any fields.")
+        warnings.append("폼 스키마가 비어 있어 파이프라인 자동 입력을 수행할 수 없습니다.")
         return warnings
 
     for key in PIPELINE_REQUIRED_KEYS:
         if key not in field_names:
-            warnings.append(f"Required pipeline field '{key}' is missing from form_schema.")
+            warnings.append(f"폼 스키마에 필수 파이프라인 필드 '{key}'가 없습니다.")
 
     missing_optional = [k for k in PIPELINE_OPTIONAL_KEYS if k not in field_names]
     if missing_optional:
         warnings.append(
-            f"Optional pipeline fields missing: {', '.join(missing_optional)}. "
-            "Defaults will be used."
+            f"선택 파이프라인 필드가 누락되었습니다: {', '.join(missing_optional)}. "
+            "기본값으로 진행합니다."
         )
 
     return warnings
@@ -65,12 +65,12 @@ def validate_item_data_for_pipeline(item_data: dict | None) -> list[str]:
     warnings: list[str] = []
 
     if not item_data or not isinstance(item_data, dict):
-        warnings.append("item_data is empty; pipeline will have no input data.")
+        warnings.append("item_data가 비어 있어 파이프라인 입력값이 없습니다.")
         return warnings
 
     for key in PIPELINE_REQUIRED_KEYS:
         if key not in item_data or not item_data[key]:
-            warnings.append(f"Required pipeline field '{key}' is missing from item_data.")
+            warnings.append(f"item_data에 필수 파이프라인 필드 '{key}'가 없습니다.")
 
     missing_optional = [
         k for k in PIPELINE_OPTIONAL_KEYS
@@ -78,8 +78,8 @@ def validate_item_data_for_pipeline(item_data: dict | None) -> list[str]:
     ]
     if missing_optional:
         warnings.append(
-            f"Optional pipeline fields missing from item_data: {', '.join(missing_optional)}. "
-            "Defaults will be used."
+            f"item_data에서 선택 파이프라인 필드가 누락되었습니다: {', '.join(missing_optional)}. "
+            "기본값으로 진행합니다."
         )
 
     return warnings

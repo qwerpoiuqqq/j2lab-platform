@@ -356,8 +356,25 @@ async def register_campaign(
             account_key = str(account.id)
 
             # Step 0: Execute modules if template defines them
-            template_modules: list = template.modules or []
+            template_modules: list = list(template.modules or [])
             module_context: Dict[str, Any] = {}
+
+            if template_modules:
+                # Auto-add missing module dependencies without changing registry ordering.
+                all_modules = list(template_modules)
+                to_scan = list(template_modules)
+                while to_scan:
+                    mod_id = to_scan.pop(0)
+                    mod = ModuleRegistry.get(mod_id)
+                    if mod:
+                        for dep in mod.dependencies:
+                            if dep not in all_modules:
+                                all_modules.insert(0, dep)
+                                to_scan.append(dep)
+                                logger.info(
+                                    f"Auto-added dependency {dep} for module {mod_id}"
+                                )
+                template_modules = all_modules
 
             if template_modules:
                 async with async_session_factory() as session:
@@ -377,23 +394,69 @@ async def register_campaign(
                     else:
                         initial_ctx["landmark_strategy"] = "random"
 
-                    module_context = await ModuleRegistry.execute_modules(
-                        template_modules, initial_ctx
-                    )
+                    # Execute modules in dependency order with per-module hooks
+                    sorted_modules = ModuleRegistry._sort_by_dependencies(template_modules)
+                    module_context = dict(initial_ctx)
+                    module_warnings = []
 
-                    # Apply steps_start template AFTER modules complete (so variables are resolved)
-                    if template.steps_start and "steps" in template_modules:
-                        resolved_start = apply_template_variables(
-                            template.steps_start, module_context
+                    for module_id in sorted_modules:
+                        # steps 모듈 실행 직전: 출발지 템플릿에 변수 치환 적용
+                        if module_id == "steps" and template.steps_start:
+                            resolved_start = apply_template_variables(
+                                template.steps_start, module_context
+                            )
+                            if resolved_start.strip():
+                                module_context["steps_start"] = resolved_start.strip()
+
+                        module = ModuleRegistry.get(module_id)
+                        if module is None:
+                            module_warnings.append(f"{module_id}: 등록되지 않은 모듈")
+                            continue
+                        try:
+                            result = await module.execute(module_context)
+                            module_context.update(result)
+                            logger.info(
+                                f"Campaign {campaign_id} module {module_id} completed: "
+                                f"{list(result.keys())}"
+                            )
+                        except Exception as e:
+                            module_warnings.append(f"{module_id}: {str(e)}")
+                            logger.warning(
+                                f"Campaign {campaign_id} module '{module_id}' 실패 (계속 진행): {e}"
+                            )
+
+                    if module_warnings:
+                        logger.warning(
+                            f"Campaign {campaign_id} module warnings: {module_warnings}"
                         )
-                        if resolved_start.strip():
-                            module_context["steps_start"] = resolved_start.strip()
+
+                    # NaverMap fallback: extract place_name separately if still missing.
+                    if not module_context.get("real_place_name") and not campaign.place_name:
+                        logger.info(
+                            f"Campaign {campaign_id}: place_name missing - trying NaverMap extraction"
+                        )
+                        try:
+                            from app.services.naver_map import NaverMapScraper
+
+                            async with NaverMapScraper(headless=True) as scraper:
+                                place_info = await scraper.get_place_info(campaign.place_url)
+                                if place_info.name:
+                                    module_context["real_place_name"] = place_info.name
+                                    logger.info(
+                                        f"Campaign {campaign_id}: NaverMap extraction success: '{place_info.name}'"
+                                    )
+                        except Exception as e:
+                            logger.warning(
+                                f"Campaign {campaign_id}: NaverMap extraction failed: {e}"
+                            )
+
                     logger.info(
                         f"Campaign {campaign_id} modules completed: "
                         f"{list(module_context.keys())}"
                     )
 
                     # Save module results to DB
+                    real_place_name = module_context.get("real_place_name")
                     update_values: Dict[str, Any] = {
                         "module_context": module_context,
                         "updated_at": datetime.now(timezone.utc),
@@ -402,9 +465,9 @@ async def register_campaign(
                         update_values["landmark_name"] = module_context["landmark_name"]
                     if "steps" in module_context:
                         update_values["step_count"] = module_context["steps"]
-                    # Update place_name from module if campaign has no place_name
-                    if module_context.get("real_place_name") and not campaign.place_name:
-                        update_values["place_name"] = module_context["real_place_name"]
+                    # Update place_name from module if different from current.
+                    if real_place_name and real_place_name != campaign.place_name:
+                        update_values["place_name"] = real_place_name
 
                     async with async_session_factory() as session:
                         await session.execute(
@@ -419,8 +482,9 @@ async def register_campaign(
                         campaign.landmark_name = module_context["landmark_name"]
                     if "steps" in module_context:
                         campaign.step_count = module_context["steps"]
-                    if module_context.get("real_place_name") and not campaign.place_name:
-                        campaign.place_name = module_context["real_place_name"]
+                    if real_place_name and real_place_name != campaign.place_name:
+                        campaign.place_name = real_place_name
+                        module_context["place_name"] = real_place_name
 
                 except ModuleError as e:
                     logger.warning(
@@ -489,21 +553,22 @@ async def register_campaign(
                 await _update_step(session, campaign_id, "filling_form", "Preparing form data...")
 
             masked_place_name = _mask_place_name(campaign.place_name)
-            context = {
-                "place_name": masked_place_name,
-                "place_url": campaign.place_url,
-                "landmark_name": campaign.landmark_name or "",
-                "steps": campaign.step_count or 0,
-            }
+            context = dict(module_context) if module_context else {}
+            context["place_name"] = masked_place_name
+            context["place_url"] = campaign.place_url
+            if "landmark_name" not in context:
+                context["landmark_name"] = campaign.landmark_name or ""
+            if "steps" not in context:
+                context["steps"] = campaign.step_count or 0
 
             description = apply_template_variables(
                 template.description_template, context
             )
-            hint = apply_template_variables(template.hint_text, {
-                "place_name": campaign.place_name,
-                "landmark_name": campaign.landmark_name or "",
-                "steps": campaign.step_count or 0,
-            })
+            hint_context = dict(module_context) if module_context else {}
+            hint_context["place_name"] = campaign.place_name
+            hint_context["landmark_name"] = campaign.landmark_name or ""
+            hint_context["steps"] = campaign.step_count or 0
+            hint = apply_template_variables(template.hint_text, hint_context)
 
             superap_campaign_type = template.campaign_type_selection or "플레이스 퀴즈"
             campaign_name = _generate_campaign_name(
@@ -515,13 +580,13 @@ async def register_campaign(
 
             conversion_text = None
             if template.conversion_text_template:
+                conversion_context = dict(module_context) if module_context else {}
+                conversion_context["place_name"] = campaign.place_name
+                conversion_context["landmark_name"] = campaign.landmark_name or ""
+                conversion_context["steps"] = campaign.step_count or 0
                 conversion_text = apply_template_variables(
                     template.conversion_text_template,
-                    {
-                        "place_name": campaign.place_name,
-                        "landmark_name": campaign.landmark_name or "",
-                        "steps": campaign.step_count or 0,
-                    },
+                    conversion_context,
                 )
 
             form_data = CampaignFormData(

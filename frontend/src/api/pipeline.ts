@@ -8,6 +8,8 @@ export interface PipelineLogItem {
   to_stage: string;
   trigger_type: string | null;
   message: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
   created_at: string;
 }
 

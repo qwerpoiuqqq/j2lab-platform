@@ -27,7 +27,7 @@ const roleFilterOptions = [
   { value: '', label: '전체 역할' },
   { value: 'system_admin', label: '시스템 관리자' },
   { value: 'company_admin', label: '회사 관리자' },
-  { value: 'order_handler', label: '접수 담당자' },
+  { value: 'order_handler', label: '운영자' },
   { value: 'distributor', label: '총판' },
   { value: 'sub_account', label: '하부계정' },
 ];

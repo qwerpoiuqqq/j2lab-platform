@@ -70,7 +70,7 @@ async def create_tokens(
                 RefreshToken.expires_at < datetime.now(timezone.utc),
                 RefreshToken.revoked_at.isnot(None),
             ),
-        )
+        ).execution_options(synchronize_session=False)
     )
 
     return {
@@ -198,7 +198,7 @@ async def cleanup_expired_tokens(db: AsyncSession) -> int:
                 RefreshToken.expires_at < datetime.now(timezone.utc),
                 RefreshToken.revoked_at.isnot(None),
             )
-        )
+        ).execution_options(synchronize_session=False)
     )
     await db.flush()
     return result.rowcount

@@ -20,6 +20,8 @@ KOREAN_VAR_MAP: dict[str, str] = {
     "명소순번": "landmark_index",
     "걸음수": "steps",
     "가게주소": "place_address",
+    "출발지": "landmark_name",
+    "목적지": "place_name",
 }
 
 
