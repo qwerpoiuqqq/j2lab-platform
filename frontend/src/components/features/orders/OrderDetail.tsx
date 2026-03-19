@@ -106,6 +106,17 @@ export default function OrderDetail({
               </Button>
             )}
 
+            {/* submitted: 접수 확인 (총판 — 본인/하부 주문) */}
+            {order.status === 'submitted' && isDistributor && (
+              <Button
+                variant="success"
+                onClick={onConfirmPayment}
+                loading={actionLoading}
+              >
+                접수 확인
+              </Button>
+            )}
+
             {/* submitted: 입금 확인, 보류, 반려 (관리자) */}
             {order.status === 'submitted' && isAdmin && (
               <>

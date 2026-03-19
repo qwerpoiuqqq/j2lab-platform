@@ -133,22 +133,27 @@ export default function SubAccountOrders() {
     }
   };
 
-  // Bulk submit: submit each selected included order via POST /orders/{id}/submit
+  // Bulk confirm: submit (if draft) then confirmPayment — pipeline starts immediately
   const handleBulkSubmit = async () => {
-    const toSubmit = orders.filter(
-      (o) => selectedIds.has(o.id) && (o.status === 'draft' || o.selection_status === 'included')
+    const toProcess = orders.filter(
+      (o) => selectedIds.has(o.id) && (o.status === 'draft' || o.status === 'submitted' || o.selection_status === 'included')
     );
-    if (toSubmit.length === 0) {
-      alert('제출할 수 있는 접수건이 없습니다. 먼저 접수건을 "포함" 처리해 주세요.');
+    if (toProcess.length === 0) {
+      alert('접수할 수 있는 건이 없습니다. 접수건을 선택해 주세요.');
       return;
     }
     setBulkSubmitting(true);
     setSubmitResults(null);
     let success = 0;
     let failed = 0;
-    for (const order of toSubmit) {
+    for (const order of toProcess) {
       try {
-        await ordersApi.submit(order.id);
+        // Step 1: submit if still draft
+        if (order.status === 'draft') {
+          await ordersApi.submit(order.id);
+        }
+        // Step 2: confirm payment → pipeline starts immediately
+        await ordersApi.confirmPayment(order.id);
         success++;
       } catch {
         failed++;
@@ -243,7 +248,7 @@ export default function SubAccountOrders() {
                   onClick={handleBulkSubmit}
                   loading={bulkSubmitting}
                 >
-                  {selectedIds.size}건 일괄 접수
+                  {selectedIds.size}건 일괄 접수 확인
                 </Button>
               </>
             )}
@@ -257,7 +262,7 @@ export default function SubAccountOrders() {
           }`}>
             <CheckCircleIcon className="h-4 w-4 flex-shrink-0" />
             <span>
-              일괄 접수 완료: 성공 {submitResults.success}건
+              일괄 접수 확인 완료: 성공 {submitResults.success}건
               {submitResults.failed > 0 && ` / 실패 ${submitResults.failed}건`}
             </span>
             <button

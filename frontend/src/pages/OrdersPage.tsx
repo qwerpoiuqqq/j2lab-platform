@@ -76,7 +76,7 @@ export default function OrdersPage() {
 
   const canCreate = user && ['system_admin', 'company_admin', 'distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
-  const canPaymentConfirm = user && ['system_admin', 'company_admin', 'order_handler'].includes(user.role);
+  const canPaymentConfirm = user && ['system_admin', 'company_admin', 'order_handler', 'distributor'].includes(user.role);
   const isDistributor = user?.role === 'distributor';
   const isPendingTab = activeTab === 'pending';
 
@@ -223,7 +223,7 @@ export default function OrdersPage() {
     }
   };
 
-  const showSelectAll = (canBulk || (isPendingTab && canPaymentConfirm)) && orders.length > 0;
+  const showSelectAll = (canBulk || (isPendingTab && canPaymentConfirm) || (isPendingTab && isDistributor)) && orders.length > 0;
   const showBulkActions = selectedIds.size > 0;
 
   return (
@@ -296,7 +296,7 @@ export default function OrdersPage() {
               onClick={() => setShowPaymentConfirmModal(true)}
               icon={<CheckCircleIcon className="h-3 w-3" />}
             >
-              일괄 입금확인
+              {isDistributor ? '일괄 접수' : '일괄 입금확인'}
             </Button>
           )}
           {canBulk && (
@@ -365,7 +365,7 @@ export default function OrdersPage() {
       <OrderList
         orders={orders}
         loading={loading}
-        selectable={(canBulk || (isPendingTab && canPaymentConfirm)) || false}
+        selectable={(canBulk || (isPendingTab && canPaymentConfirm) || (isPendingTab && isDistributor)) || false}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
       />
@@ -378,16 +378,16 @@ export default function OrdersPage() {
         pageSize={20}
       />
 
-      {/* 일괄 입금확인 모달 */}
+      {/* 일괄 입금확인/접수 모달 */}
       <Modal
         isOpen={showPaymentConfirmModal}
         onClose={() => setShowPaymentConfirmModal(false)}
-        title="일괄 입금확인"
+        title={isDistributor ? '일괄 접수' : '일괄 입금확인'}
         size="sm"
       >
         <div className="space-y-4 p-1">
           <p className="text-sm text-gray-400">
-            선택한 {selectedIds.size}건의 주문을 입금 확인하시겠습니까?
+            선택한 {selectedIds.size}건의 주문을 {isDistributor ? '접수' : '입금 확인'}하시겠습니까?
           </p>
           <p className="text-xs text-cyan-500">
             확인 후 자동으로 세팅이 시작됩니다.
@@ -395,7 +395,7 @@ export default function OrdersPage() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowPaymentConfirmModal(false)}>취소</Button>
             <Button onClick={handleBulkPaymentConfirm} loading={paymentConfirmLoading}>
-              입금 확인
+              {isDistributor ? '접수 확인' : '입금 확인'}
             </Button>
           </div>
         </div>

@@ -694,10 +694,13 @@ async def bulk_payment_confirm(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER, UserRole.DISTRIBUTOR])
     ),
 ):
-    """Bulk payment confirmation for multiple orders (submitted -> payment_confirmed)."""
+    """Bulk payment confirmation for multiple orders (submitted -> payment_confirmed).
+
+    DISTRIBUTOR: can confirm own orders and sub_account orders they manage.
+    """
     success_count = 0
     errors = []
     confirmed_order_ids = []
@@ -713,6 +716,12 @@ async def bulk_payment_confirm(
         if user_role in (UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER):
             if order.company_id != current_user.company_id:
                 errors.append(f"Order {oid}: not in your company")
+                continue
+
+        # distributor can only confirm own or their sub_account orders
+        if user_role == UserRole.DISTRIBUTOR:
+            if not order_service.can_view_order(current_user, order):
+                errors.append(f"Order {oid}: not authorized")
                 continue
 
         try:
@@ -941,14 +950,25 @@ async def confirm_payment(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER, UserRole.DISTRIBUTOR])
     ),
 ):
     """Confirm payment: submitted -> payment_confirmed.
 
-    Deducts balance from the order's user. company_admin, order_handler, or system_admin.
+    Deducts balance from the order's user.
+    - system_admin, company_admin, order_handler: unrestricted (within company scope)
+    - distributor: can confirm own orders and sub_account orders they manage
     Pipeline is started in the background after response is sent.
     """
+    # distributor can only confirm own or their sub_account orders
+    user_role = UserRole(current_user.role)
+    if user_role == UserRole.DISTRIBUTOR:
+        order = await _get_order_or_404(db, order_id)
+        if not order_service.can_view_order(current_user, order):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="총판은 본인 또는 하부 계정의 주문만 접수 확인할 수 있습니다.",
+            )
     return await _confirm_and_start_pipeline(order_id, background_tasks, db, current_user)
 
 

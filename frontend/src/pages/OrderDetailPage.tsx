@@ -47,6 +47,7 @@ export default function OrderDetailPage() {
   const [deadlineLoading, setDeadlineLoading] = useState(false);
 
   const isAdmin = user && ['system_admin', 'company_admin'].includes(user.role);
+  const isDistributor = user?.role === 'distributor';
   const canDelete = isAdmin && order && ['draft', 'cancelled', 'rejected'].includes(order.status);
 
   const loadOrder = async () => {
@@ -82,8 +83,8 @@ export default function OrderDetailPage() {
           updated = await ordersApi.submit(Number(id));
           break;
         case 'confirm-payment': {
-          // order_handler: show confirmation modal before proceeding
-          if (user?.role === 'order_handler') {
+          // order_handler / distributor: show confirmation modal before proceeding
+          if (user?.role === 'order_handler' || user?.role === 'distributor') {
             setShowPaymentConfirmModal(true);
             setActionLoading(false);
             return;
@@ -395,16 +396,18 @@ export default function OrderDetailPage() {
         </div>
       </Modal>
 
-      {/* Payment Confirm Modal (order_handler) */}
+      {/* Payment Confirm Modal (order_handler / distributor) */}
       <Modal
         isOpen={showPaymentConfirmModal}
         onClose={() => setShowPaymentConfirmModal(false)}
-        title="입금 확인"
+        title={isDistributor ? '접수 확인' : '입금 확인'}
         size="sm"
       >
         <div className="space-y-4 p-1">
           <p className="text-sm text-gray-300 whitespace-pre-line">
-            입금 확인을 진행하시겠습니까?{'\n'}입금 확인 후 자동으로 세팅이 시작됩니다.
+            {isDistributor
+              ? `접수 확인을 진행하시겠습니까?\n확인 후 자동으로 세팅이 시작됩니다.`
+              : `입금 확인을 진행하시겠습니까?\n입금 확인 후 자동으로 세팅이 시작됩니다.`}
           </p>
           <p className="text-sm text-red-500 font-medium">
             ⚠️ 이 작업은 되돌릴 수 없습니다. 신중하게 확인해 주세요.
@@ -418,7 +421,7 @@ export default function OrderDetailPage() {
               onClick={handlePaymentConfirm}
               loading={paymentConfirmLoading}
             >
-              입금 확인
+              {isDistributor ? '접수 확인' : '입금 확인'}
             </Button>
           </div>
         </div>
