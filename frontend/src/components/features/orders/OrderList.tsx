@@ -11,6 +11,22 @@ import {
 } from '@/utils/format';
 import { useAuthStore } from '@/store/auth';
 
+// Unified status for dashboard / external consumers
+const unifiedStatusMap: Record<string, { color: string; dotColor: string; label: string }> = {
+  draft:             { color: 'bg-surface-raised text-gray-500 ring-gray-500/20',    dotColor: 'bg-gray-500',    label: '임시저장' },
+  submitted:         { color: 'bg-blue-900/40 text-blue-400 ring-blue-400/20',       dotColor: 'bg-blue-400',    label: '접수완료' },
+  payment_confirmed: { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '입금확인' },
+  payment_hold:      { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '보류' },
+  processing:        { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '처리중' },
+  completed:         { color: 'bg-emerald-900/40 text-emerald-400 ring-emerald-400/20', dotColor: 'bg-emerald-400', label: '완료' },
+  cancelled:         { color: 'bg-red-900/40 text-red-400 ring-red-400/20',          dotColor: 'bg-red-400',     label: '취소' },
+  rejected:          { color: 'bg-red-900/40 text-red-400 ring-red-400/20',          dotColor: 'bg-red-400',     label: '반려' },
+};
+
+export function getUnifiedStatus(order: Order) {
+  return unifiedStatusMap[order.status] || unifiedStatusMap.draft;
+}
+
 interface OrderListProps {
   orders: Order[];
   loading?: boolean;

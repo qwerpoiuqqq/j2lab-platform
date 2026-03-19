@@ -154,7 +154,7 @@ async def get_user_price_matrix(
             "id": uid,
             "name": user.name,
             "role": user.role,
-            "email": user.email,
+            "email": getattr(user, "login_id", getattr(user, "email", "")),
         })
         user_prices[uid] = {}
         for product in products:

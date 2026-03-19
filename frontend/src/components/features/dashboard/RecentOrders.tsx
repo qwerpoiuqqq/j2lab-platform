@@ -1,76 +1,63 @@
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '@/types';
-import Badge from '@/components/common/Badge';
-import {
-  formatCurrency,
-  formatRelativeTime,
-  getOrderStatusLabel,
-} from '@/utils/format';
+import { formatCurrency, formatRelativeTime } from '@/utils/format';
+import { getUnifiedStatus } from '@/components/features/orders/OrderList';
 
 interface RecentOrdersProps {
   orders: Order[];
-}
-
-function getStatusBadgeVariant(status: string) {
-  const map: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    draft: 'default',
-    submitted: 'info',
-    payment_confirmed: 'success',
-    processing: 'warning',
-    completed: 'success',
-    cancelled: 'danger',
-    rejected: 'danger',
-  };
-  return map[status] || 'default';
 }
 
 export default function RecentOrders({ orders }: RecentOrdersProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-surface rounded-xl border border-border">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-100">최근 주문</h3>
+    <div className="bg-white rounded-2xl border border-border-subtle shadow-sm">
+      <div className="px-5 py-4 border-b border-border-subtle flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+          <h3 className="text-[15px] font-bold text-gray-100">최근 주문</h3>
+        </div>
         <button
           onClick={() => navigate('/orders')}
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          className="text-[12px] text-primary-500 hover:text-primary-600 font-semibold transition-colors"
         >
           전체보기
         </button>
       </div>
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border-subtle">
         {orders.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-gray-400">
-            최근 주문이 없습니다.
+          <div className="px-5 py-10 text-center text-[13px] text-gray-500">
+            최근 주문이 없어요
           </div>
         ) : (
-          orders.map((order) => (
-            <div
-              key={order.id}
-              onClick={() => navigate(`/orders/${order.id}`)}
-              className="px-5 py-3.5 flex items-center justify-between hover:bg-surface-raised cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-4 min-w-0">
+          orders.map((order) => {
+            const unified = getUnifiedStatus(order);
+            return (
+              <div
+                key={order.id}
+                onClick={() => navigate(`/orders/${order.id}`)}
+                className="px-5 py-3.5 flex items-center justify-between hover:bg-surface-raised/50 cursor-pointer transition-colors"
+              >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-100 truncate">
+                  <p className="text-[13px] font-semibold text-gray-100 truncate">
                     {order.order_number}
                   </p>
-                  <p className="text-xs text-gray-400">
-                    {order.user?.name || '알 수 없음'} &middot;{' '}
-                    {formatRelativeTime(order.created_at)}
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {order.user?.name || '-'} · {formatRelativeTime(order.created_at)}
                   </p>
                 </div>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <span className="text-[13px] font-bold text-gray-100 tabular-nums">
+                    {formatCurrency(order.total_amount)}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ring-inset ${unified.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${unified.dotColor}`} />
+                    {unified.label}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-sm font-medium text-gray-100">
-                  {formatCurrency(order.total_amount)}
-                </span>
-                <Badge variant={getStatusBadgeVariant(order.status)}>
-                  {getOrderStatusLabel(order.status)}
-                </Badge>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
