@@ -580,6 +580,51 @@ async def bulk_exclude_orders(
     )
 
 
+@router.get("/deadline-batch")
+async def get_deadline_batch(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
+    ),
+):
+    """마감 처리: 접수 완료(submitted)된 주문 항목을 일괄 확인용으로 반환."""
+    from app.models.product import Product
+
+    query = (
+        select(Order)
+        .where(Order.status.in_(["submitted", "payment_hold"]))
+        .order_by(Order.created_at.desc())
+    )
+    user_role = UserRole(current_user.role)
+    if user_role != UserRole.SYSTEM_ADMIN:
+        query = query.where(Order.company_id == current_user.company_id)
+
+    result = await db.execute(query)
+    orders = list(result.scalars().unique().all())
+
+    items_out = []
+    for order in orders:
+        for item in (order.items or []):
+            product = await db.get(Product, item.product_id)
+            items_out.append({
+                "order_id": order.id,
+                "order_number": order.order_number,
+                "user_name": order.user.name if order.user else "-",
+                "company_name": order.company.name if order.company else "-",
+                "product_id": item.product_id,
+                "product_name": product.name if product else "-",
+                "daily_deadline": str(product.daily_deadline) if product else "18:00:00",
+                "item_id": item.id,
+                "item_data": item.item_data or {},
+                "quantity": item.quantity,
+                "unit_price": int(item.unit_price) if item.unit_price else 0,
+                "subtotal": int(item.subtotal) if item.subtotal else 0,
+                "status": order.status,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+            })
+    return {"items": items_out}
+
+
 @router.get("/deadlines")
 async def get_order_deadlines(
     year: int = Query(...),
