@@ -233,6 +233,7 @@ class OrderResponse(BaseModel):
     submitted_at: datetime | None = None
     payment_confirmed_by: uuid.UUID | None = None
     payment_confirmed_at: datetime | None = None
+    reject_reason: str | None = None
     hold_reason: str | None = None
     payment_checked_by: uuid.UUID | None = None
     payment_checked_at: datetime | None = None

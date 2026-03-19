@@ -40,6 +40,7 @@ class Product(Base):
     base_price: Mapped[Optional[int]] = mapped_column(Numeric(12, 0))
     cost_price: Mapped[Optional[int]] = mapped_column(Numeric(12, 0))
     reduction_rate: Mapped[Optional[int]] = mapped_column(Integer)  # 0-100%
+    hidden_margin_rate: Mapped[Optional[int]] = mapped_column(Integer, default=0)  # 0-100% (감은 비율, 내부용)
     min_work_days: Mapped[Optional[int]] = mapped_column(Integer)
     max_work_days: Mapped[Optional[int]] = mapped_column(Integer)
     min_daily_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

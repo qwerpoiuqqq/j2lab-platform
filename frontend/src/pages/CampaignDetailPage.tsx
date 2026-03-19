@@ -6,10 +6,14 @@ import { ArrowLeftIcon, PencilIcon, TrashIcon, PlusIcon, ClockIcon } from '@hero
 import type { Campaign, CampaignKeyword, CampaignListItem, ExtensionHistoryItem } from '@/types';
 import { campaignsApi } from '@/api/campaigns';
 import { formatDate } from '@/utils/format';
+import { useAuthStore } from '@/store/auth';
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  // distributor, sub_account은 캠페인 수정/연장/키워드추가 불가
+  const canModify = user?.role !== 'distributor' && user?.role !== 'sub_account';
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [keywords, setKeywords] = useState<CampaignKeyword[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,31 +245,35 @@ export default function CampaignDetailPage() {
         </Button>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={openEditModal}
-            icon={<PencilIcon className="h-4 w-4" />}
-          >
-            수정
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={openExtendModal}
-            icon={<ClockIcon className="h-4 w-4" />}
-          >
-            연장
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setKeywordOpen(true)}
-            icon={<PlusIcon className="h-4 w-4" />}
-          >
-            키워드 추가
-          </Button>
-          {canDelete && (
+          {canModify && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={openEditModal}
+                icon={<PencilIcon className="h-4 w-4" />}
+              >
+                수정
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={openExtendModal}
+                icon={<ClockIcon className="h-4 w-4" />}
+              >
+                연장
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setKeywordOpen(true)}
+                icon={<PlusIcon className="h-4 w-4" />}
+              >
+                키워드 추가
+              </Button>
+            </>
+          )}
+          {canDelete && canModify && (
             <Button
               variant="danger"
               size="sm"

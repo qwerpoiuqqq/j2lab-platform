@@ -18,6 +18,17 @@ router = APIRouter(prefix="/products", tags=["products"])
 
 product_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
 
+# Roles that must NOT see hidden_margin_rate
+_MARGIN_HIDDEN_ROLES = {UserRole.DISTRIBUTOR, UserRole.SUB_ACCOUNT}
+
+
+def _mask_product_for_role(product, user_role: UserRole) -> ProductResponse:
+    """Strip hidden_margin_rate for distributor/sub_account to prevent margin leakage."""
+    resp = ProductResponse.model_validate(product)
+    if user_role in _MARGIN_HIDDEN_ROLES:
+        resp.hidden_margin_rate = None
+    return resp
+
 
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
@@ -26,7 +37,7 @@ async def list_products(
     is_active: bool | None = None,
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """List products with pagination. Available to all authenticated users."""
     pagination = PaginationParams(page=page, size=size)
@@ -37,8 +48,9 @@ async def list_products(
         is_active=is_active,
         category=category,
     )
+    user_role = UserRole(current_user.role)
     return PaginatedResponse.create(
-        items=[ProductResponse.model_validate(p) for p in products],
+        items=[_mask_product_for_role(p, user_role) for p in products],
         total=total,
         page=pagination.page,
         size=pagination.size,
@@ -178,7 +190,7 @@ async def get_user_price_matrix(
 async def get_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get a single product by ID. Available to all authenticated users."""
     product = await product_service.get_product_by_id(db, product_id)
@@ -187,7 +199,8 @@ async def get_product(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found",
         )
-    return product
+    user_role = UserRole(current_user.role)
+    return _mask_product_for_role(product, user_role)
 
 
 @router.patch("/{product_id}", response_model=ProductResponseWithWarnings)

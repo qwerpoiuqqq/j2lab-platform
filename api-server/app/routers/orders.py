@@ -43,6 +43,28 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 # ---------------------------------------------------------------------------
+# Price masking helper (sub_account must never see pricing data)
+# ---------------------------------------------------------------------------
+
+def _mask_prices_for_sub_account(order_data: dict, user_role: str) -> dict:
+    """Zero-out all price fields when the requesting user is a sub_account.
+
+    Applied immediately before returning any order response so that the
+    masking is enforced regardless of the code path that fetched the data.
+    """
+    if user_role != UserRole.SUB_ACCOUNT.value:
+        return order_data
+    order_data["total_amount"] = 0
+    order_data["vat_amount"] = 0
+    if "items" in order_data and order_data["items"]:
+        for item in order_data["items"]:
+            item["unit_price"] = 0
+            item["subtotal"] = 0
+            item["cost_unit_price"] = None
+    return order_data
+
+
+# ---------------------------------------------------------------------------
 # Shared helpers (DRY: used by many endpoints)
 # ---------------------------------------------------------------------------
 
@@ -152,8 +174,14 @@ async def list_orders(
         current_user=current_user,
         order_type=order_type,
     )
+    masked_items = [
+        _mask_prices_for_sub_account(
+            OrderBriefResponse.model_validate(o).model_dump(), current_user.role
+        )
+        for o in orders
+    ]
     return PaginatedResponse.create(
-        items=[OrderBriefResponse.model_validate(o) for o in orders],
+        items=masked_items,
         total=total,
         page=pagination.page,
         size=pagination.size,
@@ -756,7 +784,8 @@ async def get_order(
             detail="Not authorized to view this order",
         )
 
-    return order
+    order_data = OrderResponse.model_validate(order).model_dump()
+    return _mask_prices_for_sub_account(order_data, current_user.role)
 
 
 @router.delete("/{order_id}", response_model=MessageResponse)
@@ -812,12 +841,19 @@ async def submit_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISTRIBUTOR])
+        RoleChecker([
+            UserRole.SYSTEM_ADMIN,
+            UserRole.COMPANY_ADMIN,
+            UserRole.DISTRIBUTOR,
+            UserRole.SUB_ACCOUNT,
+        ])
     ),
 ):
     """Submit an order: draft -> submitted.
 
-    Typically done by the distributor confirming a sub_account's order.
+    - distributor: can submit own + sub_account orders (접수 제출 - 일괄 확인 후 제출)
+    - sub_account: can only submit their own orders (제출 요청)
+    - system_admin, company_admin: unrestricted
     """
     order = await order_service.get_order_by_id(db, order_id)
     if order is None:
@@ -826,13 +862,22 @@ async def submit_order(
             detail="Order not found",
         )
 
-    # Distributors can only submit their own or sub_account orders
     user_role = UserRole(current_user.role)
+
+    # Distributors can only submit their own or their sub_account orders
     if user_role == UserRole.DISTRIBUTOR:
         if not order_service.can_view_order(current_user, order):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to submit this order",
+            )
+
+    # sub_account can only submit their own orders
+    if user_role == UserRole.SUB_ACCOUNT:
+        if order.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="하부 대행 계정은 본인의 접수건만 제출 요청할 수 있습니다.",
             )
 
     try:
@@ -978,22 +1023,35 @@ async def export_order_items(
     ws = wb.active
     ws.title = "Order Items"
 
-    headers = [
-        "Row #", "Product ID", "Quantity", "Unit Price",
-        "Subtotal", "Status", "Result",
-    ]
+    is_sub_account = current_user.role == UserRole.SUB_ACCOUNT.value
+    if is_sub_account:
+        headers = ["Row #", "Product ID", "Quantity", "Status", "Result"]
+    else:
+        headers = [
+            "Row #", "Product ID", "Quantity", "Unit Price",
+            "Subtotal", "Status", "Result",
+        ]
     ws.append(headers)
 
     for item in order.items:
-        ws.append([
-            item.row_number,
-            item.product_id,
-            item.quantity,
-            int(item.unit_price) if item.unit_price else 0,
-            int(item.subtotal) if item.subtotal else 0,
-            item.status,
-            item.result_message or "",
-        ])
+        if is_sub_account:
+            ws.append([
+                item.row_number,
+                item.product_id,
+                item.quantity,
+                item.status,
+                item.result_message or "",
+            ])
+        else:
+            ws.append([
+                item.row_number,
+                item.product_id,
+                item.quantity,
+                int(item.unit_price) if item.unit_price else 0,
+                int(item.subtotal) if item.subtotal else 0,
+                item.status,
+                item.result_message or "",
+            ])
 
     buffer = io.BytesIO()
     wb.save(buffer)

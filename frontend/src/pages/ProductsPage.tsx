@@ -140,6 +140,7 @@ export default function ProductsPage() {
     base_price: '',
     cost_price: '',
     reduction_rate: '',
+    hidden_margin_rate: '',
     min_work_days: '',
     max_work_days: '',
     min_daily_limit: '',
@@ -189,7 +190,7 @@ export default function ProductsPage() {
   // -----------------------------------------------------------------------
   const openCreate = () => {
     setEditing(null);
-    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', min_work_days: '', max_work_days: '', min_daily_limit: '', daily_deadline: '18:00', setup_delay_minutes: '30' });
+    setFormData({ name: '', category: '', description: '', base_price: '', cost_price: '', reduction_rate: '', hidden_margin_rate: '', min_work_days: '', max_work_days: '', min_daily_limit: '', daily_deadline: '18:00', setup_delay_minutes: '30' });
     setSchemaFields([]);
     setSelectedFieldIndex(null);
     setSelectedPreset('');
@@ -205,6 +206,7 @@ export default function ProductsPage() {
       base_price: String(product.base_price || ''),
       cost_price: String(product.cost_price || ''),
       reduction_rate: String(product.reduction_rate || ''),
+      hidden_margin_rate: String(product.hidden_margin_rate ?? ''),
       min_work_days: String(product.min_work_days || ''),
       max_work_days: String(product.max_work_days || ''),
       min_daily_limit: String(product.min_daily_limit || ''),
@@ -363,7 +365,7 @@ export default function ProductsPage() {
 
     setSubmitting(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         name: formData.name,
         category: formData.category || undefined,
         description: formData.description || undefined,
@@ -377,6 +379,12 @@ export default function ProductsPage() {
         setup_delay_minutes: parseInt(formData.setup_delay_minutes) || undefined,
         form_schema: schemaFields.length > 0 ? schemaFields : undefined,
       };
+      // 감은 비율은 system_admin만 설정 가능
+      if (user?.role === 'system_admin') {
+        payload.hidden_margin_rate = formData.hidden_margin_rate !== ''
+          ? parseInt(formData.hidden_margin_rate)
+          : undefined;
+      }
 
       let response: any;
       if (editing) {
@@ -643,6 +651,24 @@ export default function ProductsPage() {
                   onChange={(e) => setFormData({ ...formData, min_daily_limit: e.target.value })}
                 />
               </div>
+              {/* 감은(숨김) 비율 — system_admin 전용, 절대 총판/하부 노출 금지 */}
+              {user?.role === 'system_admin' && (
+                <div className="border border-amber-800/40 bg-amber-900/10 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold text-amber-400">내부 전용 (영업이익)</span>
+                  </div>
+                  <Input
+                    label="숨김 비율(%) — 실제 세팅 타수 감산"
+                    type="number"
+                    value={formData.hidden_margin_rate}
+                    onChange={(e) => setFormData({ ...formData, hidden_margin_rate: e.target.value })}
+                    placeholder="0-100 (0=감산 없음)"
+                  />
+                  <p className="text-[11px] text-amber-400/70 mt-1">
+                    예: 20% → 일타수 100 주문 시 실제 세팅 80. 고객 청구는 원래 타수 기준.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">일 마감시간</label>

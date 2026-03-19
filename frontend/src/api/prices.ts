@@ -7,9 +7,28 @@ export interface UserMatrixResponse {
   prices: Record<string, Record<number, number>>; // userId → { productId → price }
 }
 
+export interface RoleMatrixRow {
+  product_id: number;
+  product_name: string;
+  base_price: number;
+  cost_price: number | null;
+  reduction_rate: number | null;
+  prices: Record<string, number>; // role → price
+}
+
+export interface RoleMatrixResponse {
+  rows: RoleMatrixRow[];
+  sellers: { id: string; name: string }[];
+}
+
 export const pricesApi = {
   getProductSchema: async (productId: number): Promise<ProductSchema> => {
     const response = await apiClient.get(`/products/${productId}/schema`);
+    return response.data;
+  },
+
+  getRoleMatrix: async (): Promise<RoleMatrixResponse> => {
+    const response = await apiClient.get('/products/prices/matrix');
     return response.data;
   },
 

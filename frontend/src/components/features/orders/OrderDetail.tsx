@@ -50,6 +50,8 @@ export default function OrderDetail({
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
   const isAdmin = ['system_admin', 'company_admin'].includes(userRole || '');
+  const isDistributor = userRole === 'distributor';
+  const isSubAccount = userRole === 'sub_account';
 
   return (
     <div className="space-y-6">
@@ -71,8 +73,30 @@ export default function OrderDetail({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {/* draft: 접수 제출 (모든 역할) */}
-            {order.status === 'draft' && (
+            {/* draft + sub_account: 제출 요청 버튼 (본인 주문만) */}
+            {order.status === 'draft' && isSubAccount && order.user_id === user?.id && (
+              <Button
+                variant="primary"
+                onClick={onSubmit}
+                loading={actionLoading}
+              >
+                제출 요청
+              </Button>
+            )}
+
+            {/* draft + distributor: 접수 제출 버튼 (본인 + 하부계정 주문) */}
+            {order.status === 'draft' && isDistributor && (
+              <Button
+                variant="primary"
+                onClick={onSubmit}
+                loading={actionLoading}
+              >
+                접수 제출
+              </Button>
+            )}
+
+            {/* draft + admin: 접수 제출 버튼 */}
+            {order.status === 'draft' && isAdmin && (
               <Button
                 variant="primary"
                 onClick={onSubmit}
@@ -149,11 +173,19 @@ export default function OrderDetail({
           </div>
         </div>
 
+        {/* Reject reason banner */}
+        {order.status === 'rejected' && order.reject_reason && (
+          <div className="mt-4 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
+            <p className="text-xs text-red-500 uppercase mb-1">반려 사유</p>
+            <p className="text-sm text-red-400">{order.reject_reason}</p>
+          </div>
+        )}
+
         {/* Hold reason banner */}
-        {order.status === 'payment_hold' && (order as any).hold_reason && (
+        {order.status === 'payment_hold' && order.hold_reason && (
           <div className="mt-4 p-3 bg-amber-900/20 border border-amber-800/50 rounded-lg">
             <p className="text-xs text-amber-600 uppercase mb-1">보류 사유</p>
-            <p className="text-sm text-amber-400">{(order as any).hold_reason}</p>
+            <p className="text-sm text-amber-400">{order.hold_reason}</p>
           </div>
         )}
 
@@ -171,18 +203,22 @@ export default function OrderDetail({
               {order.company?.name || '-'}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase">총 금액</p>
-            <p className="mt-1 text-sm font-bold text-gray-100">
-              {formatCurrency(order.total_amount)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase">VAT</p>
-            <p className="mt-1 text-sm font-medium text-gray-100">
-              {formatCurrency(order.vat_amount)}
-            </p>
-          </div>
+          {!isSubAccount && (
+            <>
+              <div>
+                <p className="text-xs text-gray-400 uppercase">총 금액</p>
+                <p className="mt-1 text-sm font-bold text-gray-100">
+                  {formatCurrency(order.total_amount)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase">VAT</p>
+                <p className="mt-1 text-sm font-medium text-gray-100">
+                  {formatCurrency(order.vat_amount)}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {order.notes && (
@@ -213,12 +249,16 @@ export default function OrderDetail({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   수량
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  단가
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                  소계
-                </th>
+                {!isSubAccount && (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                      단가
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                      소계
+                    </th>
+                  </>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                   상태
                 </th>
@@ -228,7 +268,7 @@ export default function OrderDetail({
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={isSubAccount ? 4 : 6}
                     className="px-6 py-8 text-center text-sm text-gray-400"
                   >
                     주문 항목이 없습니다.
@@ -269,12 +309,16 @@ export default function OrderDetail({
                       <td className="px-6 py-4 text-sm text-gray-400">
                         {item.quantity}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {formatCurrency(item.unit_price)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-100">
-                        {formatCurrency(item.subtotal)}
-                      </td>
+                      {!isSubAccount && (
+                        <>
+                          <td className="px-6 py-4 text-sm text-gray-400">
+                            {formatCurrency(item.unit_price)}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-100">
+                            {formatCurrency(item.subtotal)}
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-4">
                         <Badge>{getItemStatusLabel(item.status)}</Badge>
                       </td>

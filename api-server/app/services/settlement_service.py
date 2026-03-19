@@ -124,7 +124,8 @@ async def get_settlement_data(
     for item, order, product, user in rows_raw:
         unit_price = int(item.unit_price) if item.unit_price else 0
         quantity = item.quantity or 1
-        subtotal = unit_price * quantity
+        # Use stored subtotal to preserve reduction_rate discounts applied at order time
+        subtotal = int(item.subtotal) if item.subtotal is not None else unit_price * quantity
         cost = _calc_cost(item, product)
         profit = subtotal - cost
         margin_pct = round((profit / subtotal * 100) if subtotal > 0 else 0.0, 2)

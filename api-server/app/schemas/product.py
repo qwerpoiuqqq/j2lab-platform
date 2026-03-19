@@ -20,6 +20,7 @@ class ProductCreate(BaseModel):
     base_price: int | None = None
     cost_price: int | None = None
     reduction_rate: int | None = Field(None, ge=0, le=100)
+    hidden_margin_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
     min_daily_limit: int | None = None
@@ -40,6 +41,7 @@ class ProductUpdate(BaseModel):
     base_price: int | None = None
     cost_price: int | None = None
     reduction_rate: int | None = Field(None, ge=0, le=100)
+    hidden_margin_rate: int | None = Field(None, ge=0, le=100)
     min_work_days: int | None = None
     max_work_days: int | None = None
     min_daily_limit: int | None = None
@@ -61,6 +63,7 @@ class ProductResponse(BaseModel):
     base_price: int | None = None
     cost_price: int | None = None
     reduction_rate: int | None = None
+    hidden_margin_rate: int | None = None
     min_work_days: int | None = None
     max_work_days: int | None = None
     min_daily_limit: int | None = None

@@ -438,7 +438,9 @@ async def on_extraction_complete(
             total_limit=total_limit,
         )
     except Exception:
-        state.error_message = "Auto-assignment failed"
+        error_msg = "자동 배정 중 오류가 발생했습니다. 로그를 확인하세요."
+        state.error_message = error_msg
+        state.updated_at = datetime.now(timezone.utc)
         await db.flush()
         logger.exception(
             "Auto-assignment failed for OrderItem %s",
@@ -479,8 +481,12 @@ async def on_extraction_complete(
                 action,
             )
     else:
-        suggestion = assignment_result.suggestion or assignment_result.error or "No account available"
-        state.error_message = f"Auto-assignment: {suggestion}"
+        suggestion = assignment_result.suggestion or assignment_result.error or "배정 가능한 계정이 없습니다."
+        error_msg = f"자동 배정 실패: {suggestion}"
+        # Stay at current stage (extraction_done) — just record the error message
+        # so the UI shows a clear warning without breaking the state machine.
+        state.error_message = error_msg
+        state.updated_at = datetime.now(timezone.utc)
         await db.flush()
         logger.info(
             "Auto-assignment could not assign OrderItem %s: %s",
@@ -642,8 +648,8 @@ async def on_assignment_confirmed(
         place_name = extraction_job.place_name
 
     campaign_type = item_data.get("campaign_type", "traffic")
-    daily_limit = item_data.get("daily_limit", 300)
-    total_limit = item_data.get("total_limit")
+    original_daily = item_data.get("daily_limit", 300)
+    original_total = item_data.get("total_limit")
     start_date = _parse_start_date(item_data)
     end_days = item_data.get("duration_days", 30)
     end_date = start_date + timedelta(days=end_days)
@@ -663,6 +669,21 @@ async def on_assignment_confirmed(
         if acc:
             network_preset_id = acc.network_preset_id
 
+    # 감은 비율(hidden_margin_rate) 적용: 실제 superap 세팅값은 감은 후 타수
+    product = await db.get(Product, item.product_id)
+    margin_rate = (product.hidden_margin_rate or 0) if product else 0
+    if margin_rate > 0:
+        actual_daily = int(original_daily * (100 - margin_rate) / 100)
+        actual_total = int(original_total * (100 - margin_rate) / 100) if original_total else None
+        logger.info(
+            "Applying hidden_margin_rate=%d%% to OrderItem %s: daily %d->%d, total %s->%s",
+            margin_rate, order_item_id, original_daily, actual_daily,
+            original_total, actual_total,
+        )
+    else:
+        actual_daily = original_daily
+        actual_total = original_total
+
     campaign = await campaign_service.create_campaign(
         db,
         CampaignCreate(
@@ -673,8 +694,8 @@ async def on_assignment_confirmed(
             campaign_type=campaign_type,
             start_date=start_date,
             end_date=end_date,
-            daily_limit=daily_limit,
-            total_limit=total_limit,
+            daily_limit=actual_daily,
+            total_limit=actual_total,
             superap_account_id=item.assigned_account_id,
             network_preset_id=network_preset_id,
             company_id=order.company_id,
@@ -683,6 +704,11 @@ async def on_assignment_confirmed(
             managed_by=item.assigned_by,
         ),
     )
+
+    # 원래 접수 타수를 campaign에 저장 (총판/하부 계정에게 보여줄 값)
+    if margin_rate > 0:
+        campaign.original_daily_limit = original_daily
+        campaign.original_total_limit = original_total
 
     if extraction_job:
         campaign.extraction_job_id = extraction_job.id

@@ -102,6 +102,7 @@ export interface Product {
   base_price: number;
   cost_price?: number;
   reduction_rate?: number;
+  hidden_margin_rate?: number;
   min_work_days?: number;
   max_work_days?: number;
   min_daily_limit?: number;
@@ -152,6 +153,7 @@ export interface Order {
   submitted_at?: string;
   payment_confirmed_by?: string;
   payment_confirmed_at?: string;
+  reject_reason?: string;
   hold_reason?: string;
   payment_checked_by?: string;
   payment_checked_at?: string;
@@ -246,6 +248,8 @@ export interface Campaign {
   module_context?: any;
   conversion_threshold_handled?: boolean;
   last_keyword_change?: string;
+  original_daily_limit?: number;
+  original_total_limit?: number;
   created_at: string;
   updated_at?: string;
 }

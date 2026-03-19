@@ -74,6 +74,7 @@ class DashboardSummaryResponse(BaseModel):
     pipeline_overview: list[dict[str, object]]
     recent_orders: list[OrderBriefResponse]
     user_role: str
+    stuck_pipelines: int = 0
 
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
@@ -139,6 +140,28 @@ async def get_dashboard_summary(
         OrderBriefResponse.model_validate(o) for o in recent_q.scalars().all()
     ]
 
+    # Stuck pipelines: extraction_done with an error_message (auto-assign failed)
+    stuck_pipelines = 0
+    if _can_see_campaigns(current_user):
+        from app.models.pipeline_state import PipelineState as PS
+        stuck_q = select(func.count()).select_from(PS).where(
+            PS.current_stage == "extraction_done",
+            PS.error_message.isnot(None),
+        )
+        if UserRole(current_user.role) != UserRole.SYSTEM_ADMIN:
+            stuck_q = (
+                select(func.count()).select_from(PS)
+                .join(OrderItem, PS.order_item_id == OrderItem.id)
+                .join(Order, OrderItem.order_id == Order.id)
+                .where(
+                    PS.current_stage == "extraction_done",
+                    PS.error_message.isnot(None),
+                    Order.company_id == current_user.company_id,
+                )
+            )
+        stuck_count_q = await db.execute(stuck_q)
+        stuck_pipelines = int(stuck_count_q.scalar() or 0)
+
     return DashboardSummaryResponse(
         total_orders=total_orders,
         active_campaigns=active_campaigns,
@@ -149,6 +172,7 @@ async def get_dashboard_summary(
         pipeline_overview=pipeline_overview,
         recent_orders=recent_orders,
         user_role=current_user.role,
+        stuck_pipelines=stuck_pipelines,
     )
 
 

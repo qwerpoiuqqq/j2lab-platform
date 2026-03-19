@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.campaign import Campaign, CampaignStatus
 from app.models.campaign_keyword_pool import CampaignKeywordPool
+from app.models.order import OrderItem
 from app.schemas.campaign import CampaignCreate, CampaignUpdate
 
 
@@ -145,10 +146,40 @@ async def create_campaign(
 async def update_campaign(
     db: AsyncSession, campaign: Campaign, data: CampaignUpdate
 ) -> Campaign:
-    """Update a campaign with partial data."""
+    """Update a campaign with partial data.
+
+    When daily_limit or total_limit changes, sync the linked OrderItem's item_data
+    so that the original (pre-margin) values recorded there remain the source of truth
+    for billing, while also updating original_daily_limit / original_total_limit on
+    the campaign to reflect the new intent.
+    """
     update_data = data.model_dump(exclude_unset=True)
+    limit_changed = "daily_limit" in update_data or "total_limit" in update_data
+
     for key, value in update_data.items():
         setattr(campaign, key, value)
+
+    # Sync connected OrderItem when limits are directly modified
+    if limit_changed and campaign.order_item_id:
+        oi_result = await db.execute(
+            select(OrderItem).where(OrderItem.id == campaign.order_item_id)
+        )
+        order_item = oi_result.scalar_one_or_none()
+        if order_item is not None:
+            item_data = dict(order_item.item_data or {})
+            if "daily_limit" in update_data:
+                item_data["daily_limit"] = update_data["daily_limit"]
+            if "total_limit" in update_data:
+                item_data["total_limit"] = update_data["total_limit"]
+            order_item.item_data = item_data
+
+            # Also update original limits on campaign to keep them in sync
+            # (direct edit bypasses margin — treat new value as the intended original)
+            if "daily_limit" in update_data:
+                campaign.original_daily_limit = update_data["daily_limit"]
+            if "total_limit" in update_data:
+                campaign.original_total_limit = update_data["total_limit"]
+
     await db.flush()
     await db.refresh(campaign)
     return campaign

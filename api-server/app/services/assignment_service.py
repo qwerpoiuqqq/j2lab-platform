@@ -105,11 +105,12 @@ async def auto_assign(
     )
 
     if network_preset is None:
-        # All networks exhausted
+        # All networks exhausted — provide a specific Korean message
         opposite_type = "save" if campaign_type == "traffic" else "traffic"
+        type_label = "트래픽" if campaign_type == "traffic" else "저장하기"
         result.suggestion = (
-            f"All {campaign_type} networks exhausted for this place. "
-            f"Consider using '{opposite_type}' campaign type instead."
+            f"회사에 '{type_label}' 타입 네트워크 프리셋이 설정되어 있지 않거나 모두 소진되었습니다. "
+            f"네트워크 설정을 확인하거나 '{opposite_type}' 타입으로 변경을 고려하세요."
         )
         result.campaign_type = campaign_type
         return result
@@ -123,7 +124,8 @@ async def auto_assign(
 
     if account is None:
         result.error = (
-            f"No active accounts found for network preset '{network_preset.name}'"
+            f"네트워크 '{network_preset.name}'에 활성 계정이 없습니다. "
+            "superap 계정을 추가하거나 기존 계정을 활성화해 주세요."
         )
         return result
 

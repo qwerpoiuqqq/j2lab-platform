@@ -99,6 +99,10 @@ class Campaign(Base):
     total_limit: Mapped[Optional[int]] = mapped_column(Integer)
     current_conversions: Mapped[int] = mapped_column(Integer, default=0)
 
+    # === 감은 비율 보존 (원래 접수 타수) ===
+    original_daily_limit: Mapped[Optional[int]] = mapped_column(Integer)  # 감기 전 일 타수
+    original_total_limit: Mapped[Optional[int]] = mapped_column(Integer)  # 감기 전 총 타수
+
     # === Module Results ===
     landmark_name: Mapped[Optional[str]] = mapped_column(String(200))
     step_count: Mapped[Optional[int]] = mapped_column(Integer)

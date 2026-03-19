@@ -78,6 +78,28 @@ admin_checker = RoleChecker([
     UserRole.ORDER_HANDLER,
 ])
 
+# Roles that must NOT see hidden margin details
+_MASKED_ROLES = {UserRole.DISTRIBUTOR, UserRole.SUB_ACCOUNT}
+
+
+def _mask_campaign_for_role(campaign: Campaign, user_role: UserRole) -> CampaignResponse:
+    """Return CampaignResponse with limits masked for distributor/sub_account.
+
+    총판/하부 계정에게는 실제 세팅값(감은 후) 대신 원래 접수 타수를 반환한다.
+    감은 사실 자체를 절대 노출하지 않는다.
+    """
+    resp = CampaignResponse.model_validate(campaign)
+    if user_role in _MASKED_ROLES:
+        # original_*_limit가 있으면 해당 값으로 교체 (감기 전 원래 타수)
+        if campaign.original_daily_limit is not None:
+            resp.daily_limit = campaign.original_daily_limit
+        if campaign.original_total_limit is not None:
+            resp.total_limit = campaign.original_total_limit
+        # 감은 비율 관련 필드 숨김
+        resp.original_daily_limit = None
+        resp.original_total_limit = None
+    return resp
+
 
 # =====================================================================
 # Literal routes FIRST (before /{campaign_id} parameterized routes)
@@ -124,7 +146,7 @@ async def list_campaigns(
         search=search,
     )
     return PaginatedResponse.create(
-        items=[CampaignResponse.model_validate(c) for c in campaigns],
+        items=[_mask_campaign_for_role(c, user_role) for c in campaigns],
         total=total,
         page=pagination.page,
         size=pagination.size,
@@ -411,7 +433,7 @@ async def download_upload_template():
 async def get_campaign(
     campaign_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get campaign details."""
     campaign = await campaign_service.get_campaign_by_id(db, campaign_id)
@@ -420,7 +442,8 @@ async def get_campaign(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Campaign not found",
         )
-    return campaign
+    user_role = UserRole(current_user.role)
+    return _mask_campaign_for_role(campaign, user_role)
 
 
 @router.patch("/{campaign_id}", response_model=CampaignResponse)

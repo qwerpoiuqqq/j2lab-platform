@@ -183,13 +183,22 @@ async def get_orders(
             query = query.where(Order.user_id.in_(line_ids))
             count_query = count_query.where(Order.user_id.in_(line_ids))
         elif user_role == UserRole.DISTRIBUTOR:
-            # distributor sees own orders + sub_account orders
+            # distributor sees own orders (all statuses)
+            # + sub_account orders (submitted 이상만 — draft는 제출 전이므로 숨김)
             sub_query = select(User.id).where(User.parent_id == current_user.id)
             query = query.where(
-                (Order.user_id == current_user.id) | Order.user_id.in_(sub_query)
+                (Order.user_id == current_user.id)
+                | (
+                    Order.user_id.in_(sub_query)
+                    & (Order.status != OrderStatus.DRAFT.value)
+                )
             )
             count_query = count_query.where(
-                (Order.user_id == current_user.id) | Order.user_id.in_(sub_query)
+                (Order.user_id == current_user.id)
+                | (
+                    Order.user_id.in_(sub_query)
+                    & (Order.status != OrderStatus.DRAFT.value)
+                )
             )
         elif user_role == UserRole.SUB_ACCOUNT:
             query = query.where(Order.user_id == current_user.id)
@@ -558,6 +567,7 @@ async def reject_order(
         )
 
     order.status = OrderStatus.REJECTED.value
+    order.reject_reason = reason
     order.notes = (order.notes or "") + f"\n[Reject reason]: {reason}"
 
     # Cascade: cancel all related order items (배정 대기열에서 제외)

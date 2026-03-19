@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OrderList from '@/components/features/orders/OrderList';
+import SubAccountOrders from '@/components/features/orders/SubAccountOrders';
 import Pagination from '@/components/common/Pagination';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
@@ -10,6 +11,7 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   TrashIcon,
+  InboxStackIcon,
 } from '@heroicons/react/24/outline';
 import type { Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth';
@@ -66,6 +68,7 @@ export default function OrdersPage() {
 
   const canCreate = user && ['system_admin', 'company_admin', 'distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
+  const isDistributor = user?.role === 'distributor';
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -207,6 +210,16 @@ export default function OrdersPage() {
           )}
         </div>
       </div>
+
+      {isDistributor && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <InboxStackIcon className="h-4 w-4 text-cyan-400" />
+            <h2 className="text-sm font-semibold text-gray-300">하부계정 대기 접수건</h2>
+          </div>
+          <SubAccountOrders />
+        </div>
+      )}
 
       {canBulk && selectedIds.size > 0 && (
         <div className="flex items-center gap-3 bg-primary-900/20 border border-primary-800 rounded-lg p-3">

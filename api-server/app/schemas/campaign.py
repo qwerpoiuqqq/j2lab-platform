@@ -104,6 +104,8 @@ class CampaignResponse(BaseModel):
     network_preset_id: int | None = None
     company_id: int | None = None
     managed_by: uuid.UUID | None = None
+    original_daily_limit: int | None = None
+    original_total_limit: int | None = None
     created_at: datetime
     updated_at: datetime | None = None
 

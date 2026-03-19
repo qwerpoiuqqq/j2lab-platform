@@ -9,6 +9,7 @@ import {
   getOrderStatusLabel,
   getRoleLabel,
 } from '@/utils/format';
+import { useAuthStore } from '@/store/auth';
 
 interface OrderListProps {
   orders: Order[];
@@ -66,6 +67,8 @@ function getOrderTypeBadgeClass(orderType?: string): string {
 
 export default function OrderList({ orders, loading, selectable, selectedIds, onToggleSelect }: OrderListProps) {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const canViewPrices = user?.role !== 'sub_account';
 
   const columns: Column<Order>[] = [
     ...(selectable
@@ -102,9 +105,14 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '주문자',
       render: (order) => (
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-gray-100 font-medium">{order.user?.name || order.user_id || '-'}</span>
-            {order.user?.role && (
+            {order.user?.role === 'sub_account' && (
+              <span className="inline-block bg-violet-900/40 text-violet-400 px-1.5 py-0.5 rounded text-[10px] leading-none font-medium">
+                하부
+              </span>
+            )}
+            {order.user?.role && order.user.role !== 'sub_account' && (
               <span className="inline-block bg-surface-raised text-gray-400 px-1.5 py-0.5 rounded text-[10px] leading-none font-medium">
                 {getRoleLabel(order.user.role)}
               </span>
@@ -120,36 +128,68 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
     },
     {
       key: 'item_count',
-      header: '항목수',
+      header: '플레이스 / 상품',
       render: (order) => {
         const count = order.item_count || order.items?.length || 0;
+        // Extract place name from first item's item_data
+        const placeName = order.items?.[0]?.item_data?.place_name as string | undefined;
+        // Derive campaign type badges
+        const types = new Set<string>();
+        order.items?.forEach((item) => {
+          const ct = (item.item_data as any)?.campaign_type as string | undefined;
+          const pname = item.product?.name || '';
+          if (ct === 'traffic' || pname.includes('트래픽')) types.add('traffic');
+          else if (ct === 'save' || pname.includes('저장')) types.add('save');
+        });
         const productNames = order.items
           ?.map((item) => item.product?.name)
           .filter(Boolean);
         const uniqueNames = productNames ? [...new Set(productNames)] : [];
         return (
-          <div>
-            <span className="text-gray-100 font-medium">{count}건</span>
-            {uniqueNames.length > 0 && (
-              <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[120px]">
-                {uniqueNames.join(', ')}
-              </p>
+          <div className="flex flex-col gap-0.5">
+            {placeName ? (
+              <span className="text-gray-100 font-medium text-sm truncate max-w-[160px]">
+                {placeName}
+              </span>
+            ) : (
+              <span className="text-gray-100 font-medium">{count}건</span>
             )}
+            <div className="flex items-center gap-1 flex-wrap">
+              {types.has('traffic') && (
+                <span className="inline-block bg-blue-900/40 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
+                  트래픽
+                </span>
+              )}
+              {types.has('save') && (
+                <span className="inline-block bg-emerald-900/40 text-emerald-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
+                  저장
+                </span>
+              )}
+              {types.size === 0 && uniqueNames.length > 0 && (
+                <p className="text-[11px] text-gray-400 truncate max-w-[140px]">
+                  {uniqueNames.join(', ')}
+                </p>
+              )}
+            </div>
           </div>
         );
       },
     },
-    {
-      key: 'total_amount',
-      header: '금액',
-      render: (order) => (
-        <div className="text-right">
-          <span className="font-medium text-gray-100 tabular-nums">
-            {formatCurrency(order.total_amount)}
-          </span>
-        </div>
-      ),
-    },
+    ...(canViewPrices
+      ? [
+          {
+            key: 'total_amount' as keyof Order,
+            header: '금액',
+            render: (order: Order) => (
+              <div className="text-right">
+                <span className="font-medium text-gray-100 tabular-nums">
+                  {formatCurrency(order.total_amount)}
+                </span>
+              </div>
+            ),
+          },
+        ]
+      : []),
     {
       key: 'order_type',
       header: '유형',

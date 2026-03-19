@@ -171,6 +171,9 @@ class Order(Base):
         DateTime(timezone=True),
     )
 
+    # Reject reason (set on rejection, separate from notes)
+    reject_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Payment hold fields
     hold_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     payment_checked_by: Mapped[Optional[uuid.UUID]] = mapped_column(

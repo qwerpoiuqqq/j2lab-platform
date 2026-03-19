@@ -5,6 +5,7 @@ import { getCalcFormula, getDateCalcFormula, getDateDiffFormula } from '@/utils/
 import { placesApi, type PlaceRecommendationV2 } from '@/api/places';
 import { useAuthStore } from '@/store/auth';
 import Button from '@/components/common/Button';
+import Modal from '@/components/common/Modal';
 import {
   PlusIcon,
   TrashIcon,
@@ -181,6 +182,8 @@ export default function OrderGrid({
 }: OrderGridProps) {
   const [rows, setRows] = useState<OrderGridRow[]>([computeRow(createEmptyRow(schema), schema)]);
   const [notes, setNotes] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [hasTodayRows, setHasTodayRows] = useState(false);
   const user = useAuthStore((s) => s.user);
 
   // AI recommendation state per row
@@ -407,6 +410,18 @@ export default function OrderGrid({
         }
       }
     }
+
+    // 당일 구동건 체크 후 확인 모달 표시
+    const today = new Date().toISOString().split('T')[0];
+    const todayFound = rows.some((row) => {
+      return Object.values(row).some((v) => v === today);
+    });
+    setHasTodayRows(todayFound);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmedSubmit = () => {
+    setConfirmOpen(false);
     onSubmit(rows, notes);
   };
 
@@ -661,6 +676,38 @@ export default function OrderGrid({
           주문 제출 ({formatNumber(rows.length)}건)
         </Button>
       </div>
+
+      {/* 발주 확인 모달 */}
+      <Modal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="발주 확인"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleConfirmedSubmit}>
+              확인 및 제출
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-gray-300">
+          <p>
+            작업 발주건에 대한 잘못 기입하신 건의 책임은 귀하에게 있으며, 한번 더 체크 후 발주 부탁드립니다.
+          </p>
+          {hasTodayRows && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-700/50 bg-amber-900/20 px-3 py-2.5 text-amber-400">
+              <ExclamationTriangleIcon className="h-4 w-4 shrink-0 mt-0.5" />
+              <p>
+                작업 발주건에 당일 구동건이 포함되어 있습니다. 바로 캠페인 구동이 시작되며, 오기입에 대한 책임은 귀하에게 있습니다.
+              </p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -787,7 +834,7 @@ function GridCell({ field, value, onChange, onKeyDown, rowIdx, colIdx, disabled 
 
     case 'date':
       return (
-        <input type="date" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} className={baseClass} disabled={disabled} {...dataAttrs} />
+        <input type="date" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} className={baseClass} min={new Date().toISOString().split('T')[0]} disabled={disabled} {...dataAttrs} />
       );
 
     case 'select':
