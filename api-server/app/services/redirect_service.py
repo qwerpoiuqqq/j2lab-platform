@@ -28,6 +28,7 @@ BRIDGE_NAVER_APP = (
 MAP_TAB_URLS = {
     "map": "https://app.map.naver.com/launchApp/map",
     "map?tab=discovery": "https://app.map.naver.com/launchApp/map?tab=discovery",
+    "map?tab=booking": "https://app.map.naver.com/launchApp/map?tab=booking",
     "map?tab=navi": "https://app.map.naver.com/launchApp/map?tab=navi",
     "map?tab=pubtrans": "https://app.map.naver.com/launchApp/map?tab=pubtrans",
     "map?tab=bookmark": (
@@ -44,27 +45,27 @@ MAP_TAB_URLS = {
 DEFAULT_REDIRECT_CONFIG = {
     "channels": {
         "naver_app": {
-            "weight": 40,
+            "weight": 25,
             "sub": {
-                "home": {"weight": 85},
-                "blog": {"weight": 15},
+                "home": {"weight": 97},
+                "blog": {"weight": 3},
             },
         },
         "map_app": {
-            "weight": 30,
+            "weight": 50,
             "tabs": {
-                "map": {"weight": 25},
-                "map?tab=discovery": {"weight": 30},
+                "map?tab=discovery": {"weight": 25},
+                "map?tab=booking": {"weight": 20},
                 "map?tab=navi": {"weight": 20},
                 "map?tab=pubtrans": {"weight": 15},
-                "map?tab=bookmark": {"weight": 10},
+                "map?tab=bookmark": {"weight": 20},
             },
         },
         "browser": {
-            "weight": 30,
+            "weight": 25,
             "sub": {
-                "home": {"weight": 85},
-                "blog": {"weight": 15},
+                "home": {"weight": 97},
+                "blog": {"weight": 3},
             },
         },
     },
