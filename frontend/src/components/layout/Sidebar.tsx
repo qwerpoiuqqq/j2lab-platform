@@ -52,16 +52,30 @@ const navItems: NavItem[] = [
     allowedRoles: ALL_ROLES,
   },
   {
-    name: '주문 접수',
-    path: '/orders/grid',
-    icon: TableCellsIcon,
-    allowedRoles: ['system_admin', 'company_admin', 'distributor', 'sub_account'],
-  },
-  {
     name: '주문 관리',
     path: '/orders',
     icon: ClipboardDocumentListIcon,
     allowedRoles: ALL_ROLES,
+    children: [
+      {
+        name: '주문 접수',
+        path: '/orders/grid',
+        icon: TableCellsIcon,
+        allowedRoles: ALL_ROLES,
+      },
+      {
+        name: '마감 캘린더',
+        path: '/calendar',
+        icon: CalendarIcon,
+        allowedRoles: ['system_admin', 'company_admin', 'order_handler', 'distributor'],
+      },
+      {
+        name: '마감 처리',
+        path: '/orders/deadline-batch',
+        icon: DocumentTextIcon,
+        allowedRoles: ['system_admin', 'company_admin', 'order_handler'],
+      },
+    ],
   },
   {
     name: '캠페인 관리',
@@ -170,12 +184,6 @@ const navItems: NavItem[] = [
         allowedRoles: ['system_admin'],
       },
     ],
-  },
-  {
-    name: '마감 캘린더',
-    path: '/calendar',
-    icon: CalendarIcon,
-    allowedRoles: ['system_admin', 'company_admin', 'order_handler', 'distributor'],
   },
   {
     name: '공지사항',

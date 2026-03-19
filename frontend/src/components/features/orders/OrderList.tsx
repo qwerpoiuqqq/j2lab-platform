@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '@/types';
 import Table, { type Column } from '@/components/common/Table';
-import Badge from '@/components/common/Badge';
 import {
   formatCurrency,
   formatDateTime,
@@ -13,14 +12,14 @@ import { useAuthStore } from '@/store/auth';
 
 // Unified status for dashboard / external consumers
 const unifiedStatusMap: Record<string, { color: string; dotColor: string; label: string }> = {
-  draft:             { color: 'bg-surface-raised text-gray-500 ring-gray-500/20',    dotColor: 'bg-gray-500',    label: '임시저장' },
-  submitted:         { color: 'bg-blue-900/40 text-blue-400 ring-blue-400/20',       dotColor: 'bg-blue-400',    label: '접수완료' },
-  payment_confirmed: { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '입금확인' },
-  payment_hold:      { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '보류' },
-  processing:        { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',    dotColor: 'bg-amber-400',   label: '처리중' },
+  draft:             { color: 'bg-surface-raised text-gray-500 ring-gray-500/20',       dotColor: 'bg-gray-500',    label: '임시저장' },
+  submitted:         { color: 'bg-blue-900/40 text-blue-400 ring-blue-400/20',          dotColor: 'bg-blue-400',    label: '접수완료' },
+  payment_confirmed: { color: 'bg-cyan-900/40 text-cyan-400 ring-cyan-400/20',          dotColor: 'bg-cyan-400',    label: '입금확인' },
+  payment_hold:      { color: 'bg-amber-900/40 text-amber-400 ring-amber-400/20',       dotColor: 'bg-amber-400',   label: '보류' },
+  processing:        { color: 'bg-indigo-900/40 text-indigo-400 ring-indigo-400/20',    dotColor: 'bg-indigo-400',  label: '처리중' },
   completed:         { color: 'bg-emerald-900/40 text-emerald-400 ring-emerald-400/20', dotColor: 'bg-emerald-400', label: '완료' },
-  cancelled:         { color: 'bg-red-900/40 text-red-400 ring-red-400/20',          dotColor: 'bg-red-400',     label: '취소' },
-  rejected:          { color: 'bg-red-900/40 text-red-400 ring-red-400/20',          dotColor: 'bg-red-400',     label: '반려' },
+  cancelled:         { color: 'bg-surface-raised text-gray-500 ring-gray-500/20',       dotColor: 'bg-gray-500',    label: '취소' },
+  rejected:          { color: 'bg-red-900/40 text-red-400 ring-red-400/20',             dotColor: 'bg-red-400',     label: '반려' },
 };
 
 export function getUnifiedStatus(order: Order) {
@@ -35,18 +34,18 @@ interface OrderListProps {
   onToggleSelect?: (id: number) => void;
 }
 
-function getStatusBadgeVariant(status: string) {
-  const map: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    draft: 'default',
-    submitted: 'info',
-    payment_confirmed: 'success',
-    payment_hold: 'warning',
-    processing: 'warning',
-    completed: 'success',
-    cancelled: 'danger',
-    rejected: 'danger',
+function getStatusBadgeClass(status: string): string {
+  const map: Record<string, string> = {
+    draft:             'bg-surface-raised text-gray-500',
+    submitted:         'bg-blue-900/40 text-blue-400',
+    payment_confirmed: 'bg-cyan-900/40 text-cyan-400',
+    payment_hold:      'bg-amber-900/40 text-amber-400',
+    processing:        'bg-indigo-900/40 text-indigo-400',
+    completed:         'bg-emerald-900/40 text-emerald-400',
+    cancelled:         'bg-surface-raised text-gray-500',
+    rejected:          'bg-red-900/40 text-red-400',
   };
-  return map[status] || 'default';
+  return map[status] || 'bg-surface-raised text-gray-500';
 }
 
 function getStatusIcon(status: string): string {
@@ -147,41 +146,52 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '플레이스 / 상품',
       render: (order) => {
         const count = order.item_count || order.items?.length || 0;
-        // Extract place name from first item's item_data
-        const placeName = order.items?.[0]?.item_data?.place_name as string | undefined;
-        // Derive campaign type badges
-        const types = new Set<string>();
-        order.items?.forEach((item) => {
-          const ct = (item.item_data as any)?.campaign_type as string | undefined;
-          const pname = item.product?.name || '';
-          if (ct === 'traffic' || pname.includes('트래픽')) types.add('traffic');
-          else if (ct === 'save' || pname.includes('저장')) types.add('save');
-        });
+        // Collect all unique place names
+        const placeNames = order.items
+          ?.map((item) => (item.item_data as any)?.place_name as string | undefined)
+          .filter(Boolean) as string[];
+        const uniquePlaces = [...new Set(placeNames)];
+        const placeLabel =
+          uniquePlaces.length > 1
+            ? `${uniquePlaces[0]} 외 ${uniquePlaces.length - 1}건`
+            : uniquePlaces[0] || null;
+        // Derive campaign type badges directly from campaign_type field
+        const campaignTypes = order.items
+          ?.map((item) => (item.item_data as any)?.campaign_type as string | undefined)
+          .filter(Boolean) as string[];
+        const uniqueTypes = [...new Set(campaignTypes)];
         const productNames = order.items
           ?.map((item) => item.product?.name)
-          .filter(Boolean);
-        const uniqueNames = productNames ? [...new Set(productNames)] : [];
+          .filter(Boolean) as string[];
+        const uniqueNames = [...new Set(productNames)];
         return (
           <div className="flex flex-col gap-0.5">
-            {placeName ? (
-              <span className="text-gray-100 font-medium text-sm truncate max-w-[160px]">
-                {placeName}
-              </span>
+            {placeLabel ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-gray-100 font-medium text-sm truncate max-w-[140px]">
+                  {uniquePlaces[0]}
+                </span>
+                {uniquePlaces.length > 1 && (
+                  <span className="text-gray-500 text-xs whitespace-nowrap">
+                    외 {uniquePlaces.length - 1}건
+                  </span>
+                )}
+              </div>
             ) : (
               <span className="text-gray-100 font-medium">{count}건</span>
             )}
             <div className="flex items-center gap-1 flex-wrap">
-              {types.has('traffic') && (
+              {uniqueTypes.includes('traffic') && (
                 <span className="inline-block bg-blue-900/40 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
                   트래픽
                 </span>
               )}
-              {types.has('save') && (
+              {uniqueTypes.includes('save') && (
                 <span className="inline-block bg-emerald-900/40 text-emerald-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
                   저장
                 </span>
               )}
-              {types.size === 0 && uniqueNames.length > 0 && (
+              {uniqueTypes.length === 0 && uniqueNames.length > 0 && (
                 <p className="text-[11px] text-gray-400 truncate max-w-[140px]">
                   {uniqueNames.join(', ')}
                 </p>
@@ -222,10 +232,12 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       key: 'status',
       header: '상태',
       render: (order) => (
-        <Badge variant={getStatusBadgeVariant(order.status)}>
-          <span className="mr-1">{getStatusIcon(order.status)}</span>
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${getStatusBadgeClass(order.status)} ${order.status === 'cancelled' ? 'line-through' : ''}`}
+        >
+          <span>{getStatusIcon(order.status)}</span>
           {getOrderStatusLabel(order.status)}
-        </Badge>
+        </span>
       ),
     },
     {

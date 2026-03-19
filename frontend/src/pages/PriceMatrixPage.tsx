@@ -5,7 +5,11 @@ import Modal from '@/components/common/Modal';
 import { formatCurrency } from '@/utils/format';
 import { pricesApi } from '@/api/prices';
 import { categoriesApi } from '@/api/categories';
-import type { Category } from '@/types';
+import { productsApi } from '@/api/products';
+import { campaignAccountsApi } from '@/api/campaignAccounts';
+import { networkPresetsApi } from '@/api/networkPresets';
+import { useAuthStore } from '@/store/auth';
+import type { Category, Product, SuperapAccount, NetworkPreset } from '@/types';
 import type { RoleMatrixRow, UserMatrixResponse } from '@/api/prices';
 
 // ---------------------------------------------------------------------------
@@ -45,7 +49,343 @@ interface MatrixProduct {
   base_price: number;
 }
 
-type Tab = 'role' | 'user';
+type Tab = 'role' | 'user' | 'margin';
+
+// ---------------------------------------------------------------------------
+// Margin color helper
+// ---------------------------------------------------------------------------
+
+function getMarginColor(marginPct: number): string {
+  if (marginPct >= 40) return 'text-emerald-400';
+  if (marginPct >= 20) return 'text-cyan-400';
+  if (marginPct > 0) return 'text-amber-400';
+  return 'text-red-400';
+}
+
+// ---------------------------------------------------------------------------
+// MarginAnalysisTable
+// ---------------------------------------------------------------------------
+
+interface MarginRow {
+  product: Product;
+  accounts: SuperapAccount[];
+  presets: NetworkPreset[];
+}
+
+function MarginAnalysisTable({
+  rows,
+  canEdit,
+  onUpdateHiddenMarginRate,
+}: {
+  rows: MarginRow[];
+  canEdit: boolean;
+  onUpdateHiddenMarginRate: (productId: number, rate: number) => Promise<void>;
+}) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState<number>(0);
+  const [saving, setSaving] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+
+  const handleStartEdit = (product: Product) => {
+    if (!canEdit) return;
+    setEditingId(product.id);
+    setEditValue(product.hidden_margin_rate ?? 0);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveEdit = async (productId: number) => {
+    setSaving(true);
+    try {
+      await onUpdateHiddenMarginRate(productId, editValue);
+      setEditingId(null);
+    } catch {
+      // error handled by parent
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleExpand = (productId: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-surface rounded-xl border border-border p-8 text-center text-gray-400 text-sm">
+        등록된 상품이 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-raised">
+              <th className="text-left px-4 py-3 text-gray-400 font-medium min-w-[200px]">
+                상품명
+              </th>
+              <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
+                기본단가
+              </th>
+              <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
+                참고원가
+              </th>
+              <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
+                감은비율
+              </th>
+              <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
+                실제세팅
+              </th>
+              <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
+                마진율
+              </th>
+              <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap w-10">
+                네트워크
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => {
+              const { product, accounts, presets } = row;
+              const hiddenRate = product.hidden_margin_rate ?? 0;
+              const actualSettingPct = 100 - hiddenRate;
+              const basePrice = product.base_price;
+              const costPrice = product.cost_price;
+              const marginPct =
+                basePrice > 0 && costPrice != null
+                  ? ((basePrice - costPrice) / basePrice) * 100
+                  : null;
+              const isExpanded = expandedIds.has(product.id);
+              const hasNetworkData = accounts.length > 0 || presets.length > 0;
+
+              return (
+                <>
+                  <tr
+                    key={product.id}
+                    className={`border-b border-border-subtle hover:bg-surface-raised/50 transition-colors ${
+                      idx % 2 === 0 ? '' : 'bg-surface-raised/20'
+                    }`}
+                  >
+                    {/* 상품명 */}
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-100">{product.name}</div>
+                      {product.code && (
+                        <div className="text-xs text-gray-500 mt-0.5">{product.code}</div>
+                      )}
+                    </td>
+
+                    {/* 기본단가 */}
+                    <td className="px-4 py-3 text-right text-gray-300 font-mono whitespace-nowrap">
+                      {formatCurrency(basePrice)}
+                    </td>
+
+                    {/* 참고원가 */}
+                    <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                      {costPrice != null ? (
+                        <span className="text-gray-300">{formatCurrency(costPrice)}</span>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </td>
+
+                    {/* 감은비율 */}
+                    <td className="px-4 py-3 text-center">
+                      {editingId === product.id ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={editValue}
+                            onChange={(e) =>
+                              setEditValue(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))
+                            }
+                            className="w-16 px-2 py-1 text-center text-xs border border-border-strong rounded bg-surface text-gray-200 font-mono focus:outline-none focus:ring-1 focus:ring-primary-400/40"
+                            autoFocus
+                          />
+                          <span className="text-xs text-gray-400">%</span>
+                          <button
+                            onClick={() => handleSaveEdit(product.id)}
+                            disabled={saving}
+                            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium px-1"
+                          >
+                            {saving ? '...' : '저장'}
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="text-xs text-gray-500 hover:text-gray-300 px-1"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleStartEdit(product)}
+                          disabled={!canEdit}
+                          title={canEdit ? '클릭하여 수정' : undefined}
+                          className={canEdit ? 'hover:opacity-80 transition-opacity' : 'cursor-default'}
+                        >
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-900/40 text-purple-400">
+                            {hiddenRate}%
+                            {canEdit && (
+                              <svg
+                                className="w-3 h-3 opacity-60"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                />
+                              </svg>
+                            )}
+                          </span>
+                        </button>
+                      )}
+                    </td>
+
+                    {/* 실제세팅 */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm text-gray-300">
+                        {actualSettingPct}타/100타
+                      </span>
+                    </td>
+
+                    {/* 마진율 */}
+                    <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                      {marginPct != null ? (
+                        <span className={`font-semibold ${getMarginColor(marginPct)}`}>
+                          {marginPct.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </td>
+
+                    {/* 네트워크 토글 */}
+                    <td className="px-4 py-3 text-center">
+                      {hasNetworkData ? (
+                        <button
+                          onClick={() => toggleExpand(product.id)}
+                          className="text-gray-500 hover:text-gray-300 transition-colors"
+                          title="네트워크별 원가 보기"
+                        >
+                          <svg
+                            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                      ) : (
+                        <span className="text-gray-700">—</span>
+                      )}
+                    </td>
+                  </tr>
+
+                  {/* 접이식 네트워크 패널 */}
+                  {isExpanded && hasNetworkData && (
+                    <tr key={`${product.id}-network`} className="bg-surface-raised/40">
+                      <td colSpan={7} className="px-6 py-3">
+                        <div className="space-y-2">
+                          {accounts.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wide">
+                                슈퍼앱 계정별 원가
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {accounts.map((acc) => (
+                                  <div
+                                    key={acc.id}
+                                    className="bg-surface rounded-lg border border-border-subtle px-3 py-1.5 text-xs"
+                                  >
+                                    <span className="text-gray-400 mr-1">{acc.user_id_superap}</span>
+                                    <span className="text-cyan-400 font-mono">
+                                      트래픽 {formatCurrency(acc.unit_cost_traffic)}
+                                    </span>
+                                    <span className="text-gray-600 mx-1">/</span>
+                                    <span className="text-blue-400 font-mono">
+                                      저장 {formatCurrency(acc.unit_cost_save)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {presets.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wide">
+                                네트워크 프리셋
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {presets.map((preset) => (
+                                  <div
+                                    key={preset.id}
+                                    className="bg-surface rounded-lg border border-border-subtle px-3 py-1.5 text-xs"
+                                  >
+                                    <span className="text-gray-400 mr-1">{preset.name}</span>
+                                    {preset.cost_price != null ? (
+                                      <span className="text-amber-400 font-mono">
+                                        {formatCurrency(preset.cost_price)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-600">원가 미설정</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-4 py-2 border-t border-border-subtle bg-surface-raised/30">
+        <p className="text-xs text-gray-500">
+          <span className="text-purple-400 font-medium">감은비율</span> = 실제 세팅되지 않는 타수 비율.
+          {canEdit && ' 클릭하면 수정할 수 있습니다 (system_admin 전용).'}
+          {' '}
+          <span className="text-emerald-400">≥40%</span>
+          <span className="text-gray-600 mx-1">/</span>
+          <span className="text-cyan-400">20~40%</span>
+          <span className="text-gray-600 mx-1">/</span>
+          <span className="text-amber-400">0~20%</span>
+          <span className="text-gray-600 mx-1">/</span>
+          <span className="text-red-400">0% 이하</span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // UserCard (유저별 단가 탭용)
@@ -209,6 +549,14 @@ function RoleMatrixTable({
 // ---------------------------------------------------------------------------
 
 export default function PriceMatrixPage() {
+  const { user } = useAuthStore();
+
+  // Role-based access
+  const canViewMargin = ['system_admin', 'company_admin', 'order_handler'].includes(
+    user?.role || '',
+  );
+  const canEditMargin = user?.role === 'system_admin';
+
   // ---- Tab ----
   const [activeTab, setActiveTab] = useState<Tab>('role');
 
@@ -225,6 +573,14 @@ export default function PriceMatrixPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
+
+  // ---- Margin Analysis data ----
+  const [marginProducts, setMarginProducts] = useState<Product[]>([]);
+  const [marginAccounts, setMarginAccounts] = useState<SuperapAccount[]>([]);
+  const [marginPresets, setMarginPresets] = useState<NetworkPreset[]>([]);
+  const [marginLoading, setMarginLoading] = useState(false);
+  const [marginError, setMarginError] = useState<string | null>(null);
+  const [marginFetched, setMarginFetched] = useState(false);
 
   // ---- Role edit modal ----
   const [roleEditOpen, setRoleEditOpen] = useState(false);
@@ -298,6 +654,62 @@ export default function PriceMatrixPage() {
       cancelled = true;
     };
   }, [activeTab, userMatrixFetched]);
+
+  // ---- Fetch margin data (lazy) ----
+  useEffect(() => {
+    if (activeTab !== 'margin' || marginFetched || !canViewMargin) return;
+
+    let cancelled = false;
+    setMarginLoading(true);
+    setMarginError(null);
+
+    Promise.all([
+      productsApi.list({ size: 200, is_active: true }),
+      campaignAccountsApi.list({ size: 200, is_active: true }),
+      networkPresetsApi.list({ size: 200, is_active: true }),
+    ])
+      .then(([productsRes, accountsRes, presetsRes]) => {
+        if (cancelled) return;
+        setMarginProducts(productsRes.items);
+        setMarginAccounts(accountsRes.items);
+        setMarginPresets(presetsRes.items);
+        setMarginLoading(false);
+        setMarginFetched(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setMarginError(err?.response?.data?.detail || '마진 분석 데이터를 불러오지 못했습니다.');
+        setMarginLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, marginFetched, canViewMargin]);
+
+  // ---- Margin rows (memoized) ----
+  const marginRows: MarginRow[] = useMemo(() => {
+    return marginProducts.map((product) => ({
+      product,
+      accounts: marginAccounts,
+      presets: marginPresets,
+    }));
+  }, [marginProducts, marginAccounts, marginPresets]);
+
+  // ---- Update hidden_margin_rate ----
+  const handleUpdateHiddenMarginRate = async (productId: number, rate: number) => {
+    try {
+      await productsApi.update(productId, { hidden_margin_rate: rate });
+      setMarginProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId ? { ...p, hidden_margin_rate: rate } : p,
+        ),
+      );
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '저장에 실패했습니다.');
+      throw err;
+    }
+  };
 
   // ---- Role edit handlers ----
   const handleOpenRoleEdit = (row: RoleMatrixRow, roleId: string) => {
@@ -434,6 +846,18 @@ export default function PriceMatrixPage() {
         >
           유저별 단가
         </button>
+        {canViewMargin && (
+          <button
+            onClick={() => setActiveTab('margin')}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'margin'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            마진 분석
+          </button>
+        )}
       </div>
 
       {/* ================================================================= */}
@@ -498,6 +922,39 @@ export default function PriceMatrixPage() {
                 />
               ))}
             </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================================= */}
+      {/* Tab: 마진 분석                                                    */}
+      {/* ================================================================= */}
+      {activeTab === 'margin' && canViewMargin && (
+        <>
+          {marginLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse bg-surface-raised rounded-xl h-14" />
+              ))}
+            </div>
+          ) : marginError ? (
+            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">
+              {marginError}
+            </div>
+          ) : (
+            <>
+              <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-4 py-3 text-sm text-purple-300">
+                판매가 대비 원가 기준 마진율을 표시합니다.
+                {canEditMargin && (
+                  <> <strong>감은비율</strong>을 클릭하면 인라인 수정할 수 있습니다.</>
+                )}
+              </div>
+              <MarginAnalysisTable
+                rows={marginRows}
+                canEdit={canEditMargin}
+                onUpdateHiddenMarginRate={handleUpdateHiddenMarginRate}
+              />
+            </>
           )}
         </>
       )}

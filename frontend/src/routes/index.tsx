@@ -25,6 +25,7 @@ import SettlementSecretPage from '@/pages/SettlementSecretPage';
 import CalendarPage from '@/pages/CalendarPage';
 import NoticesPage from '@/pages/NoticesPage';
 import SubAccountsPage from '@/pages/SubAccountsPage';
+import DeadlineBatchPage from '@/pages/DeadlineBatchPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -57,6 +58,20 @@ export const router = createBrowserRouter([
           {
             path: '/notices',
             element: <NoticesPage />,
+          },
+          // Order handler routes - system_admin, company_admin, order_handler
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={['system_admin', 'company_admin', 'order_handler']}
+              />
+            ),
+            children: [
+              {
+                path: '/orders/deadline-batch',
+                element: <DeadlineBatchPage />,
+              },
+            ],
           },
           // Campaign routes - system_admin, company_admin, order_handler
           {

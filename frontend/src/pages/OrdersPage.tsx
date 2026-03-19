@@ -12,21 +12,27 @@ import {
   ArrowPathIcon,
   TrashIcon,
   InboxStackIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import type { Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth';
 import { ordersApi } from '@/api/orders';
 import { downloadBlob } from '@/utils/format';
 
-const statusOptions: { value: string; label: string }[] = [
-  { value: '', label: '전체 상태' },
-  { value: 'draft', label: '임시저장' },
-  { value: 'submitted', label: '접수완료' },
-  { value: 'payment_confirmed', label: '입금확인' },
-  { value: 'processing', label: '처리중' },
-  { value: 'completed', label: '완료' },
-  { value: 'cancelled', label: '취소' },
-  { value: 'rejected', label: '반려' },
+type TabKey = 'all' | 'pending' | 'processing' | 'completed' | 'hold';
+
+interface TabDef {
+  key: TabKey;
+  label: string;
+  statuses: OrderStatus[];
+}
+
+const TABS: TabDef[] = [
+  { key: 'all',        label: '전체',      statuses: [] },
+  { key: 'pending',    label: '접수대기',  statuses: ['submitted', 'payment_hold'] },
+  { key: 'processing', label: '처리중',    statuses: ['payment_confirmed', 'processing'] },
+  { key: 'completed',  label: '완료',      statuses: ['completed'] },
+  { key: 'hold',       label: '보류/반려', statuses: ['cancelled', 'rejected', 'payment_hold'] },
 ];
 
 const orderTypeOptions: { value: string; label: string }[] = [
@@ -53,7 +59,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+  const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [orderTypeFilter, setOrderTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -65,10 +71,14 @@ export default function OrdersPage() {
   const [exporting, setExporting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState(false);
+  const [paymentConfirmLoading, setPaymentConfirmLoading] = useState(false);
 
   const canCreate = user && ['system_admin', 'company_admin', 'distributor', 'sub_account'].includes(user.role);
   const canBulk = user && ['system_admin', 'company_admin'].includes(user.role);
+  const canPaymentConfirm = user && ['system_admin', 'company_admin', 'order_handler'].includes(user.role);
   const isDistributor = user?.role === 'distributor';
+  const isPendingTab = activeTab === 'pending';
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -80,16 +90,25 @@ export default function OrdersPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const currentTab = TABS.find((t) => t.key === activeTab)!;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
+    const statusParam =
+      currentTab.statuses.length === 1
+        ? currentTab.statuses[0]
+        : currentTab.statuses.length > 1
+        ? currentTab.statuses.join(',')
+        : undefined;
+
     ordersApi
       .list({
         page,
         size: 20,
-        status: statusFilter || undefined,
+        status: statusParam,
         search: debouncedSearch || undefined,
         order_type: orderTypeFilter || undefined,
       })
@@ -112,7 +131,13 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter, orderTypeFilter, page, refreshKey, debouncedSearch]);
+  }, [activeTab, orderTypeFilter, page, refreshKey, debouncedSearch]);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setPage(1);
+    setSelectedIds(new Set());
+  };
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -166,12 +191,30 @@ export default function OrdersPage() {
     }
   };
 
+  const handleBulkPaymentConfirm = async () => {
+    if (selectedIds.size === 0) return;
+    setPaymentConfirmLoading(true);
+    try {
+      await ordersApi.bulkPaymentConfirm(Array.from(selectedIds));
+      setShowPaymentConfirmModal(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '일괄 입금확인에 실패했습니다.');
+    } finally {
+      setPaymentConfirmLoading(false);
+    }
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
-      const blob = await ordersApi.exportList({
-        status: statusFilter || undefined,
-      });
+      const statusParam =
+        currentTab.statuses.length === 1
+          ? currentTab.statuses[0]
+          : currentTab.statuses.length > 1
+          ? currentTab.statuses.join(',')
+          : undefined;
+      const blob = await ordersApi.exportList({ status: statusParam });
       downloadBlob(blob, `주문목록_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch {
       alert('내보내기에 실패했습니다.');
@@ -180,8 +223,12 @@ export default function OrdersPage() {
     }
   };
 
+  const showSelectAll = (canBulk || (isPendingTab && canPaymentConfirm)) && orders.length > 0;
+  const showBulkActions = selectedIds.size > 0;
+
   return (
     <div className="space-y-6">
+      {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">주문 관리</h1>
@@ -211,7 +258,25 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {isDistributor && (
+      {/* 상태 탭 */}
+      <div className="bg-surface rounded-xl p-1 flex gap-1 overflow-x-auto">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabChange(tab.key)}
+            className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'bg-primary-600 text-white'
+                : 'bg-surface-raised text-gray-400 hover:text-gray-200 hover:bg-surface-raised/80'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 접수대기 탭: 하부계정 대기건 (distributor) */}
+      {isPendingTab && isDistributor && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <InboxStackIcon className="h-4 w-4 text-cyan-400" />
@@ -221,21 +286,36 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {canBulk && selectedIds.size > 0 && (
+      {/* 일괄 액션 바 */}
+      {showBulkActions && (
         <div className="flex items-center gap-3 bg-primary-900/20 border border-primary-800 rounded-lg p-3">
           <span className="text-sm font-medium text-primary-300">{selectedIds.size}건 선택</span>
-          <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
-            일괄 상태변경
-          </Button>
-          <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)} icon={<TrashIcon className="h-3 w-3" />}>
-            일괄 삭제
-          </Button>
+          {isPendingTab && canPaymentConfirm && (
+            <Button
+              size="sm"
+              onClick={() => setShowPaymentConfirmModal(true)}
+              icon={<CheckCircleIcon className="h-3 w-3" />}
+            >
+              일괄 입금확인
+            </Button>
+          )}
+          {canBulk && (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setShowBulkModal(true)} icon={<ArrowPathIcon className="h-3 w-3" />}>
+                일괄 상태변경
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => setShowDeleteModal(true)} icon={<TrashIcon className="h-3 w-3" />}>
+                일괄 삭제
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
             선택 해제
           </Button>
         </div>
       )}
 
+      {/* 검색 + 유형 필터 */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -247,20 +327,6 @@ export default function OrdersPage() {
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-border-strong text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value as OrderStatus | '');
-            setPage(1);
-          }}
-          className="rounded-lg border border-border-strong px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400 bg-surface text-gray-200"
-        >
-          {statusOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
         <select
           value={orderTypeFilter}
           onChange={(e) => {
@@ -283,7 +349,8 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {canBulk && orders.length > 0 && (
+      {/* 전체 선택 체크박스 */}
+      {showSelectAll && (
         <div className="flex items-center gap-2 px-1">
           <input
             type="checkbox"
@@ -298,7 +365,7 @@ export default function OrdersPage() {
       <OrderList
         orders={orders}
         loading={loading}
-        selectable={canBulk || false}
+        selectable={(canBulk || (isPendingTab && canPaymentConfirm)) || false}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
       />
@@ -311,6 +378,30 @@ export default function OrdersPage() {
         pageSize={20}
       />
 
+      {/* 일괄 입금확인 모달 */}
+      <Modal
+        isOpen={showPaymentConfirmModal}
+        onClose={() => setShowPaymentConfirmModal(false)}
+        title="일괄 입금확인"
+        size="sm"
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-sm text-gray-400">
+            선택한 {selectedIds.size}건의 주문을 입금 확인하시겠습니까?
+          </p>
+          <p className="text-xs text-cyan-500">
+            확인 후 자동으로 세팅이 시작됩니다.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowPaymentConfirmModal(false)}>취소</Button>
+            <Button onClick={handleBulkPaymentConfirm} loading={paymentConfirmLoading}>
+              입금 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 일괄 삭제 모달 */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -333,6 +424,7 @@ export default function OrdersPage() {
         </div>
       </Modal>
 
+      {/* 일괄 상태변경 모달 */}
       <Modal
         isOpen={showBulkModal}
         onClose={() => setShowBulkModal(false)}

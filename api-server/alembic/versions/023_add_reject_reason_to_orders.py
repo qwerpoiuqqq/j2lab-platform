@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 
 revision = "023_add_reject_reason"
-down_revision = "022_smart_traffic"
+down_revision = "036_drop_agency"
 branch_labels = None
 depends_on = None
 
