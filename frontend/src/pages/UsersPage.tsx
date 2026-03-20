@@ -6,6 +6,7 @@ import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
 import Input from '@/components/common/Input';
 import Badge from '@/components/common/Badge';
+import { pricesApi, type UserMatrixResponse } from '@/api/prices';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -64,6 +65,13 @@ export default function UsersPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editParentCandidates, setEditParentCandidates] = useState<User[]>([]);
   const [editParentLoading, setEditParentLoading] = useState(false);
+  const [editTab, setEditTab] = useState<'basic' | 'pricing'>('basic');
+  const [userPriceProducts, setUserPriceProducts] = useState<UserMatrixResponse['products']>([]);
+  const [userPriceMap, setUserPriceMap] = useState<Record<string, Record<string, number>>>({});
+  const [editedUserPrices, setEditedUserPrices] = useState<Record<string, number>>({});
+  const [priceCategory, setPriceCategory] = useState('__all__');
+  const [userPriceLoading, setUserPriceLoading] = useState(false);
+  const [userPriceSaving, setUserPriceSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +129,22 @@ export default function UsersPage() {
     return { rootUsers, childrenMap };
   }, [filteredUsers]);
 
+  const priceCategories = useMemo(() => {
+    const names = new Set<string>();
+    for (const product of userPriceProducts) {
+      if (product.category) names.add(product.category);
+    }
+    return Array.from(names);
+  }, [userPriceProducts]);
+
+  const currentEditedRole = (editForm.role || editingUser?.role) as UserRole | undefined;
+  const canConfigureUserPrices = !!editingUser && ['order_handler', 'distributor', 'sub_account'].includes(currentEditedRole || '');
+  const currentUserPrices = editingUser ? (userPriceMap[editingUser.id] || {}) : {};
+  const filteredPriceProducts = useMemo(() => {
+    if (priceCategory === '__all__') return userPriceProducts;
+    return userPriceProducts.filter((product) => product.category === priceCategory);
+  }, [priceCategory, userPriceProducts]);
+
   const handleCreateUser = async (data: any) => {
     try {
       await usersApi.create(data);
@@ -162,8 +186,23 @@ export default function UsersPage() {
       parent_id: user.parent_id || undefined,
       is_active: user.is_active,
     });
+    setEditTab('basic');
+    setUserPriceProducts([]);
+    setUserPriceMap({});
+    setEditedUserPrices({});
+    setPriceCategory('__all__');
     setShowEditModal(true);
     loadParentCandidates(user.role, user.company_id);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingUser(null);
+    setEditTab('basic');
+    setUserPriceProducts([]);
+    setUserPriceMap({});
+    setEditedUserPrices({});
+    setPriceCategory('__all__');
   };
 
   const handleUpdate = async () => {
@@ -177,6 +216,62 @@ export default function UsersPage() {
       alert(err?.response?.data?.detail || '수정에 실패했습니다.');
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const loadUserPrices = useCallback(async () => {
+    if (!editingUser || !canConfigureUserPrices) return;
+    setUserPriceLoading(true);
+    try {
+      const data = await pricesApi.getUserMatrix();
+      setUserPriceProducts(data.products);
+      setUserPriceMap(data.prices);
+      setEditedUserPrices(data.prices[editingUser.id] || {});
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '단가 정보를 불러오지 못했습니다.');
+    } finally {
+      setUserPriceLoading(false);
+    }
+  }, [canConfigureUserPrices, editingUser]);
+
+  useEffect(() => {
+    if (!showEditModal || editTab !== 'pricing' || !canConfigureUserPrices) return;
+    void loadUserPrices();
+  }, [showEditModal, editTab, canConfigureUserPrices, loadUserPrices]);
+
+  const hasPriceChanges = useMemo(() => {
+    for (const product of userPriceProducts) {
+      const effectivePrice = currentUserPrices[product.matrix_key] ?? product.base_price;
+      const nextPrice = editedUserPrices[product.matrix_key] ?? effectivePrice;
+      if (nextPrice !== effectivePrice) return true;
+    }
+    return false;
+  }, [currentUserPrices, editedUserPrices, userPriceProducts]);
+
+  const handleSaveUserPrices = async () => {
+    if (!editingUser || !canConfigureUserPrices) return;
+    setUserPriceSaving(true);
+    try {
+      for (const product of userPriceProducts) {
+        const effectivePrice = currentUserPrices[product.matrix_key] ?? product.base_price;
+        const nextPrice = editedUserPrices[product.matrix_key] ?? effectivePrice;
+        if (nextPrice === effectivePrice) continue;
+
+        await pricesApi.updatePrice(product.id, {
+          user_id: editingUser.id,
+          price: nextPrice,
+          campaign_type: product.campaign_type_variant || undefined,
+        });
+      }
+
+      const refreshed = await pricesApi.getUserMatrix();
+      setUserPriceProducts(refreshed.products);
+      setUserPriceMap(refreshed.prices);
+      setEditedUserPrices(refreshed.prices[editingUser.id] || {});
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || '단가 저장에 실패했습니다.');
+    } finally {
+      setUserPriceSaving(false);
     }
   };
 
@@ -322,10 +417,51 @@ export default function UsersPage() {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal isOpen={showEditModal && canEditUsers} onClose={() => setShowEditModal(false)} title="유저 수정" size="md">
+      <Modal isOpen={showEditModal && canEditUsers} onClose={closeEditModal} title="유저 수정" size="xl">
         {editingUser && (
-          <div className="space-y-4 p-1">
-            <Input
+          <div className="space-y-5 p-1">
+            <div className="rounded-xl border border-border bg-surface-raised p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-base font-semibold text-gray-100">{editingUser.name}</div>
+                  <div className="mt-1 text-sm text-gray-400">{editingUser.email}</div>
+                </div>
+                <div className={`rounded px-2 py-1 text-xs ${roleColors[currentEditedRole || editingUser.role] || ''}`}>
+                  {getRoleLabel(currentEditedRole || editingUser.role)}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-b border-border">
+              <button
+                type="button"
+                onClick={() => setEditTab('basic')}
+                className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+                  editTab === 'basic'
+                    ? 'border border-border border-b-surface bg-surface text-gray-100'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                기본 정보
+              </button>
+              {canConfigureUserPrices && (
+                <button
+                  type="button"
+                  onClick={() => setEditTab('pricing')}
+                  className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+                    editTab === 'pricing'
+                      ? 'border border-border border-b-surface bg-surface text-gray-100'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  단가 설정
+                </button>
+              )}
+            </div>
+
+            {editTab === 'basic' ? (
+              <>
+                <Input
               label="이름"
               value={editForm.name || ''}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -338,7 +474,7 @@ export default function UsersPage() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">역할</label>
               <select
-                value={editForm.role || editingUser.role}
+                value={currentEditedRole || editingUser.role}
                 onChange={(e) => {
                   const newRole = e.target.value as UserRole;
                   setEditForm({ ...editForm, role: newRole, parent_id: undefined });
@@ -351,10 +487,10 @@ export default function UsersPage() {
                 ))}
               </select>
             </div>
-            {PARENT_ROLE_MAP[editForm.role || editingUser.role] && (
+            {PARENT_ROLE_MAP[currentEditedRole || editingUser.role] && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  {PARENT_ROLE_MAP[editForm.role || editingUser.role].label}
+                  {PARENT_ROLE_MAP[currentEditedRole || editingUser.role].label}
                 </label>
                 <select
                   value={editForm.parent_id || ''}
@@ -388,9 +524,108 @@ export default function UsersPage() {
               <span className="text-sm text-gray-300">활성</span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>취소</Button>
+              <Button variant="secondary" onClick={closeEditModal}>취소</Button>
               <Button onClick={handleUpdate} loading={editLoading}>수정</Button>
             </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border bg-surface-raised p-4">
+                  <div className="text-sm font-medium text-gray-100">단가 설정</div>
+                  <p className="mt-1 text-xs text-gray-400">
+                    사용자별 적용 단가를 직접 지정합니다. 일류 리워드는 트래픽과 저장하기가 따로 보입니다.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPriceCategory('__all__')}
+                    className={`rounded-full px-3 py-1.5 text-sm ${
+                      priceCategory === '__all__'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-surface-raised text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    전체
+                  </button>
+                  {priceCategories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setPriceCategory(category)}
+                      className={`rounded-full px-3 py-1.5 text-sm ${
+                        priceCategory === category
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-surface-raised text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+
+                {userPriceLoading ? (
+                  <div className="rounded-xl border border-border bg-surface-raised p-6 text-center text-sm text-gray-400">
+                    단가 정보를 불러오는 중입니다.
+                  </div>
+                ) : filteredPriceProducts.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-surface-raised p-6 text-center text-sm text-gray-400">
+                    설정할 단가가 없습니다.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredPriceProducts.map((product) => {
+                      const effectivePrice = currentUserPrices[product.matrix_key] ?? product.base_price;
+                      const currentPrice = editedUserPrices[product.matrix_key] ?? effectivePrice;
+                      const deltaPercent =
+                        product.base_price > 0
+                          ? Math.round((1 - currentPrice / product.base_price) * 100)
+                          : 0;
+
+                      return (
+                        <div key={product.matrix_key} className="flex items-center gap-3 rounded-xl border border-border bg-surface-raised p-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-gray-100">{product.name}</div>
+                            <div className="mt-1 text-xs text-gray-400">
+                              기본 단가 {product.base_price.toLocaleString()}원
+                            </div>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            value={currentPrice}
+                            onChange={(e) =>
+                              setEditedUserPrices((prev) => ({
+                                ...prev,
+                                [product.matrix_key]: parseInt(e.target.value, 10) || 0,
+                              }))
+                            }
+                            className="w-32 rounded-lg border border-border-strong bg-surface px-3 py-2 text-right text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
+                          />
+                          <div className="w-16 text-right text-xs">
+                            {deltaPercent > 0 && <span className="text-red-400">-{deltaPercent}%</span>}
+                            {deltaPercent < 0 && <span className="text-emerald-400">+{Math.abs(deltaPercent)}%</span>}
+                            {deltaPercent === 0 && <span className="text-gray-500">기본</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="secondary" onClick={closeEditModal}>취소</Button>
+                  <Button
+                    onClick={handleSaveUserPrices}
+                    loading={userPriceSaving}
+                    disabled={userPriceLoading || !hasPriceChanges}
+                  >
+                    저장하기
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
