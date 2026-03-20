@@ -30,6 +30,13 @@ def _mask_product_for_role(product, user_role: UserRole) -> ProductResponse:
     return resp
 
 
+def _supports_split_reward_pricing(product: Product) -> bool:
+    """Return True for products that need traffic/save split pricing."""
+    name = product.name or ""
+    code = product.code or ""
+    return "일류 리워드" in name or code == "ilryu_reward"
+
+
 @router.get("/", response_model=PaginatedResponse[ProductResponse])
 async def list_products(
     page: int = Query(default=1, ge=1),
@@ -146,7 +153,39 @@ async def get_user_price_matrix(
     users = list(result.scalars().all())
 
     user_list = []
-    user_prices: dict[str, dict[int, int]] = {}
+    user_prices: dict[str, dict[str, int]] = {}
+    product_list: list[dict] = []
+
+    for p in products:
+        if _supports_split_reward_pricing(p):
+            product_list.append({
+                "id": p.id,
+                "matrix_key": f"{p.id}:traffic",
+                "name": f"{p.name} - 트래픽",
+                "code": p.code,
+                "category": p.category,
+                "base_price": int(p.base_price) if p.base_price else 0,
+                "campaign_type_variant": "traffic",
+            })
+            product_list.append({
+                "id": p.id,
+                "matrix_key": f"{p.id}:save",
+                "name": f"{p.name} - 저장하기",
+                "code": p.code,
+                "category": p.category,
+                "base_price": int(p.base_price) if p.base_price else 0,
+                "campaign_type_variant": "save",
+            })
+        else:
+            product_list.append({
+                "id": p.id,
+                "matrix_key": str(p.id),
+                "name": p.name,
+                "code": p.code,
+                "category": p.category,
+                "base_price": int(p.base_price) if p.base_price else 0,
+                "campaign_type_variant": None,
+            })
 
     for user in users:
         uid = str(user.id)
@@ -158,23 +197,20 @@ async def get_user_price_matrix(
         })
         user_prices[uid] = {}
         for product in products:
-            try:
-                price = await price_service.get_effective_price(
-                    db, product=product, user_id=user.id, user_role=user.role,
-                )
-            except ValueError:
-                price = int(product.base_price) if product.base_price else 0
-            user_prices[uid][product.id] = price
-
-    product_list = [
-        {
-            "id": p.id,
-            "name": p.name,
-            "category": p.category,
-            "base_price": int(p.base_price) if p.base_price else 0,
-        }
-        for p in products
-    ]
+            variants = ["traffic", "save"] if _supports_split_reward_pricing(product) else [None]
+            for variant in variants:
+                try:
+                    price = await price_service.get_effective_price(
+                        db,
+                        product=product,
+                        user_id=user.id,
+                        user_role=user.role,
+                        campaign_type=variant,
+                    )
+                except ValueError:
+                    price = int(product.base_price) if product.base_price else 0
+                key = f"{product.id}:{variant}" if variant else str(product.id)
+                user_prices[uid][key] = price
 
     return {
         "users": user_list,

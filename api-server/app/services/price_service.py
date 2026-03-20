@@ -24,6 +24,7 @@ async def get_effective_price(
     product: Product,
     user_id: uuid.UUID | None,
     user_role: str,
+    campaign_type: str | None = None,
     as_of: date | None = None,
 ) -> int:
     """Determine the effective unit price for a user on a product.
@@ -40,11 +41,29 @@ async def get_effective_price(
 
     # 1. User-specific price (skip if no user_id)
     if user_id is not None:
+        if campaign_type is not None:
+            result = await db.execute(
+                select(PricePolicy)
+                .where(
+                    PricePolicy.product_id == product.id,
+                    PricePolicy.user_id == user_id,
+                    PricePolicy.campaign_type == campaign_type,
+                    PricePolicy.effective_from <= as_of,
+                    (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
+                )
+                .order_by(PricePolicy.created_at.desc())
+                .limit(1)
+            )
+            user_policy = result.scalar_one_or_none()
+            if user_policy is not None:
+                return int(user_policy.unit_price)
+
         result = await db.execute(
             select(PricePolicy)
             .where(
                 PricePolicy.product_id == product.id,
                 PricePolicy.user_id == user_id,
+                PricePolicy.campaign_type.is_(None),
                 PricePolicy.effective_from <= as_of,
                 (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
             )
@@ -56,12 +75,31 @@ async def get_effective_price(
             return int(user_policy.unit_price)
 
     # 2. Role-specific price
+    if campaign_type is not None:
+        result = await db.execute(
+            select(PricePolicy)
+            .where(
+                PricePolicy.product_id == product.id,
+                PricePolicy.user_id.is_(None),
+                PricePolicy.role == user_role,
+                PricePolicy.campaign_type == campaign_type,
+                PricePolicy.effective_from <= as_of,
+                (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
+            )
+            .order_by(PricePolicy.created_at.desc())
+            .limit(1)
+        )
+        role_policy = result.scalar_one_or_none()
+        if role_policy is not None:
+            return int(role_policy.unit_price)
+
     result = await db.execute(
         select(PricePolicy)
         .where(
             PricePolicy.product_id == product.id,
             PricePolicy.user_id.is_(None),
             PricePolicy.role == user_role,
+            PricePolicy.campaign_type.is_(None),
             PricePolicy.effective_from <= as_of,
             (PricePolicy.effective_to.is_(None)) | (PricePolicy.effective_to >= as_of),
         )
@@ -138,6 +176,7 @@ async def create_price_policy(
         product_id=data.product_id,
         user_id=data.user_id,
         role=data.role,
+        campaign_type=data.campaign_type,
         unit_price=data.unit_price,
         effective_from=data.effective_from,
         effective_to=data.effective_to,

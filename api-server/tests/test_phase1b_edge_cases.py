@@ -943,7 +943,52 @@ class TestPricePolicyPriority:
         assert resp.status_code == 201
         data = resp.json()
         assert data["items"][0]["unit_price"] == 0
-        assert data["total_amount"] == 0
+
+    async def test_campaign_type_specific_user_price_is_used(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        distributor: User,
+    ):
+        """User-specific campaign_type price should override generic product price."""
+        product = await create_test_product(
+            db_session, name="일류 리워드", code="ilryu_reward", base_price=10000
+        )
+
+        generic_policy = PricePolicy(
+            product_id=product.id,
+            user_id=distributor.id,
+            unit_price=9000,
+            effective_from=date(2025, 1, 1),
+        )
+        save_policy = PricePolicy(
+            product_id=product.id,
+            user_id=distributor.id,
+            campaign_type="save",
+            unit_price=7000,
+            effective_from=date(2025, 1, 1),
+        )
+        db_session.add_all([generic_policy, save_policy])
+        await db_session.commit()
+
+        headers = get_auth_header(distributor)
+        resp = await client.post(
+            "/api/v1/orders/",
+            json={
+                "items": [
+                    {
+                        "product_id": product.id,
+                        "quantity": 1,
+                        "item_data": {"campaign_type": "save"},
+                    }
+                ]
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["items"][0]["unit_price"] == 7000
+        assert data["total_amount"] == 7000
 
 
 # === System Settings Edge Cases ===

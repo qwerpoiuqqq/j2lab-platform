@@ -3,8 +3,16 @@ import type { PriceMatrixRow, ProductSchema } from '@/types';
 
 export interface UserMatrixResponse {
   users: { id: string; name: string; role: string; email: string }[];
-  products: { id: number; name: string; code: string; category?: string; base_price: number }[];
-  prices: Record<string, Record<number, number>>; // userId → { productId → price }
+  products: {
+    id: number;
+    matrix_key: string;
+    name: string;
+    code?: string;
+    category?: string;
+    base_price: number;
+    campaign_type_variant?: 'traffic' | 'save' | null;
+  }[];
+  prices: Record<string, Record<string, number>>;
 }
 
 export interface RoleMatrixRow {
@@ -13,7 +21,7 @@ export interface RoleMatrixRow {
   base_price: number;
   cost_price: number | null;
   reduction_rate: number | null;
-  prices: Record<string, number>; // role → price
+  prices: Record<string, number>;
 }
 
 export interface RoleMatrixResponse {
@@ -42,22 +50,27 @@ export const pricesApi = {
     return response.data;
   },
 
-  updatePrice: async (productId: number, data: {
-    user_id?: string;
-    role?: string;
-    price: number;
-  }): Promise<void> => {
+  updatePrice: async (
+    productId: number,
+    data: {
+      user_id?: string;
+      role?: string;
+      price: number;
+      campaign_type?: string;
+    }
+  ): Promise<void> => {
     const today = new Date().toISOString().split('T')[0];
     await apiClient.post(`/products/${productId}/prices`, {
       product_id: productId,
       role: data.role || undefined,
       user_id: data.user_id || undefined,
+      campaign_type: data.campaign_type || undefined,
       unit_price: data.price,
       effective_from: today,
     });
   },
 
-  getUserPrices: async (userId: string): Promise<Record<number, number>> => {
+  getUserPrices: async (userId: string): Promise<Record<string, number>> => {
     const response = await apiClient.get('/products/prices/user-matrix');
     const data = response.data as UserMatrixResponse;
     return data.prices[userId] || {};

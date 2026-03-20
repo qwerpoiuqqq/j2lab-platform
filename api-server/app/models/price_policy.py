@@ -43,6 +43,7 @@ class PricePolicy(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
     )
     role: Mapped[Optional[str]] = mapped_column(String(20))
+    campaign_type: Mapped[Optional[str]] = mapped_column(String(20))
     unit_price: Mapped[int] = mapped_column(Numeric(12, 0), nullable=False)
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
     effective_to: Mapped[Optional[date]] = mapped_column(Date)
@@ -66,4 +67,5 @@ class PricePolicy(Base):
     __table_args__ = (
         Index("idx_price_policies_product_id", "product_id"),
         Index("idx_price_policies_user_id", "user_id"),
+        Index("idx_price_policies_campaign_type", "campaign_type"),
     )

@@ -43,10 +43,12 @@ interface MatrixUser {
 
 interface MatrixProduct {
   id: number;
+  matrix_key: string;
   name: string;
-  code: string;
+  code?: string;
   category?: string;
   base_price: number;
+  campaign_type_variant?: 'traffic' | 'save' | null;
 }
 
 type Tab = 'role' | 'user' | 'margin';
@@ -593,7 +595,7 @@ export default function PriceMatrixPage() {
   const [selectedUser, setSelectedUser] = useState<MatrixUser | null>(null);
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('__all__');
-  const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
+  const [editedPrices, setEditedPrices] = useState<Record<string, number>>({});
   const [userSaving, setUserSaving] = useState(false);
 
   // ---- Fetch role matrix ----
@@ -746,12 +748,12 @@ export default function PriceMatrixPage() {
 
   // ---- User edit handlers ----
   const priceCounts = useMemo(() => {
-    const baseMap = new Map(matrixProducts.map((p) => [p.id, p.base_price]));
+    const baseMap = new Map(matrixProducts.map((p) => [p.matrix_key, p.base_price]));
     const counts: Record<string, number> = {};
     for (const [userId, prices] of Object.entries(matrixPrices)) {
       let custom = 0;
       for (const [pidStr, price] of Object.entries(prices)) {
-        const base = baseMap.get(parseInt(pidStr)) || 0;
+        const base = baseMap.get(pidStr) || 0;
         if (price !== base) custom++;
       }
       counts[userId] = custom;
@@ -781,11 +783,13 @@ export default function PriceMatrixPage() {
     if (!selectedUser) return;
     setUserSaving(true);
     try {
-      for (const [prodIdStr, price] of Object.entries(editedPrices)) {
-        const productId = parseInt(prodIdStr);
+      for (const [matrixKey, price] of Object.entries(editedPrices)) {
+        const [productIdStr, campaignType] = matrixKey.split(':');
+        const productId = parseInt(productIdStr);
         await pricesApi.updatePrice(productId, {
           user_id: selectedUser.id,
           price,
+          campaign_type: campaignType || undefined,
         });
       }
 
@@ -1088,8 +1092,8 @@ export default function PriceMatrixPage() {
           ) : (
             <div className="space-y-2">
               {filteredProducts.map((product) => {
-                const effectivePrice = currentUserPrices[product.id] ?? product.base_price;
-                const currentPrice = editedPrices[product.id] ?? effectivePrice;
+                const effectivePrice = currentUserPrices[product.matrix_key] ?? product.base_price;
+                const currentPrice = editedPrices[product.matrix_key] ?? effectivePrice;
                 const discountRate =
                   product.base_price > 0
                     ? Math.round((1 - currentPrice / product.base_price) * 100)
@@ -1115,7 +1119,7 @@ export default function PriceMatrixPage() {
                       onChange={(e) =>
                         setEditedPrices((prev) => ({
                           ...prev,
-                          [product.id]: parseInt(e.target.value) || 0,
+                          [product.matrix_key]: parseInt(e.target.value) || 0,
                         }))
                       }
                       className="w-32 px-3 py-2 text-right text-sm border border-border-strong rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200 font-mono"

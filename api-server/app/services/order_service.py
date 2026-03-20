@@ -402,11 +402,15 @@ async def create_order(
             unit_price = 0
             subtotal = 0
         else:
+            campaign_type = None
+            if isinstance(item_data.item_data, dict):
+                campaign_type = item_data.item_data.get("campaign_type")
             unit_price = await price_service.get_effective_price(
                 db,
                 product=product,
                 user_id=current_user.id,
                 user_role=current_user.role,
+                campaign_type=campaign_type,
             )
             subtotal = price_service.apply_reduction(unit_price, item_data.quantity, product)
 
@@ -496,7 +500,11 @@ async def create_order_from_excel(
         except (ValueError, TypeError):
             quantity = 1
         unit_price = await price_service.get_effective_price(
-            db, product=product, user_id=current_user.id, user_role=current_user.role,
+            db,
+            product=product,
+            user_id=current_user.id,
+            user_role=current_user.role,
+            campaign_type=row_data.get("campaign_type") if isinstance(row_data, dict) else None,
         )
         subtotal = price_service.apply_reduction(unit_price, quantity, product)
         order_item = OrderItem(
@@ -940,6 +948,7 @@ async def create_simplified_order(
             product=product,
             user_id=current_user.id,
             user_role=current_user.role,
+            campaign_type=item.campaign_type,
         )
         subtotal = price_service.apply_reduction(unit_price, total_limit, product)
 

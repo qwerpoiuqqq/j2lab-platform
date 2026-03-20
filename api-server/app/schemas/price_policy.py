@@ -15,6 +15,7 @@ class PricePolicyCreate(BaseModel):
     product_id: int
     user_id: uuid.UUID | None = None
     role: str | None = None
+    campaign_type: str | None = None
     unit_price: int = Field(..., ge=0)
     effective_from: date
     effective_to: date | None = None
@@ -24,6 +25,7 @@ class PricePolicyUpdate(BaseModel):
     """Schema for updating a price policy."""
 
     unit_price: int | None = Field(None, ge=0)
+    campaign_type: str | None = None
     effective_to: date | None = None
 
 
@@ -34,6 +36,7 @@ class PricePolicyResponse(BaseModel):
     product_id: int
     user_id: uuid.UUID | None = None
     role: str | None = None
+    campaign_type: str | None = None
     unit_price: int
     effective_from: date
     effective_to: date | None = None
