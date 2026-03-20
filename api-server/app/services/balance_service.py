@@ -13,7 +13,7 @@ from sqlalchemy.exc import CompileError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.balance_transaction import BalanceTransaction, TransactionType
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 async def get_balance(
@@ -28,6 +28,33 @@ async def get_balance(
     if balance is None:
         return 0
     return int(balance)
+
+
+async def get_effective_balance_owner(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> User:
+    """Resolve the actual balance owner for a requesting user."""
+    user = await _lock_user_balance(db, user_id)
+    if user.role == UserRole.SUB_ACCOUNT.value and user.parent_id is not None:
+        parent = await _lock_user_balance(db, user.parent_id)
+        return parent
+    return user
+
+
+async def ensure_sufficient_order_balance(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    amount: int,
+) -> User:
+    """Ensure the effective balance owner has enough balance for the order."""
+    owner = await get_effective_balance_owner(db, user_id)
+    current_balance = int(owner.balance) if owner.balance else 0
+    if current_balance < amount:
+        raise ValueError(
+            f"Insufficient balance for order: current={current_balance}, required={amount}"
+        )
+    return owner
 
 
 async def get_transactions(
@@ -180,13 +207,8 @@ async def charge_for_order(
     if amount <= 0:
         raise ValueError("Charge amount must be positive")
 
-    user = await _lock_user_balance(db, user_id)
+    user = await ensure_sufficient_order_balance(db, user_id, amount)
     current_balance = int(user.balance) if user.balance else 0
-
-    if current_balance < amount:
-        raise ValueError(
-            f"Insufficient balance for order: current={current_balance}, required={amount}"
-        )
 
     new_balance = current_balance - amount
 

@@ -129,10 +129,19 @@ async def get_settlement_data(
         cost = _calc_cost(item, product)
         profit = subtotal - cost
         margin_pct = round((profit / subtotal * 100) if subtotal > 0 else 0.0, 2)
+        item_data = item.item_data if isinstance(item.item_data, dict) else {}
+        primary_place_name = (
+            item_data.get("place_name")
+            or item_data.get("상호명")
+            or item_data.get("place_url")
+            or ""
+        )
 
         rows.append(SettlementRow(
             order_id=order.id,
             order_number=order.order_number,
+            display_order_number=order.order_number.replace("ORD-", ""),
+            primary_place_name=primary_place_name,
             product_name=product.name,
             user_name=user.name,
             user_role=user.role,
@@ -432,6 +441,7 @@ async def get_daily_settlement_check(
     distributor_map: dict[str, dict] = {}
     total_amount = 0
     total_orders = 0
+    total_quantity = 0
 
     for order, order_user, parent_user in rows_raw:
         # Determine distributor: if user is sub_account, distributor is parent
@@ -452,6 +462,7 @@ async def get_daily_settlement_check(
                 "distributor_id": dist_id,
                 "distributor_name": dist_name,
                 "orders": [],
+                "total_quantity": 0,
                 "total_amount": 0,
             }
 
@@ -463,16 +474,20 @@ async def get_daily_settlement_check(
                 place_name = first_item.item_data.get("place_name", first_item.item_data.get("place_url", ""))
 
         amt = int(order.total_amount) if order.total_amount else 0
+        qty = sum(item.quantity or 1 for item in order.items)
         distributor_map[dist_id]["orders"].append(
             OrderBrief(
                 id=order.id,
                 place_name=place_name,
+                total_quantity=qty,
                 total_amount=amt,
                 status=order.status,
                 created_at=order.created_at,
             )
         )
+        distributor_map[dist_id]["total_quantity"] += qty
         distributor_map[dist_id]["total_amount"] += amt
+        total_quantity += qty
         total_amount += amt
         total_orders += 1
 
@@ -483,6 +498,7 @@ async def get_daily_settlement_check(
                 distributor_id=dist_data["distributor_id"],
                 distributor_name=dist_data["distributor_name"],
                 order_count=len(dist_data["orders"]),
+                total_quantity=dist_data["total_quantity"],
                 total_amount=dist_data["total_amount"],
                 orders=dist_data["orders"],
             )
@@ -493,6 +509,7 @@ async def get_daily_settlement_check(
         distributors=distributors,
         summary={
             "total_orders": total_orders,
+            "total_quantity": total_quantity,
             "total_amount": total_amount,
             "distributor_count": len(distributors),
         },

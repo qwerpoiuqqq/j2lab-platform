@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import date, time
 
 import pytest
 import pytest_asyncio
@@ -341,6 +341,116 @@ class TestOrderStateTransitions:
         assert resp.status_code == 400
         assert "Insufficient" in resp.json()["detail"]
 
+    async def test_sub_account_order_charges_parent_distributor_balance(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        sub_account: User,
+        distributor: User,
+        company_admin: User,
+        product: Product,
+    ):
+        """Sub-account orders should deduct the parent distributor balance."""
+        from app.services import balance_service
+
+        await balance_service.deposit(
+            db_session, distributor.id, 50000, "Initial deposit"
+        )
+        await db_session.commit()
+
+        order_id = await self._create_draft_order(client, sub_account, product)
+
+        sub_headers = get_auth_header(sub_account)
+        submit_resp = await client.post(
+            f"/api/v1/orders/{order_id}/submit", headers=sub_headers
+        )
+        assert submit_resp.status_code == 200
+
+        dist_headers = get_auth_header(distributor)
+        include_resp = await client.post(
+            f"/api/v1/orders/{order_id}/include", headers=dist_headers
+        )
+        assert include_resp.status_code == 200
+
+        confirm_resp = await client.post(
+            f"/api/v1/orders/{order_id}/confirm-payment", headers=dist_headers
+        )
+        assert confirm_resp.status_code == 200
+
+        admin_headers = get_auth_header(company_admin)
+        dist_balance_resp = await client.get(
+            f"/api/v1/balance/{distributor.id}", headers=admin_headers
+        )
+        sub_balance_resp = await client.get(
+            f"/api/v1/balance/{sub_account.id}", headers=admin_headers
+        )
+        assert dist_balance_resp.status_code == 200
+        assert sub_balance_resp.status_code == 200
+        assert dist_balance_resp.json()["balance"] == 40000
+        assert sub_balance_resp.json()["balance"] == 0
+
+    async def test_final_intake_blocked_after_same_day_deadline(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        sub_account: User,
+        distributor: User,
+    ):
+        """Same-day orders past the final intake deadline should be blocked."""
+        from app.services import balance_service
+
+        blocked_product = Product(
+            name="Blocked Traffic",
+            code="blocked-traffic",
+            base_price=10000,
+            daily_deadline=time(0, 0),
+            setup_delay_minutes=0,
+            deadline_timezone="Asia/Seoul",
+            is_active=True,
+        )
+        db_session.add(blocked_product)
+        await db_session.flush()
+        await db_session.refresh(blocked_product)
+
+        await balance_service.deposit(
+            db_session, distributor.id, 50000, "Initial deposit"
+        )
+        await db_session.commit()
+
+        sub_headers = get_auth_header(sub_account)
+        create_resp = await client.post(
+            "/api/v1/orders/",
+            json={
+                "items": [
+                    {
+                        "product_id": blocked_product.id,
+                        "quantity": 1,
+                        "item_data": {"start_date": date.today().isoformat()},
+                    }
+                ],
+            },
+            headers=sub_headers,
+        )
+        assert create_resp.status_code == 201
+        order_id = create_resp.json()["id"]
+
+        submit_resp = await client.post(
+            f"/api/v1/orders/{order_id}/submit", headers=sub_headers
+        )
+        assert submit_resp.status_code == 200
+
+        dist_headers = get_auth_header(distributor)
+        include_resp = await client.post(
+            f"/api/v1/orders/{order_id}/include", headers=dist_headers
+        )
+        assert include_resp.status_code == 200
+
+        confirm_resp = await client.post(
+            f"/api/v1/orders/{order_id}/confirm-payment", headers=dist_headers
+        )
+        assert confirm_resp.status_code == 400
+        assert "Final intake blocked" in confirm_resp.json()["detail"]
+
     async def test_reject_order(
         self,
         client: AsyncClient,
@@ -504,14 +614,19 @@ class TestOrderStateTransitions:
 class TestOrderPermissions:
     """Tests for order access control."""
 
-    async def test_distributor_cannot_confirm_payment(
+    async def test_distributor_can_confirm_own_payment(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         distributor: User,
         product: Product,
     ):
-        """Distributor cannot confirm payment."""
+        """Distributor can finalize their own submitted order."""
+        from app.services import balance_service
+
+        await balance_service.deposit(
+            db_session, distributor.id, 100000, "Initial deposit"
+        )
         await db_session.commit()
 
         headers = get_auth_header(distributor)
@@ -529,7 +644,8 @@ class TestOrderPermissions:
         resp = await client.post(
             f"/api/v1/orders/{order_id}/confirm-payment", headers=headers
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "processing"
 
     async def test_sub_account_cannot_view_others_order(
         self,

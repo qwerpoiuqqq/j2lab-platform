@@ -138,6 +138,7 @@ export type OrderType = 'regular' | 'monthly_guarantee' | 'managed';
 export interface Order {
   id: number;
   order_number: string;
+  display_order_number?: string;
   user_id: string;
   user?: User;
   company_id?: number;
@@ -161,6 +162,11 @@ export interface Order {
   selection_status?: string;
   selected_by?: string;
   selected_at?: string;
+  primary_place_name?: string;
+  start_date?: string;
+  daily_limit?: number;
+  total_limit?: number;
+  total_quantity?: number;
   pipeline_warnings?: string[];
   created_at: string;
   updated_at?: string;
@@ -445,6 +451,7 @@ export interface Category {
   name: string;
   description?: string;
   icon?: string;
+  image_url?: string;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -534,6 +541,8 @@ export type SettlementStatus = 'pending' | 'confirmed' | 'settled';
 export interface Settlement {
   order_id: number;
   order_number: string;
+  display_order_number?: string;
+  primary_place_name?: string;
   product_name: string;
   user_name: string;
   user_role: string;
@@ -761,6 +770,7 @@ export interface RegistrationProgressItem {
 export interface SuperapAccount {
   id: number;
   user_id_superap: string;
+  agency_name?: string;
   company_id?: number;
   company_name?: string;
   network_preset_id?: number;
@@ -974,6 +984,7 @@ export interface ExcelUploadConfirmRequest {
 export interface OrderBrief {
   id: number;
   place_name: string;
+  total_quantity: number;
   total_amount: number;
   status: string;
   created_at: string;
@@ -983,6 +994,7 @@ export interface DailyCheckDistributor {
   distributor_id: string;
   distributor_name: string;
   order_count: number;
+  total_quantity: number;
   total_amount: number;
   orders: OrderBrief[];
 }
@@ -992,6 +1004,7 @@ export interface DailyCheckResponse {
   distributors: DailyCheckDistributor[];
   summary: {
     total_orders: number;
+    total_quantity: number;
     total_amount: number;
     distributor_count: number;
   };

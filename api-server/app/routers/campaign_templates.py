@@ -16,6 +16,7 @@ from app.services import campaign_template_service
 router = APIRouter(prefix="/templates", tags=["campaign-templates"])
 
 system_admin_checker = RoleChecker([UserRole.SYSTEM_ADMIN])
+template_reader_checker = RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
 
 
 @router.get("/", response_model=PaginatedResponse[CampaignTemplateResponse])
@@ -24,9 +25,13 @@ async def list_templates(
     size: int = Query(default=50, ge=1, le=100),
     is_active: bool | None = None,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(template_reader_checker),
 ):
-    """List campaign templates (system_admin only)."""
+    """List campaign templates.
+
+    - system_admin: full read access
+    - company_admin: read-only access to the shared template catalog
+    """
     pagination = PaginationParams(page=page, size=size)
     templates, total = await campaign_template_service.get_templates(
         db,
@@ -94,7 +99,7 @@ async def list_modules(
 async def get_template(
     template_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(system_admin_checker),
+    _current_user: User = Depends(template_reader_checker),
 ):
     """Get a single template by ID."""
     template = await campaign_template_service.get_template_by_id(db, template_id)

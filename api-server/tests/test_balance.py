@@ -61,6 +61,30 @@ class TestGetBalance:
         )
         assert resp.status_code == 403
 
+    async def test_sub_account_effective_balance_resolves_to_parent_distributor(
+        self,
+        client: AsyncClient,
+        system_admin: User,
+        sub_account: User,
+        distributor: User,
+    ):
+        """Effective balance should follow the parent distributor for sub_account."""
+        admin_headers = get_auth_header(system_admin)
+        await client.post(
+            "/api/v1/balance/deposit",
+            json={"user_id": str(distributor.id), "amount": 30000},
+            headers=admin_headers,
+        )
+
+        sub_headers = get_auth_header(sub_account)
+        resp = await client.get("/api/v1/balance/effective/me", headers=sub_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["requested_user_id"] == str(sub_account.id)
+        assert data["effective_user_id"] == str(distributor.id)
+        assert data["effective_user_role"] == "distributor"
+        assert data["balance"] == 30000
+
 
 @pytest.mark.asyncio
 class TestDeposit:

@@ -5,6 +5,7 @@ import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
 import { getCampaignTypeLabel } from '@/utils/format';
 import type { CampaignTemplate, ModuleInfo } from '@/types';
+import { useAuthStore } from '@/store/auth';
 
 // superap.io campaign type options
 const CAMPAIGN_TYPE_OPTIONS = [
@@ -38,6 +39,9 @@ const HASHTAG_OPTIONS = [
 ];
 
 export default function CampaignTemplatesPage() {
+  const user = useAuthStore((s) => s.user);
+  const canManageTemplates = user?.role === 'system_admin';
+  const isReadOnly = user?.role === 'company_admin';
   const queryClient = useQueryClient();
   const [editId, setEditId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -87,13 +91,21 @@ export default function CampaignTemplatesPage() {
             {templates.length > 0 && ` (총 ${templates.length}개)`}
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => { setShowCreate(true); setMessage(null); }}
-        >
-          템플릿 추가
-        </Button>
+        {canManageTemplates && (
+          <Button
+            variant="primary"
+            onClick={() => { setShowCreate(true); setMessage(null); }}
+          >
+            템플릿 추가
+          </Button>
+        )}
       </div>
+
+      {isReadOnly && (
+        <div className="rounded-xl border border-primary-800 bg-primary-900/20 p-3 text-sm text-primary-200">
+          회사 관리자는 시스템 공용 템플릿을 읽기 전용으로 조회합니다.
+        </div>
+      )}
 
       {message && (
         <div
@@ -116,9 +128,9 @@ export default function CampaignTemplatesPage() {
             <p className="text-sm text-gray-400 mb-4">
               템플릿을 생성하여 캠페인 자동화를 시작하세요.
             </p>
-            <Button variant="primary" onClick={() => setShowCreate(true)}>
+            {canManageTemplates && <Button variant="primary" onClick={() => setShowCreate(true)}>
               첫 템플릿 만들기
-            </Button>
+            </Button>}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -131,7 +143,9 @@ export default function CampaignTemplatesPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">모듈</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">리다이렉트</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">상태</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
+                  {canManageTemplates && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">작업</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
@@ -167,23 +181,25 @@ export default function CampaignTemplatesPage() {
                         {t.is_active ? '활성' : '비활성'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setEditId(t.id); setMessage(null); }}
-                          className="text-sm text-primary-400 hover:text-primary-300 font-medium"
-                        >
-                          편집
-                        </button>
-                        <button
-                          onClick={() => handleDelete(t.id, t.type_name)}
-                          disabled={deleteMutation.isPending}
-                          className="text-sm text-red-500 hover:text-red-400 font-medium disabled:opacity-50"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </td>
+                    {canManageTemplates && (
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setEditId(t.id); setMessage(null); }}
+                            className="text-sm text-primary-400 hover:text-primary-300 font-medium"
+                          >
+                            편집
+                          </button>
+                          <button
+                            onClick={() => handleDelete(t.id, t.type_name)}
+                            disabled={deleteMutation.isPending}
+                            className="text-sm text-red-500 hover:text-red-400 font-medium disabled:opacity-50"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -192,7 +208,7 @@ export default function CampaignTemplatesPage() {
         )}
       </div>
 
-      {showCreate && (
+      {showCreate && canManageTemplates && (
         <TemplateEditModal
           templateId={null}
           modules={modules}
@@ -201,7 +217,7 @@ export default function CampaignTemplatesPage() {
         />
       )}
 
-      {editId !== null && (
+      {editId !== null && canManageTemplates && (
         <TemplateEditModal
           templateId={editId}
           modules={modules}

@@ -98,16 +98,25 @@ export const router = createBrowserRouter([
                 element: <SuperapAccountsPage />,
               },
               {
-                path: '/campaigns/templates',
-                element: <CampaignTemplatesPage />,
-              },
-              {
                 path: '/campaigns/:id',
                 element: <CampaignDetailPage />,
               },
               {
                 path: '/assignments',
                 element: <Navigate to="/orders" replace />,
+              },
+            ],
+          },
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={['system_admin', 'company_admin', 'order_handler']}
+              />
+            ),
+            children: [
+              {
+                path: '/users',
+                element: <UsersPage />,
               },
             ],
           },
@@ -120,8 +129,8 @@ export const router = createBrowserRouter([
             ),
             children: [
               {
-                path: '/users',
-                element: <UsersPage />,
+                path: '/campaigns/templates',
+                element: <CampaignTemplatesPage />,
               },
               {
                 path: '/products',

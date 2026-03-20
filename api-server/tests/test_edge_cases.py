@@ -320,24 +320,25 @@ class TestRegistrationEdgeCases:
         )
         assert resp.status_code == 403
 
-    async def test_order_handler_cannot_create_users(
+    async def test_order_handler_can_create_distributor_via_register(
         self,
         client: AsyncClient,
         order_handler: User,
     ):
-        """order_handler cannot create any users."""
+        """order_handler can create distributor in their own line via /auth/register."""
         headers = get_auth_header(order_handler)
         resp = await client.post(
             "/api/v1/auth/register",
             json={
-                "email": "nope@test.com",
+                "email": "line-dist@test.com",
                 "password": "password123",
-                "name": "Nope",
-                "role": "sub_account",
+                "name": "Line Dist",
+                "role": "distributor",
             },
             headers=headers,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 201
+        assert resp.json()["parent_id"] == str(order_handler.id)
 
     async def test_distributor_cannot_create_order_handler(
         self,
@@ -831,23 +832,33 @@ class TestUserCrudEdgeCases:
     async def test_create_user_via_users_endpoint_by_order_handler(
         self,
         client: AsyncClient,
+        db_session: AsyncSession,
         order_handler: User,
         test_company: Company,
     ):
-        """order_handler cannot create users via /users endpoint."""
+        """order_handler can create sub_account via /users endpoint under their own distributor."""
+        distributor = await create_test_user(
+            db_session,
+            email="line-parent@test.com",
+            role=UserRole.DISTRIBUTOR,
+            company_id=test_company.id,
+            parent_id=order_handler.id,
+        )
         headers = get_auth_header(order_handler)
         resp = await client.post(
             "/api/v1/users/",
             json={
-                "email": "noperm@test.com",
+                "email": "line-sub@test.com",
                 "password": "password123",
-                "name": "No Permission",
+                "name": "Line Sub",
                 "role": "sub_account",
                 "company_id": test_company.id,
+                "parent_id": str(distributor.id),
             },
             headers=headers,
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 201
+        assert resp.json()["parent_id"] == str(distributor.id)
 
 
 # ============================================================

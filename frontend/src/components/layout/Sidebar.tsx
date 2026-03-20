@@ -65,7 +65,7 @@ const navItems: NavItem[] = [
       { name: '캠페인 추가', path: '/campaigns/add', icon: PlusCircleIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
       { name: '엑셀 업로드', path: '/campaigns/upload', icon: ArrowUpTrayIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
       { name: '계정 관리', path: '/campaigns/accounts', icon: UserGroupIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
-      { name: '템플릿 관리', path: '/campaigns/templates', icon: SwatchIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
+      { name: '템플릿 관리', path: '/campaigns/templates', icon: SwatchIcon, allowedRoles: ['system_admin', 'company_admin'] },
     ],
   },
   { name: '포인트 관리', path: '/points', icon: CircleStackIcon, allowedRoles: ['system_admin', 'company_admin', 'distributor', 'order_handler'] },
@@ -79,7 +79,7 @@ const navItems: NavItem[] = [
       { name: '일류 리워드 설정', path: '/products/reward-settings', icon: SignalIcon, allowedRoles: ['system_admin', 'company_admin'] },
     ],
   },
-  { name: '유저 관리', path: '/users', icon: UsersIcon, allowedRoles: ['system_admin', 'company_admin'] },
+  { name: '유저 관리', path: '/users', icon: UsersIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
   { name: '회사 관리', path: '/companies', icon: BuildingOffice2Icon, allowedRoles: ['system_admin'] },
   // ── 시스템 ──
   { name: '시스템 설정', path: '/settings', icon: Cog6ToothIcon, allowedRoles: ['system_admin'], group: '시스템' },
@@ -161,16 +161,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Points balance state (for distributor)
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsOwnerName, setPointsOwnerName] = useState<string | null>(null);
+  const [pointsOwnerRole, setPointsOwnerRole] = useState<UserRole | null>(null);
 
   // Pending charge request count (for admin)
   const [pendingChargeCount, setPendingChargeCount] = useState(0);
 
-   // Fetch points balance for distributor and order_handler
+   // Fetch effective points balance for the actual charge owner
    const fetchPointsBalance = useCallback(async () => {
-     if (!user || !['distributor', 'order_handler'].includes(user.role)) return;
+     if (!user || !['distributor', 'order_handler', 'sub_account'].includes(user.role)) return;
      try {
-       const data = await pointsApi.getMyBalance(user.id);
+       const data = await pointsApi.getEffectiveMyBalance();
        setPointsBalance(data.balance);
+       setPointsOwnerName(data.effective_user_name);
+       setPointsOwnerRole(data.effective_user_role as UserRole);
      } catch {
        // Silently fail for balance polling
      }
@@ -400,7 +404,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User Profile & Notifications */}
         <div className="shrink-0 border-t border-border-subtle p-3 space-y-1">
            {/* Points Balance for Distributor and Order Handler */}
-           {(userRole === 'distributor' || userRole === 'order_handler') && pointsBalance !== null && (
+           {(userRole === 'distributor' || userRole === 'order_handler' || userRole === 'sub_account') && pointsBalance !== null && (
              <NavLink
                to="/points"
                onClick={onClose}
@@ -408,7 +412,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
              >
                <CircleStackIcon className="h-5 w-5 shrink-0 text-primary-400" />
                <div className="flex-1 min-w-0">
-                 <p className="text-[11px] text-gray-500">보유 포인트</p>
+                 <p className="text-[11px] text-gray-500">
+                   {pointsOwnerName ? `차감 기준: ${pointsOwnerName}${pointsOwnerRole ? ` (${getRoleLabel(pointsOwnerRole)})` : ''}` : '차감 기준 포인트'}
+                 </p>
                  <p className="text-sm font-bold text-primary-300">{formatNumber(pointsBalance)}P</p>
                </div>
                <span className="text-[11px] text-primary-400 font-medium whitespace-nowrap">충전 요청 →</span>

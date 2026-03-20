@@ -19,6 +19,8 @@ interface SubAccountOrder {
   status: string;
   total_amount: number;
   selection_status: string;
+  intake_blocked?: boolean;
+  intake_block_reason?: string | null;
   created_at: string;
   items?: {
     product?: { name?: string; code?: string };
@@ -136,7 +138,11 @@ export default function SubAccountOrders() {
   // Bulk confirm: submit (if draft) then confirmPayment — pipeline starts immediately
   const handleBulkSubmit = async () => {
     const toProcess = orders.filter(
-      (o) => selectedIds.has(o.id) && (o.status === 'draft' || o.status === 'submitted' || o.selection_status === 'included')
+      (o) =>
+        selectedIds.has(o.id)
+        && o.selection_status === 'included'
+        && !o.intake_blocked
+        && (o.status === 'draft' || o.status === 'submitted' || o.status === 'payment_hold')
     );
     if (toProcess.length === 0) {
       alert('접수할 수 있는 건이 없습니다. 접수건을 선택해 주세요.');
@@ -228,7 +234,7 @@ export default function SubAccountOrders() {
               )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
-              하부계정이 제출한 접수건입니다. 포함 처리 후 일괄 접수하세요.
+              하부계정 최종 접수 건입니다. 포함 처리 후 총판 단계에서 최종 접수를 넘기면 세팅이 시작됩니다.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -248,7 +254,7 @@ export default function SubAccountOrders() {
                   onClick={handleBulkSubmit}
                   loading={bulkSubmitting}
                 >
-                  {selectedIds.size}건 일괄 접수 확인
+                  {selectedIds.size}건 총판 최종 접수
                 </Button>
               </>
             )}
@@ -262,7 +268,7 @@ export default function SubAccountOrders() {
           }`}>
             <CheckCircleIcon className="h-4 w-4 flex-shrink-0" />
             <span>
-              일괄 접수 확인 완료: 성공 {submitResults.success}건
+              총판 최종 접수 완료: 성공 {submitResults.success}건
               {submitResults.failed > 0 && ` / 실패 ${submitResults.failed}건`}
             </span>
             <button
@@ -324,6 +330,12 @@ export default function SubAccountOrders() {
                   {order.order_number}
                 </span>
                 {getSelectionBadge(order.selection_status)}
+                {order.intake_blocked && (
+                  <span className="inline-flex items-center gap-1 bg-red-900/40 text-red-400 px-2 py-0.5 rounded text-[11px] font-medium">
+                    <XCircleIcon className="h-3 w-3" />
+                    접수 불가
+                  </span>
+                )}
               </div>
 
               {/* Place name */}
@@ -374,21 +386,28 @@ export default function SubAccountOrders() {
 
               {/* Date + action buttons */}
               <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between">
-                <span className="text-[11px] text-gray-500">
-                  {formatRelativeTime(order.created_at)}
-                </span>
+                <div className="min-w-0">
+                  <span className="text-[11px] text-gray-500">
+                    {formatRelativeTime(order.created_at)}
+                  </span>
+                  {order.intake_blocked && order.intake_block_reason && (
+                    <p className="mt-1 text-[11px] text-red-400 truncate max-w-[220px]">
+                      {order.intake_block_reason}
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     className="px-2.5 py-1 rounded text-xs font-medium bg-green-900/40 text-green-400 hover:bg-green-900/60 transition-colors disabled:opacity-50"
                     onClick={() => handleInclude(order.id)}
-                    disabled={isProcessing || order.selection_status === 'included'}
+                    disabled={isProcessing || order.selection_status === 'included' || order.intake_blocked}
                   >
                     {isProcessing ? '처리중...' : '포함'}
                   </button>
                   <button
                     className="px-2.5 py-1 rounded text-xs font-medium bg-red-900/40 text-red-400 hover:bg-red-900/60 transition-colors disabled:opacity-50"
                     onClick={() => handleExclude(order.id)}
-                    disabled={isProcessing || order.selection_status === 'excluded'}
+                    disabled={isProcessing || order.selection_status === 'excluded' || order.intake_blocked}
                   >
                     제외
                   </button>

@@ -41,6 +41,23 @@ class BalanceResponse(BaseModel):
         return v
 
 
+class EffectiveBalanceResponse(BaseModel):
+    """Effective balance info based on the actual charge owner."""
+
+    requested_user_id: uuid.UUID
+    effective_user_id: uuid.UUID
+    effective_user_name: str
+    effective_user_role: str
+    balance: int
+
+    @field_validator("balance", mode="before")
+    @classmethod
+    def coerce_effective_balance(cls, v):
+        if isinstance(v, Decimal):
+            return int(v)
+        return v
+
+
 class BalanceTransactionResponse(BaseModel):
     """Balance transaction response model."""
 

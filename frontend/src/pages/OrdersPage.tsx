@@ -296,7 +296,7 @@ export default function OrdersPage() {
               onClick={() => setShowPaymentConfirmModal(true)}
               icon={<CheckCircleIcon className="h-3 w-3" />}
             >
-              {isDistributor ? '일괄 접수' : '일괄 입금확인'}
+              {isDistributor ? '총판 최종 접수' : '일괄 입금확인'}
             </Button>
           )}
           {canBulk && (
@@ -382,12 +382,12 @@ export default function OrdersPage() {
       <Modal
         isOpen={showPaymentConfirmModal}
         onClose={() => setShowPaymentConfirmModal(false)}
-        title={isDistributor ? '일괄 접수' : '일괄 입금확인'}
+        title={isDistributor ? '총판 최종 접수' : '일괄 입금확인'}
         size="sm"
       >
         <div className="space-y-4 p-1">
           <p className="text-sm text-gray-400">
-            선택한 {selectedIds.size}건의 주문을 {isDistributor ? '접수' : '입금 확인'}하시겠습니까?
+            선택한 {selectedIds.size}건의 주문을 {isDistributor ? '총판 최종 접수' : '입금 확인'}하시겠습니까?
           </p>
           <p className="text-xs text-cyan-500">
             확인 후 자동으로 세팅이 시작됩니다.
@@ -395,7 +395,7 @@ export default function OrdersPage() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowPaymentConfirmModal(false)}>취소</Button>
             <Button onClick={handleBulkPaymentConfirm} loading={paymentConfirmLoading}>
-              {isDistributor ? '접수 확인' : '입금 확인'}
+              {isDistributor ? '최종 접수' : '입금 확인'}
             </Button>
           </div>
         </div>

@@ -12,6 +12,7 @@ from app.core.deps import RoleChecker, get_current_active_user
 from app.models.user import User, UserRole
 from app.schemas.balance import (
     BalanceResponse,
+    EffectiveBalanceResponse,
     BalanceTransactionResponse,
     DepositRequest,
     WithdrawRequest,
@@ -38,6 +39,23 @@ def _can_view_balance(viewer: User, target_user_id: uuid.UUID) -> bool:
     if viewer_role == UserRole.COMPANY_ADMIN:
         return True  # Further validated in endpoint
     return False
+
+
+@router.get("/effective/me", response_model=EffectiveBalanceResponse)
+async def get_effective_balance_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get the effective balance owner and balance for the current user."""
+    owner = await balance_service.get_effective_balance_owner(db, current_user.id)
+    balance = int(owner.balance) if owner.balance else 0
+    return EffectiveBalanceResponse(
+        requested_user_id=current_user.id,
+        effective_user_id=owner.id,
+        effective_user_name=owner.name,
+        effective_user_role=owner.role,
+        balance=balance,
+    )
 
 
 @router.get("/{user_id}", response_model=BalanceResponse)

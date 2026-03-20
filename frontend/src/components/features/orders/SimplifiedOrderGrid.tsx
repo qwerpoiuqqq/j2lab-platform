@@ -208,7 +208,7 @@ export default function SimplifiedOrderGrid({ onSuccess }: SimplifiedOrderGridPr
       await ordersApi.createSimplified({
         items: rows.map((row) => ({
           place_url: row.place_url,
-          place_name: row.recommendation?.place_name || '',
+          place_name: row.recommendation?.place_name || row.target_keyword || row.place_url,
           start_date: row.start_date,
           daily_limit: row.daily_limit,
           duration_days: row.duration_days,

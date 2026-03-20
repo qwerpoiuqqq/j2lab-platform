@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,6 +121,52 @@ def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
     return errors
 
 
+def get_order_intake_block_reason(order: Order) -> str | None:
+    """Return a reason when final intake should be blocked for this order."""
+    now_utc = datetime.now(timezone.utc)
+
+    for item in order.items or []:
+        product = item.product
+        if product is None:
+            continue
+
+        item_data = item.item_data if isinstance(item.item_data, dict) else {}
+        start_date_raw = item_data.get("start_date")
+        if not start_date_raw:
+            continue
+
+        try:
+            start_local_date = date.fromisoformat(str(start_date_raw))
+        except ValueError:
+            continue
+
+        try:
+            local_tz = ZoneInfo(product.deadline_timezone or "Asia/Seoul")
+        except Exception:
+            local_tz = timezone.utc
+
+        now_local = now_utc.astimezone(local_tz)
+        cutoff = datetime.combine(
+            start_local_date,
+            product.daily_deadline,
+            tzinfo=local_tz,
+        ) + timedelta(minutes=product.setup_delay_minutes or 0)
+
+        if start_local_date == now_local.date() and now_local > cutoff:
+            place_name = (
+                item_data.get("place_name")
+                or item_data.get("상호명")
+                or item_data.get("place_url")
+                or f"item #{item.id}"
+            )
+            return (
+                f"{place_name}: final intake closed at "
+                f"{cutoff.strftime('%H:%M')} ({product.deadline_timezone or 'UTC'})"
+            )
+
+    return None
+
+
 async def _generate_order_number(db: AsyncSession) -> str:
     """Generate a sequential order number: ORD-YYYYMMDD-NNN."""
     today_str = date.today().strftime("%Y%m%d")
@@ -168,6 +215,16 @@ async def get_orders(
     """
     query = select(Order)
     count_query = select(func.count()).select_from(Order)
+    sub_account_queue_hidden_statuses = [
+        OrderStatus.DRAFT.value,
+        OrderStatus.SUBMITTED.value,
+        OrderStatus.PAYMENT_HOLD.value,
+    ]
+    hide_sub_account_queue_filter = ~(
+        Order.user.has(User.role == UserRole.SUB_ACCOUNT.value)
+        & Order.selection_status.in_(("pending", "included"))
+        & Order.status.in_(sub_account_queue_hidden_statuses)
+    )
 
     # Role-based scope
     if current_user:
@@ -177,28 +234,33 @@ async def get_orders(
             count_query = count_query.where(
                 Order.company_id == current_user.company_id
             )
+            query = query.where(hide_sub_account_queue_filter)
+            count_query = count_query.where(hide_sub_account_queue_filter)
         elif user_role == UserRole.ORDER_HANDLER:
             from app.services.user_service import get_line_user_ids
             line_ids = await get_line_user_ids(db, current_user.id)
             query = query.where(Order.user_id.in_(line_ids))
             count_query = count_query.where(Order.user_id.in_(line_ids))
+            query = query.where(hide_sub_account_queue_filter)
+            count_query = count_query.where(hide_sub_account_queue_filter)
         elif user_role == UserRole.DISTRIBUTOR:
             # distributor sees own orders (all statuses)
             # + sub_account orders (submitted 이상만 — draft는 제출 전이므로 숨김)
             sub_query = select(User.id).where(User.parent_id == current_user.id)
+            distributor_visible_sub_order_filter = (
+                Order.user_id.in_(sub_query)
+                & ~(
+                    Order.selection_status.in_(("pending", "included"))
+                    & Order.status.in_(sub_account_queue_hidden_statuses)
+                )
+            )
             query = query.where(
                 (Order.user_id == current_user.id)
-                | (
-                    Order.user_id.in_(sub_query)
-                    & (Order.status != OrderStatus.DRAFT.value)
-                )
+                | distributor_visible_sub_order_filter
             )
             count_query = count_query.where(
                 (Order.user_id == current_user.id)
-                | (
-                    Order.user_id.in_(sub_query)
-                    & (Order.status != OrderStatus.DRAFT.value)
-                )
+                | distributor_visible_sub_order_filter
             )
         elif user_role == UserRole.SUB_ACCOUNT:
             query = query.where(Order.user_id == current_user.id)
@@ -499,6 +561,17 @@ async def submit_order(
     if order.selection_status == "excluded":
         raise ValueError("제외된 접수건은 제출할 수 없습니다.")
 
+    if order.order_type == OrderType.REGULAR.value:
+        charge_amount = int(order.total_amount or 0)
+        if charge_amount > 0:
+            from app.services import balance_service
+
+            await balance_service.ensure_sufficient_order_balance(
+                db,
+                order.user_id,
+                charge_amount,
+            )
+
     order.status = OrderStatus.SUBMITTED.value
     order.submitted_by = submitted_by.id
     order.submitted_at = datetime.now(timezone.utc)
@@ -520,6 +593,10 @@ async def confirm_payment(
             f"Cannot confirm payment for order in '{order.status}' status. "
             "Only submitted orders can have payment confirmed."
         )
+
+    intake_block_reason = get_order_intake_block_reason(order)
+    if intake_block_reason is not None:
+        raise ValueError(f"Final intake blocked: {intake_block_reason}")
 
     # Deduct balance for regular orders before finalizing payment confirmation.
     if order.order_type == OrderType.REGULAR.value:
@@ -925,26 +1002,42 @@ async def get_sub_account_pending_orders(
     skip: int = 0,
     limit: int = 50,
 ) -> list[Order]:
-    """Get pending sub-account orders for a distributor."""
+    """Get sub-account queue orders for a distributor.
+
+    The queue intentionally contains both:
+    - pending: waiting for include/exclude decision
+    - included: approved by distributor but not yet finalized upward
+    """
     user_role = UserRole(distributor.role)
+    queue_statuses = ("pending", "included")
+    visible_order_statuses = (
+        OrderStatus.DRAFT.value,
+        OrderStatus.SUBMITTED.value,
+        OrderStatus.PAYMENT_HOLD.value,
+    )
 
     if user_role == UserRole.SYSTEM_ADMIN:
-        # system_admin sees all pending orders
+        # system_admin sees all queue-stage sub-account orders
         query = (
             select(Order)
-            .where(Order.selection_status == "pending")
+            .where(
+                Order.user.has(User.role == UserRole.SUB_ACCOUNT.value),
+                Order.selection_status.in_(queue_statuses),
+                Order.status.in_(visible_order_statuses),
+            )
             .order_by(Order.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
     else:
-        # distributor sees only sub-account orders
+        # distributor sees only their sub-account queue orders
         sub_query = select(User.id).where(User.parent_id == distributor.id)
         query = (
             select(Order)
             .where(
                 Order.user_id.in_(sub_query),
-                Order.selection_status == "pending",
+                Order.selection_status.in_(queue_statuses),
+                Order.status.in_(visible_order_statuses),
             )
             .order_by(Order.created_at.desc())
             .offset(skip)

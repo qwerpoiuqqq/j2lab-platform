@@ -45,11 +45,18 @@ export default function UserForm({ companies, onSubmit, loading, onCancel }: Use
         ? roleOptions.filter((r) =>
             ['order_handler', 'distributor', 'sub_account'].includes(r.value),
           )
-        : roleOptions.filter((r) => r.value === 'sub_account');
+        : currentUser?.role === 'order_handler'
+          ? roleOptions.filter((r) =>
+              ['distributor', 'sub_account'].includes(r.value),
+            )
+          : roleOptions.filter((r) => r.value === 'sub_account');
 
   // distributor가 sub_account를 생성할 때는 parent_id가 자동으로 자신이 됨
   const parentConfig = PARENT_ROLE_MAP[role];
-  const needsParent = !!parentConfig && currentUser?.role !== 'distributor';
+  const autoAssignedParent =
+    currentUser?.role === 'distributor'
+    || (currentUser?.role === 'order_handler' && role === 'distributor');
+  const needsParent = !!parentConfig && !autoAssignedParent;
 
   useEffect(() => {
     if (!needsParent) {

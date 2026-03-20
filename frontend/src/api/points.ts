@@ -31,6 +31,14 @@ export interface UserBalance {
   balance: number;
 }
 
+export interface EffectiveUserBalance {
+  requested_user_id: string;
+  effective_user_id: string;
+  effective_user_name: string;
+  effective_user_role: string;
+  balance: number;
+}
+
 export const pointsApi = {
   createChargeRequest: async (amount: number): Promise<ChargeRequest> => {
     const response = await apiClient.post<ChargeRequest>('/charge-requests/', { amount });
@@ -70,6 +78,11 @@ export const pointsApi = {
 
   getMyBalance: async (userId: string): Promise<UserBalance> => {
     const response = await apiClient.get<UserBalance>(`/balance/${userId}`);
+    return response.data;
+  },
+
+  getEffectiveMyBalance: async (): Promise<EffectiveUserBalance> => {
+    const response = await apiClient.get<EffectiveUserBalance>('/balance/effective/me');
     return response.data;
   },
 

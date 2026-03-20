@@ -147,6 +147,7 @@ class TestCreateUser:
         self,
         client: AsyncClient,
         company_admin: User,
+        order_handler: User,
         test_company: Company,
     ):
         """company_admin creates distributor in own company."""
@@ -158,12 +159,107 @@ class TestCreateUser:
                 "password": "password123",
                 "name": "New Dist",
                 "role": "distributor",
+                "parent_id": str(order_handler.id),
             },
             headers=headers,
         )
         assert resp.status_code == 201
         data = resp.json()
         assert data["company_id"] == test_company.id
+        assert data["parent_id"] == str(order_handler.id)
+
+    async def test_order_handler_creates_distributor_in_own_line(
+        self,
+        client: AsyncClient,
+        order_handler: User,
+        test_company: Company,
+    ):
+        """order_handler creates distributor with themselves as parent."""
+        headers = get_auth_header(order_handler)
+        resp = await client.post(
+            "/api/v1/users/",
+            json={
+                "email": "handlerdist@test.com",
+                "password": "password123",
+                "name": "Handler Dist",
+                "role": "distributor",
+                "company_id": test_company.id,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["company_id"] == test_company.id
+        assert data["parent_id"] == str(order_handler.id)
+
+    async def test_order_handler_creates_sub_account_under_own_distributor(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        order_handler: User,
+        test_company: Company,
+    ):
+        """order_handler can create sub_account under a distributor in their own line."""
+        distributor = await create_test_user(
+            db_session,
+            email="line-dist@test.com",
+            role=UserRole.DISTRIBUTOR,
+            company_id=test_company.id,
+            parent_id=order_handler.id,
+        )
+
+        headers = get_auth_header(order_handler)
+        resp = await client.post(
+            "/api/v1/users/",
+            json={
+                "email": "line-sub@test.com",
+                "password": "password123",
+                "name": "Line Sub",
+                "role": "sub_account",
+                "parent_id": str(distributor.id),
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["company_id"] == test_company.id
+        assert data["parent_id"] == str(distributor.id)
+
+    async def test_order_handler_cannot_create_sub_account_under_other_line(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        order_handler: User,
+        test_company: Company,
+    ):
+        """order_handler cannot create sub_account under another handler's distributor."""
+        other_handler = await create_test_user(
+            db_session,
+            email="other-handler@test.com",
+            role=UserRole.ORDER_HANDLER,
+            company_id=test_company.id,
+        )
+        other_distributor = await create_test_user(
+            db_session,
+            email="other-line-dist@test.com",
+            role=UserRole.DISTRIBUTOR,
+            company_id=test_company.id,
+            parent_id=other_handler.id,
+        )
+
+        headers = get_auth_header(order_handler)
+        resp = await client.post(
+            "/api/v1/users/",
+            json={
+                "email": "forbidden-sub@test.com",
+                "password": "password123",
+                "name": "Forbidden Sub",
+                "role": "sub_account",
+                "parent_id": str(other_distributor.id),
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 403
 
     async def test_company_admin_cannot_create_in_other_company(
         self,

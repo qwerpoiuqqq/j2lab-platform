@@ -14,6 +14,8 @@ class SettlementRow(BaseModel):
 
     order_id: int
     order_number: str
+    display_order_number: str
+    primary_place_name: str
     product_name: str
     user_name: str
     user_role: str
@@ -134,11 +136,12 @@ class OrderBrief(BaseModel):
 
     id: int
     place_name: str
+    total_quantity: int
     total_amount: int
     status: str
     created_at: datetime
 
-    @field_validator("total_amount", mode="before")
+    @field_validator("total_amount", "total_quantity", mode="before")
     @classmethod
     def coerce_numeric(cls, v):
         if isinstance(v, Decimal):
@@ -154,10 +157,11 @@ class DailyCheckDistributorRow(BaseModel):
     distributor_id: str
     distributor_name: str
     order_count: int
+    total_quantity: int
     total_amount: int
     orders: list[OrderBrief]
 
-    @field_validator("total_amount", mode="before")
+    @field_validator("total_amount", "total_quantity", mode="before")
     @classmethod
     def coerce_numeric(cls, v):
         if isinstance(v, Decimal):

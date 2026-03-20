@@ -61,7 +61,7 @@ export default function OrderDetail({
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-gray-100">
-                {order.order_number}
+                {order.display_order_number || order.order_number}
               </h2>
               <Badge variant={getStatusBadgeVariant(order.status)}>
                 {getOrderStatusLabel(order.status)}
@@ -214,6 +214,22 @@ export default function OrderDetail({
               {order.company?.name || '-'}
             </p>
           </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase">상호명</p>
+            <p className="mt-1 text-sm font-medium text-gray-100">
+              {order.primary_place_name || '-'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase">시작일 / 진행량</p>
+            <p className="mt-1 text-sm font-medium text-gray-100">
+              {[
+                order.start_date || '-',
+                order.daily_limit ? `일 ${order.daily_limit}` : null,
+                order.total_limit ? `총 ${order.total_limit}` : null,
+              ].filter(Boolean).join(' / ')}
+            </p>
+          </div>
           {!isSubAccount && (
             <>
               <div>
@@ -223,9 +239,9 @@ export default function OrderDetail({
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 uppercase">VAT</p>
+                <p className="text-xs text-gray-400 uppercase">VAT / 총 타수</p>
                 <p className="mt-1 text-sm font-medium text-gray-100">
-                  {formatCurrency(order.vat_amount)}
+                  {formatCurrency(order.vat_amount)} / {order.total_quantity || 0}
                 </p>
               </div>
             </>

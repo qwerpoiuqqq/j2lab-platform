@@ -422,7 +422,15 @@ export default function OrderGrid({
 
   const handleConfirmedSubmit = () => {
     setConfirmOpen(false);
-    onSubmit(rows, notes);
+    const rowsWithSummary = rows.map((row, idx) => {
+      const ai = aiStates[idx];
+      if (!ai?.recommendation) return row;
+      return {
+        ...row,
+        place_name: String(row['place_name'] || ai.recommendation.place_name || ''),
+      };
+    });
+    onSubmit(rowsWithSummary, notes);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {

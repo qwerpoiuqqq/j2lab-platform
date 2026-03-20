@@ -110,11 +110,17 @@ export default function OrderGridPage() {
   const [orderType, setOrderType] = useState<OrderType>('regular');
   const [assignedAccountId, setAssignedAccountId] = useState<number | null>(null);
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsOwnerName, setPointsOwnerName] = useState<string | null>(null);
+  const [pointsOwnerRole, setPointsOwnerRole] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.id && user.role === 'distributor') {
-      pointsApi.getMyBalance(user.id)
-        .then((res) => setPointsBalance(res.balance))
+    if (user?.id && ['distributor', 'sub_account'].includes(user.role)) {
+      pointsApi.getEffectiveMyBalance()
+        .then((res) => {
+          setPointsBalance(res.balance);
+          setPointsOwnerName(res.effective_user_name);
+          setPointsOwnerRole(res.effective_user_role);
+        })
         .catch(console.error);
     }
   }, [user?.id, user?.role]);
@@ -490,9 +496,12 @@ export default function OrderGridPage() {
             )}
 
             {/* Points badge for distributor/order_handler only (not sub_account) */}
-            {user?.role === 'distributor' && pointsBalance !== null && (
+            {['distributor', 'sub_account'].includes(user?.role || '') && pointsBalance !== null && (
               <div className="flex items-center gap-2 ml-auto bg-surface-raised border border-border-subtle rounded-xl px-3 py-2">
-                <span className="text-[12px] text-gray-500">내 포인트</span>
+                <span className="text-[12px] text-gray-500">차감 기준</span>
+                <span className="text-[12px] text-gray-500">
+                  {pointsOwnerName ? `차감 기준: ${pointsOwnerName}${pointsOwnerRole ? ` (${pointsOwnerRole})` : ''}` : '차감 기준 포인트'}
+                </span>
                 <span className="text-sm font-bold text-primary-600">{formatCurrency(pointsBalance)}P</span>
               </div>
             )}
@@ -508,10 +517,10 @@ export default function OrderGridPage() {
               <p className="mt-1 text-[13px] text-gray-500 ml-3.5">선택한 상품에 맞는 항목만 자동으로 보여줘요</p>
             </div>
             <div className="p-6 space-y-4">
-              {user?.role === 'distributor' && pointsBalance !== null && effectivePrice !== undefined && pointsBalance < effectivePrice && (
+              {['distributor', 'sub_account'].includes(user?.role || '') && pointsBalance !== null && effectivePrice !== undefined && pointsBalance < effectivePrice && (
                 <div className="rounded-xl bg-warning-50 border border-warning-500/20 text-warning-500 text-sm p-3.5 flex items-center gap-2.5 font-medium">
                   <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
-                  <p>포인트가 부족해요. 충전 후 검수 승인이 가능해요.</p>
+                  <p>차감 기준 포인트가 부족합니다. 충전 후 진행해 주세요.</p>
                 </div>
               )}
               <OrderGrid

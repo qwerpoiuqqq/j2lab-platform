@@ -84,7 +84,12 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         RoleChecker(
-            [UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISTRIBUTOR]
+            [
+                UserRole.SYSTEM_ADMIN,
+                UserRole.COMPANY_ADMIN,
+                UserRole.ORDER_HANDLER,
+                UserRole.DISTRIBUTOR,
+            ]
         )
     ),
 ):
@@ -93,6 +98,7 @@ async def create_user(
     Role creation rules:
     - system_admin: can create any role
     - company_admin: can create order_handler, distributor, sub_account (same company)
+    - order_handler: can create distributor in own line, or sub_account under their distributor line
     - distributor: can only create sub_account (as parent)
     """
     creator_role = UserRole(current_user.role)
@@ -113,6 +119,16 @@ async def create_user(
                 detail="Company admin can only create users in their own company",
             )
         body = body.model_copy(update={"company_id": current_user.company_id})
+
+    if creator_role == UserRole.ORDER_HANDLER:
+        if body.company_id is not None and body.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Order handler can only create users in their own company",
+            )
+        body = body.model_copy(update={"company_id": current_user.company_id})
+        if target_role == UserRole.DISTRIBUTOR:
+            body = body.model_copy(update={"parent_id": current_user.id})
 
     # distributor must set themselves as parent
     if creator_role == UserRole.DISTRIBUTOR:
@@ -176,6 +192,18 @@ async def create_user(
             )
         if body.company_id is None:
             body = body.model_copy(update={"company_id": parent.company_id})
+
+    if (
+        target_role == UserRole.SUB_ACCOUNT
+        and creator_role == UserRole.ORDER_HANDLER
+        and body.parent_id is not None
+    ):
+        parent = await user_service.get_user_by_id(db, body.parent_id)
+        if parent is not None and parent.parent_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Order handler can only create sub_accounts under their own distributors",
+            )
 
     # Non-system_admin roles must have a company_id
     if target_role != UserRole.SYSTEM_ADMIN and body.company_id is None:

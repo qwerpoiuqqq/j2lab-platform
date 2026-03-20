@@ -111,7 +111,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '주문번호',
       render: (order) => (
         <span className="inline-block bg-surface-raised px-2 py-0.5 rounded text-xs font-mono text-gray-100">
-          {order.order_number}
+          {order.display_order_number || order.order_number}
         </span>
       ),
     },
@@ -146,6 +146,7 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
       header: '플레이스 / 상품',
       render: (order) => {
         const count = order.item_count || order.items?.length || 0;
+        const summaryPlaceName = order.primary_place_name || null;
         // Collect all unique place names
         const placeNames = order.items
           ?.map((item) => (item.item_data as any)?.place_name as string | undefined)
@@ -166,10 +167,10 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
         const uniqueNames = [...new Set(productNames)];
         return (
           <div className="flex flex-col gap-0.5">
-            {placeLabel ? (
+            {summaryPlaceName || placeLabel ? (
               <div className="flex items-baseline gap-1">
                 <span className="text-gray-100 font-medium text-sm truncate max-w-[140px]">
-                  {uniquePlaces[0]}
+                  {summaryPlaceName || uniquePlaces[0]}
                 </span>
                 {uniquePlaces.length > 1 && (
                   <span className="text-gray-500 text-xs whitespace-nowrap">
@@ -179,6 +180,15 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
               </div>
             ) : (
               <span className="text-gray-100 font-medium">{count}건</span>
+            )}
+            {(order.start_date || order.daily_limit || order.total_limit) && (
+              <p className="text-[11px] text-gray-400">
+                {[
+                  order.start_date,
+                  order.daily_limit ? `일 ${order.daily_limit}` : null,
+                  order.total_limit ? `총 ${order.total_limit}` : null,
+                ].filter(Boolean).join(' / ')}
+              </p>
             )}
             <div className="flex items-center gap-1 flex-wrap">
               {uniqueTypes.includes('traffic') && (
@@ -196,6 +206,11 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
                   {uniqueNames.join(', ')}
                 </p>
               )}
+              {order.total_quantity ? (
+                <span className="inline-block bg-surface-raised text-gray-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
+                  타수 {order.total_quantity}
+                </span>
+              ) : null}
             </div>
           </div>
         );

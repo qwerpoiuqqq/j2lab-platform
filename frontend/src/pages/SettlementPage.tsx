@@ -481,12 +481,17 @@ export default function SettlementPage() {
     {
       key: 'order_number',
       header: '주문번호',
-      render: (s) => <span className="font-mono text-sm">{s.order_number}</span>,
+      render: (s) => <span className="font-mono text-sm">{s.display_order_number || s.order_number}</span>,
     },
     {
       key: 'product_name',
       header: '상품명',
       render: (s) => <span className="text-gray-100">{s.product_name}</span>,
+    },
+    {
+      key: 'primary_place_name',
+      header: '상호명',
+      render: (s) => <span className="text-gray-100">{s.primary_place_name || '-'}</span>,
     },
     {
       key: 'user_name',
@@ -955,11 +960,16 @@ export default function SettlementPage() {
 
         {/* Summary cards */}
         {dailyCheckData && (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <SummaryCard
               label="총 접수건"
               value={formatNumber(dailyCheckData.summary.total_orders)}
               color="blue"
+            />
+            <SummaryCard
+              label="총 접수 타수"
+              value={formatNumber(dailyCheckData.summary.total_quantity)}
+              color="yellow"
             />
             <SummaryCard
               label="총 금액"
@@ -1036,7 +1046,7 @@ export default function SettlementPage() {
                   <div className="text-left">
                     <span className="font-semibold text-gray-100">{dist.distributor_name}</span>
                     <span className="ml-2 text-sm text-gray-400">
-                      ({formatNumber(dist.order_count)}건)
+                      ({formatNumber(dist.order_count)}건 / {formatNumber(dist.total_quantity)}타수)
                     </span>
                   </div>
                 </div>
@@ -1064,6 +1074,9 @@ export default function SettlementPage() {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           업체명
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
+                          타수
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">
                           금액
@@ -1095,6 +1108,9 @@ export default function SettlementPage() {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-100">
                             {order.place_name || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-300">
+                            {formatNumber(order.total_quantity)}
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-300">
                             {formatCurrency(order.total_amount)}

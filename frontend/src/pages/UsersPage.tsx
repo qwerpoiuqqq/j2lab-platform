@@ -18,6 +18,7 @@ import { getRoleLabel } from '@/utils/format';
 import type { User, UserRole, Company, UpdateUserRequest } from '@/types';
 import { usersApi } from '@/api/users';
 import { companiesApi } from '@/api/companies';
+import { useAuthStore } from '@/store/auth';
 
 const PARENT_ROLE_MAP: Record<string, { parentRole: string; label: string }> = {
   distributor: { parentRole: 'order_handler', label: '상위 담당자' },
@@ -41,6 +42,8 @@ const roleColors: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const currentUser = useAuthStore((s) => s.user);
+  const canEditUsers = currentUser?.role === 'system_admin' || currentUser?.role === 'company_admin';
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,14 +209,16 @@ export default function UsersPage() {
             <p className="text-xs text-gray-400">{user.email}{user.company ? ` · ${user.company.name}` : ''}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => openEdit(user)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded">
-            <PencilSquareIcon className="h-4 w-4" />
-          </button>
-          <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded">
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
+        {canEditUsers && (
+          <div className="flex items-center gap-1">
+            <button onClick={() => openEdit(user)} className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 rounded">
+              <PencilSquareIcon className="h-4 w-4" />
+            </button>
+            <button onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded">
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
       {userTree.childrenMap[user.id]?.map((child) => renderTreeNode(child, depth + 1))}
     </div>
@@ -275,6 +280,12 @@ export default function UsersPage() {
         <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 text-red-400 text-sm">{error}</div>
       )}
 
+      {!canEditUsers && (
+        <div className="rounded-lg border border-primary-800 bg-primary-900/20 p-3 text-sm text-primary-200">
+          총판과 하부 계정 생성은 가능하지만, 기존 계정 수정과 비활성화는 회사 관리자 이상만 처리할 수 있습니다.
+        </div>
+      )}
+
       {/* Content */}
       {viewMode === 'tree' ? (
         <div className="bg-surface rounded-xl border border-border shadow-sm divide-y divide-border-subtle">
@@ -289,7 +300,12 @@ export default function UsersPage() {
           )}
         </div>
       ) : (
-        <UserList users={filteredUsers} allUsers={users} loading={loading} onEdit={(user) => { openEdit(user); }} />
+        <UserList
+          users={filteredUsers}
+          allUsers={users}
+          loading={loading}
+          onEdit={canEditUsers ? (user) => { openEdit(user); } : undefined}
+        />
       )}
 
       <Pagination
@@ -306,7 +322,7 @@ export default function UsersPage() {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="유저 수정" size="md">
+      <Modal isOpen={showEditModal && canEditUsers} onClose={() => setShowEditModal(false)} title="유저 수정" size="md">
         {editingUser && (
           <div className="space-y-4 p-1">
             <Input

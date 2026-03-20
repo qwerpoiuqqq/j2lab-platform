@@ -484,6 +484,8 @@ async def get_sub_account_pending_orders(
                 "status": o.status,
                 "total_amount": int(o.total_amount) if o.total_amount else 0,
                 "selection_status": o.selection_status,
+                "intake_blocked": order_service.get_order_intake_block_reason(o) is not None,
+                "intake_block_reason": order_service.get_order_intake_block_reason(o),
                 "created_at": o.created_at.isoformat() if o.created_at else None,
             }
             for o in orders

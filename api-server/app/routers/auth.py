@@ -96,7 +96,14 @@ async def register(
     body: UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DISTRIBUTOR])
+        RoleChecker(
+            [
+                UserRole.SYSTEM_ADMIN,
+                UserRole.COMPANY_ADMIN,
+                UserRole.ORDER_HANDLER,
+                UserRole.DISTRIBUTOR,
+            ]
+        )
     ),
 ):
     """Register a new user. Only authorized roles can create users.
@@ -104,6 +111,7 @@ async def register(
     Role creation rules:
     - system_admin: can create any role
     - company_admin: can create order_handler, distributor, sub_account (same company)
+    - order_handler: can create distributor in own line, or sub_account under their distributor line
     - distributor: can only create sub_account (as parent)
     """
     creator_role = UserRole(current_user.role)
@@ -125,6 +133,16 @@ async def register(
             )
         body = body.model_copy(update={"company_id": current_user.company_id})
 
+    if creator_role == UserRole.ORDER_HANDLER:
+        if body.company_id is not None and body.company_id != current_user.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Order handler can only create users in their own company",
+            )
+        body = body.model_copy(update={"company_id": current_user.company_id})
+        if target_role == UserRole.DISTRIBUTOR:
+            body = body.model_copy(update={"parent_id": current_user.id})
+
     # distributor must set themselves as parent
     if creator_role == UserRole.DISTRIBUTOR:
         body = body.model_copy(
@@ -133,6 +151,47 @@ async def register(
                 "company_id": current_user.company_id,
             }
         )
+
+    if target_role == UserRole.DISTRIBUTOR and creator_role != UserRole.DISTRIBUTOR:
+        if body.parent_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Distributor creation requires an order_handler parent",
+            )
+        parent = await user_service.get_user_by_id(db, body.parent_id)
+        if parent is None or parent.role != UserRole.ORDER_HANDLER.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Distributor parent must be an order_handler",
+            )
+        if parent.company_id != body.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Distributor and parent must belong to the same company",
+            )
+
+    if target_role == UserRole.SUB_ACCOUNT and creator_role != UserRole.DISTRIBUTOR:
+        if body.parent_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sub_account creation requires a distributor parent",
+            )
+        parent = await user_service.get_user_by_id(db, body.parent_id)
+        if parent is None or parent.role != UserRole.DISTRIBUTOR.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sub_account parent must be a distributor",
+            )
+        if creator_role == UserRole.ORDER_HANDLER and parent.parent_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Order handler can only create sub_accounts under their own distributors",
+            )
+        if parent.company_id != body.company_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sub_account and parent must belong to the same company",
+            )
 
     # Non-system_admin roles must have a company_id
     if target_role != UserRole.SYSTEM_ADMIN and body.company_id is None:

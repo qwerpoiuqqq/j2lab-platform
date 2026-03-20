@@ -10,7 +10,7 @@ import { campaignAccountsApi } from '@/api/campaignAccounts';
 import { networkPresetsApi } from '@/api/networkPresets';
 import { useAuthStore } from '@/store/auth';
 import type { Category, Product, SuperapAccount, NetworkPreset } from '@/types';
-import type { RoleMatrixRow, UserMatrixResponse } from '@/api/prices';
+import type { RoleMatrixRow } from '@/api/prices';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -138,19 +138,19 @@ function MarginAnalysisTable({
                 상품명
               </th>
               <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
-                기본단가
+                기본 판매단가
               </th>
               <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
                 참고원가
               </th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
-                감은비율
+                세팅 감산 비율
               </th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
-                실제세팅
+                실세팅 비율
               </th>
               <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
-                마진율
+                판매 마진율
               </th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap w-10">
                 네트워크
@@ -187,7 +187,7 @@ function MarginAnalysisTable({
                       )}
                     </td>
 
-                    {/* 기본단가 */}
+                    {/* 기본 판매단가 */}
                     <td className="px-4 py-3 text-right text-gray-300 font-mono whitespace-nowrap">
                       {formatCurrency(basePrice)}
                     </td>
@@ -201,7 +201,7 @@ function MarginAnalysisTable({
                       )}
                     </td>
 
-                    {/* 감은비율 */}
+                    {/* 세팅 감산 비율 */}
                     <td className="px-4 py-3 text-center">
                       {editingId === product.id ? (
                         <div className="flex items-center justify-center gap-1">
@@ -260,14 +260,14 @@ function MarginAnalysisTable({
                       )}
                     </td>
 
-                    {/* 실제세팅 */}
+                    {/* 실세팅 비율 */}
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm text-gray-300">
                         {actualSettingPct}타/100타
                       </span>
                     </td>
 
-                    {/* 마진율 */}
+                    {/* 판매 마진율 */}
                     <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
                       {marginPct != null ? (
                         <span className={`font-semibold ${getMarginColor(marginPct)}`}>
@@ -371,7 +371,7 @@ function MarginAnalysisTable({
       </div>
       <div className="px-4 py-2 border-t border-border-subtle bg-surface-raised/30">
         <p className="text-xs text-gray-500">
-          <span className="text-purple-400 font-medium">감은비율</span> = 실제 세팅되지 않는 타수 비율.
+          <span className="text-purple-400 font-medium">세팅 감산 비율</span> = 주문 타수 중 실제 세팅에서 제외되는 내부 비율.
           {canEdit && ' 클릭하면 수정할 수 있습니다 (system_admin 전용).'}
           {' '}
           <span className="text-emerald-400">≥40%</span>
@@ -855,7 +855,7 @@ export default function PriceMatrixPage() {
                 : 'text-gray-400 hover:text-gray-200'
             }`}
           >
-            마진 분석
+            세팅 감산/마진 분석
           </button>
         )}
       </div>
@@ -927,7 +927,7 @@ export default function PriceMatrixPage() {
       )}
 
       {/* ================================================================= */}
-      {/* Tab: 마진 분석                                                    */}
+      {/* Tab: 세팅 감산/마진 분석                                         */}
       {/* ================================================================= */}
       {activeTab === 'margin' && canViewMargin && (
         <>
@@ -944,9 +944,9 @@ export default function PriceMatrixPage() {
           ) : (
             <>
               <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-4 py-3 text-sm text-purple-300">
-                판매가 대비 원가 기준 마진율을 표시합니다.
+                판매가 대비 원가 기준 판매 마진율과 실세팅 감산 비율을 함께 표시합니다.
                 {canEditMargin && (
-                  <> <strong>감은비율</strong>을 클릭하면 인라인 수정할 수 있습니다.</>
+                  <> <strong>세팅 감산 비율</strong>을 클릭하면 인라인 수정할 수 있습니다.</>
                 )}
               </div>
               <MarginAnalysisTable

@@ -122,6 +122,7 @@ def can_create_role(creator_role: UserRole, target_role: UserRole) -> bool:
     Rules:
     - system_admin can create any role
     - company_admin can create order_handler, distributor, sub_account
+    - order_handler can create distributor, sub_account
     - distributor can only create sub_account
     - Others cannot create users
     """
@@ -131,6 +132,11 @@ def can_create_role(creator_role: UserRole, target_role: UserRole) -> bool:
     if creator_role == UserRole.COMPANY_ADMIN:
         return target_role in (
             UserRole.ORDER_HANDLER,
+            UserRole.DISTRIBUTOR,
+            UserRole.SUB_ACCOUNT,
+        )
+    if creator_role == UserRole.ORDER_HANDLER:
+        return target_role in (
             UserRole.DISTRIBUTOR,
             UserRole.SUB_ACCOUNT,
         )

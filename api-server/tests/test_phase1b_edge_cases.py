@@ -1231,14 +1231,14 @@ class TestOrderCrossCompanyEdgeCases:
         )
         assert resp.status_code == 403
 
-    async def test_sub_account_cannot_submit_order(
+    async def test_sub_account_can_submit_own_order(
         self,
         client: AsyncClient,
         db_session: AsyncSession,
         sub_account: User,
         product: Product,
     ):
-        """sub_account cannot submit orders (only distributor/admin can)."""
+        """sub_account can submit their own order into the distributor queue."""
         await db_session.commit()
 
         data = await _create_draft_order(client, sub_account, product.id)
@@ -1248,7 +1248,80 @@ class TestOrderCrossCompanyEdgeCases:
         resp = await client.post(
             f"/api/v1/orders/{order_id}/submit", headers=headers
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "submitted"
+        assert resp.json()["selection_status"] == "pending"
+
+    async def test_distributor_list_hides_sub_account_queue_orders(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        distributor: User,
+        sub_account: User,
+        product: Product,
+    ):
+        """Submitted sub_account orders stay in queue, not in distributor general list."""
+        await db_session.commit()
+
+        data = await _create_draft_order(client, sub_account, product.id)
+        order_id = data["id"]
+
+        sub_headers = get_auth_header(sub_account)
+        submit_resp = await client.post(
+            f"/api/v1/orders/{order_id}/submit", headers=sub_headers
+        )
+        assert submit_resp.status_code == 200
+
+        dist_headers = get_auth_header(distributor)
+        list_resp = await client.get(
+            "/api/v1/orders/?status=submitted",
+            headers=dist_headers,
+        )
+        assert list_resp.status_code == 200
+        assert all(item["id"] != order_id for item in list_resp.json()["items"])
+
+        queue_resp = await client.get(
+            "/api/v1/orders/sub-account-pending",
+            headers=dist_headers,
+        )
+        assert queue_resp.status_code == 200
+        assert any(item["id"] == order_id for item in queue_resp.json()["items"])
+
+    async def test_included_sub_account_order_stays_in_queue_until_finalized(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        distributor: User,
+        sub_account: User,
+        product: Product,
+    ):
+        """Included sub_account orders remain in the queue until distributor final confirmation."""
+        await db_session.commit()
+
+        data = await _create_draft_order(client, sub_account, product.id)
+        order_id = data["id"]
+
+        sub_headers = get_auth_header(sub_account)
+        submit_resp = await client.post(
+            f"/api/v1/orders/{order_id}/submit", headers=sub_headers
+        )
+        assert submit_resp.status_code == 200
+
+        dist_headers = get_auth_header(distributor)
+        include_resp = await client.post(
+            f"/api/v1/orders/{order_id}/include",
+            headers=dist_headers,
+        )
+        assert include_resp.status_code == 200
+
+        queue_resp = await client.get(
+            "/api/v1/orders/sub-account-pending",
+            headers=dist_headers,
+        )
+        assert queue_resp.status_code == 200
+        included_item = next((item for item in queue_resp.json()["items"] if item["id"] == order_id), None)
+        assert included_item is not None
+        assert included_item["selection_status"] == "included"
 
     async def test_distributor_can_view_sub_account_order(
         self,

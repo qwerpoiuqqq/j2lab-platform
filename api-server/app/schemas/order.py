@@ -21,6 +21,52 @@ def _coerce_decimal(v: Any) -> Any:
     return int(v) if isinstance(v, Decimal) else v
 
 
+def _extract_item_data(item: Any) -> dict[str, Any]:
+    if isinstance(item, dict):
+        data = item.get("item_data")
+    else:
+        data = getattr(item, "item_data", None)
+    return data if isinstance(data, dict) else {}
+
+
+def _extract_items(source: Any) -> list[Any]:
+    if isinstance(source, dict):
+        return source.get("items") or []
+    return getattr(source, "items", []) or []
+
+
+def _build_order_summary(source: Any) -> dict[str, Any]:
+    items = _extract_items(source)
+    first_data = _extract_item_data(items[0]) if items else {}
+
+    primary_place_name = ""
+    for item in items:
+        item_data = _extract_item_data(item)
+        primary_place_name = (
+            item_data.get("place_name")
+            or item_data.get("상호명")
+            or item_data.get("place_url")
+            or ""
+        )
+        if primary_place_name:
+            break
+
+    order_number = source.get("order_number") if isinstance(source, dict) else getattr(source, "order_number", "")
+    total_quantity = 0
+    for item in items:
+        quantity = item.get("quantity") if isinstance(item, dict) else getattr(item, "quantity", 0)
+        total_quantity += int(quantity or 0)
+
+    return {
+        "primary_place_name": primary_place_name or "",
+        "start_date": first_data.get("start_date"),
+        "daily_limit": first_data.get("daily_limit"),
+        "total_limit": first_data.get("total_limit"),
+        "total_quantity": total_quantity,
+        "display_order_number": order_number.replace("ORD-", "") if isinstance(order_number, str) else order_number,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Brief models (must be defined before schemas that reference them)
 # ---------------------------------------------------------------------------
@@ -243,12 +289,28 @@ class OrderResponse(BaseModel):
     selection_status: str = "included"
     selected_by: uuid.UUID | None = None
     selected_at: datetime | None = None
+    primary_place_name: str = ""
+    start_date: str | None = None
+    daily_limit: int | None = None
+    total_limit: int | None = None
+    total_quantity: int = 0
+    display_order_number: str = ""
     items: list[OrderItemResponse] = []
 
     @field_validator("total_amount", "vat_amount", mode="before")
     @classmethod
     def coerce_numeric(cls, v: Any) -> Any:
         return _coerce_decimal(v)
+
+    @model_validator(mode="before")
+    @classmethod
+    def inject_summary_fields(cls, data: Any) -> Any:
+        summary = _build_order_summary(data)
+        if isinstance(data, dict):
+            return {**data, **summary}
+        for key, value in summary.items():
+            setattr(data, key, value)
+        return data
 
     model_config = {"from_attributes": True}
 
@@ -271,10 +333,26 @@ class OrderBriefResponse(BaseModel):
     source: str
     created_at: datetime
     updated_at: datetime | None = None
+    primary_place_name: str = ""
+    start_date: str | None = None
+    daily_limit: int | None = None
+    total_limit: int | None = None
+    total_quantity: int = 0
+    display_order_number: str = ""
 
     @field_validator("total_amount", "vat_amount", mode="before")
     @classmethod
     def coerce_numeric(cls, v: Any) -> Any:
         return _coerce_decimal(v)
+
+    @model_validator(mode="before")
+    @classmethod
+    def inject_summary_fields(cls, data: Any) -> Any:
+        summary = _build_order_summary(data)
+        if isinstance(data, dict):
+            return {**data, **summary}
+        for key, value in summary.items():
+            setattr(data, key, value)
+        return data
 
     model_config = {"from_attributes": True}
