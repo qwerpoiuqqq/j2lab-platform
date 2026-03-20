@@ -169,7 +169,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
    // Fetch effective points balance for the actual charge owner
    const fetchPointsBalance = useCallback(async () => {
-     if (!user || !['distributor', 'order_handler', 'sub_account'].includes(user.role)) return;
+     if (!user || !['distributor', 'order_handler'].includes(user.role)) return;
      try {
        const data = await pointsApi.getEffectiveMyBalance();
        setPointsBalance(data.balance);
@@ -404,7 +404,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User Profile & Notifications */}
         <div className="shrink-0 border-t border-border-subtle p-3 space-y-1">
            {/* Points Balance for Distributor and Order Handler */}
-           {(userRole === 'distributor' || userRole === 'order_handler' || userRole === 'sub_account') && pointsBalance !== null && (
+           {(userRole === 'distributor' || userRole === 'order_handler') && pointsBalance !== null && (
              <NavLink
                to="/points"
                onClick={onClose}
