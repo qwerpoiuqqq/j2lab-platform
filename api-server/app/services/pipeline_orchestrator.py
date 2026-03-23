@@ -193,8 +193,7 @@ async def _start_pipeline_for_item(
     product = await db.get(Product, item.product_id)
     should_delay = (
         product is not None
-        and product.setup_delay_minutes
-        and product.setup_delay_minutes > 0
+        and product.daily_deadline is not None
     )
 
     if should_delay:

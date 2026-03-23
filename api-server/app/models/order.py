@@ -92,7 +92,7 @@ VALID_ORDER_TRANSITIONS = {
         OrderStatus.CANCELLED,
     ],
     OrderStatus.PAYMENT_CONFIRMED: [OrderStatus.PROCESSING],
-    OrderStatus.PROCESSING: [OrderStatus.COMPLETED],
+    OrderStatus.PROCESSING: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
     OrderStatus.COMPLETED: [],
     OrderStatus.CANCELLED: [],
     OrderStatus.REJECTED: [],

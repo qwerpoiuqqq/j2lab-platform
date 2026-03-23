@@ -176,6 +176,28 @@ async def extraction_callback(
                     )
                 except ValueError:
                     pass
+                # Update order item and order status on extraction failure
+                from app.models.order import OrderItem, OrderItemStatus, Order, OrderStatus
+                item_result = await db.execute(
+                    select(OrderItem).where(OrderItem.id == updated_job.order_item_id)
+                )
+                order_item = item_result.scalar_one_or_none()
+                if order_item:
+                    order_item.status = OrderItemStatus.FAILED.value
+                    order_item.result_message = body.error_message or "키워드 추출 실패"
+                    await db.flush()
+                    order_result = await db.execute(select(Order).where(Order.id == order_item.order_id))
+                    order = order_result.scalar_one_or_none()
+                    if order:
+                        all_items = order.items
+                        all_done = all(
+                            i.status in (OrderItemStatus.COMPLETED.value, OrderItemStatus.FAILED.value, "cancelled")
+                            for i in all_items
+                        )
+                        if all_done and order.status == OrderStatus.PROCESSING.value:
+                            has_success = any(i.status == OrderItemStatus.COMPLETED.value for i in all_items)
+                            order.status = OrderStatus.COMPLETED.value if has_success else OrderStatus.CANCELLED.value
+                            await db.flush()
             elif body.status == "cancelled":
                 try:
                     await pipeline_service.transition_stage(
@@ -192,6 +214,28 @@ async def extraction_callback(
                     await db.flush()
                 except ValueError:
                     pass
+                # Update order item and order status on extraction cancellation
+                from app.models.order import OrderItem, OrderItemStatus, Order, OrderStatus
+                item_result = await db.execute(
+                    select(OrderItem).where(OrderItem.id == updated_job.order_item_id)
+                )
+                order_item = item_result.scalar_one_or_none()
+                if order_item:
+                    order_item.status = OrderItemStatus.FAILED.value
+                    order_item.result_message = body.error_message or "키워드 추출 취소됨"
+                    await db.flush()
+                    order_result = await db.execute(select(Order).where(Order.id == order_item.order_id))
+                    order = order_result.scalar_one_or_none()
+                    if order:
+                        all_items = order.items
+                        all_done = all(
+                            i.status in (OrderItemStatus.COMPLETED.value, OrderItemStatus.FAILED.value, "cancelled")
+                            for i in all_items
+                        )
+                        if all_done and order.status == OrderStatus.PROCESSING.value:
+                            has_success = any(i.status == OrderItemStatus.COMPLETED.value for i in all_items)
+                            order.status = OrderStatus.COMPLETED.value if has_success else OrderStatus.CANCELLED.value
+                            await db.flush()
 
     try:
         await db.commit()
@@ -317,6 +361,28 @@ async def campaign_callback(
                     )
                 except ValueError:
                     pass
+                # Update order item and order status on campaign failure
+                from app.models.order import OrderItem, OrderItemStatus, Order, OrderStatus
+                item_result = await db.execute(
+                    select(OrderItem).where(OrderItem.id == updated_campaign.order_item_id)
+                )
+                order_item = item_result.scalar_one_or_none()
+                if order_item:
+                    order_item.status = OrderItemStatus.FAILED.value
+                    order_item.result_message = body.error_message or "캠페인 등록 실패"
+                    await db.flush()
+                    order_result = await db.execute(select(Order).where(Order.id == order_item.order_id))
+                    order = order_result.scalar_one_or_none()
+                    if order:
+                        all_items = order.items
+                        all_done = all(
+                            i.status in (OrderItemStatus.COMPLETED.value, OrderItemStatus.FAILED.value, "cancelled")
+                            for i in all_items
+                        )
+                        if all_done and order.status == OrderStatus.PROCESSING.value:
+                            has_success = any(i.status == OrderItemStatus.COMPLETED.value for i in all_items)
+                            order.status = OrderStatus.COMPLETED.value if has_success else OrderStatus.CANCELLED.value
+                            await db.flush()
 
     try:
         await db.commit()

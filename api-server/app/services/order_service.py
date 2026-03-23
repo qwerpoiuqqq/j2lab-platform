@@ -35,6 +35,38 @@ from app.schemas.order import OrderCreate, OrderItemCreate, SimplifiedOrderCreat
 from app.services import price_service, superap_account_service
 
 
+async def _resolve_place_name(db: AsyncSession, item_data: dict) -> dict:
+    """Resolve place_name from place_url if missing."""
+    if item_data.get("place_name"):
+        return item_data
+    place_url = item_data.get("place_url", "")
+    import re
+    match = re.search(r'/(\d{5,})(?:\?|$|/)', place_url)
+    if not match:
+        return item_data
+    place_id = int(match.group(1))
+    # Try DB first
+    from app.models.place import Place
+    result = await db.execute(select(Place).where(Place.id == place_id))
+    place = result.scalar_one_or_none()
+    if place and place.name:
+        item_data["place_name"] = place.name
+        return item_data
+    # Try keyword-worker
+    try:
+        from app.core.config import settings
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{settings.KEYWORD_WORKER_URL}/internal/place-name/{place_id}")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("place_name"):
+                    item_data["place_name"] = data["place_name"]
+    except Exception:
+        pass
+    return item_data
+
+
 def validate_item_data(product: Product, item_data: dict | None) -> list[str]:
     """Validate item_data against product.form_schema.
     Returns list of error messages (empty = valid).
@@ -414,6 +446,11 @@ async def create_order(
             )
             subtotal = price_service.apply_reduction(unit_price, item_data.quantity, product)
 
+        # Resolve place_name from place_url if missing
+        resolved_item_data = await _resolve_place_name(
+            db, dict(item_data.item_data) if isinstance(item_data.item_data, dict) else {}
+        )
+
         order_item = OrderItem(
             order_id=order.id,
             product_id=item_data.product_id,
@@ -421,7 +458,7 @@ async def create_order(
             quantity=item_data.quantity,
             unit_price=unit_price,
             subtotal=subtotal,
-            item_data=item_data.item_data,
+            item_data=resolved_item_data,
         )
 
         # Manual account assignment for no-revenue orders
@@ -948,6 +985,9 @@ async def create_simplified_order(
             "end_date": end_date,
             "target_keyword": item.target_keyword,
         }
+
+        # Resolve place_name from place_url if missing
+        item_data = await _resolve_place_name(db, item_data)
 
         # Resolve price
         unit_price = await price_service.get_effective_price(
