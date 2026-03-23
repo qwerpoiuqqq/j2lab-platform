@@ -138,10 +138,6 @@ export const router = createBrowserRouter([
                 element: <ProductsPage />,
               },
               {
-                path: '/products/prices/matrix',
-                element: <PriceMatrixPage />,
-              },
-              {
                 path: '/products/categories',
                 element: <CategoriesPage />,
               },
@@ -152,6 +148,20 @@ export const router = createBrowserRouter([
               {
                 path: '/settlements',
                 element: <SettlementPage />,
+              },
+            ],
+          },
+          // Price matrix - system_admin, company_admin, order_handler
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={['system_admin', 'company_admin', 'order_handler']}
+              />
+            ),
+            children: [
+              {
+                path: '/products/prices/matrix',
+                element: <PriceMatrixPage />,
               },
             ],
           },

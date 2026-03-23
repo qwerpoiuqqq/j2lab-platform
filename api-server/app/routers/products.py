@@ -89,7 +89,7 @@ async def create_product(
 async def get_price_matrix(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Product x role price matrix for management UI."""
@@ -133,7 +133,7 @@ async def get_price_matrix(
 async def get_user_price_matrix(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Per-user price matrix: for each distributor/sub_account user, their effective prices."""
@@ -291,7 +291,7 @@ async def list_price_policies(
     size: int = Query(default=50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """List price policies for a product (system_admin, company_admin)."""
@@ -324,7 +324,7 @@ async def create_price_policy(
     body: PricePolicyCreate,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(
-        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN])
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ORDER_HANDLER])
     ),
 ):
     """Create a price policy for a product (system_admin, company_admin)."""

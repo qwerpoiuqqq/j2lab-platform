@@ -72,9 +72,10 @@ const navItems: NavItem[] = [
   // ── 관리 ──
   {
     name: '상품 관리', path: '/products', icon: CubeIcon,
-    allowedRoles: ['system_admin', 'company_admin'], group: '관리',
+    allowedRoles: ['system_admin', 'company_admin', 'order_handler'], group: '관리',
     children: [
       { name: '상품 목록', path: '/products', icon: CubeIcon, allowedRoles: ['system_admin', 'company_admin'] },
+      { name: '단가 관리', path: '/products/prices/matrix', icon: BanknotesIcon, allowedRoles: ['system_admin', 'company_admin', 'order_handler'] },
       { name: '카테고리', path: '/products/categories', icon: TagIcon, allowedRoles: ['system_admin', 'company_admin'] },
       { name: '일류 리워드 설정', path: '/products/reward-settings', icon: SignalIcon, allowedRoles: ['system_admin', 'company_admin'] },
     ],
