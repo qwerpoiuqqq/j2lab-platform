@@ -133,7 +133,13 @@ export default function OrderList({ orders, loading, selectable, selectedIds, on
               </span>
             )}
           </div>
-          {order.company?.name && (
+          {user?.role === 'sub_account' ? (
+            user?.parent_name && (
+              <span className="inline-flex items-center bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded text-[11px] leading-none w-fit">
+                {user.parent_name}
+              </span>
+            )
+          ) : order.company?.name && (
             <span className="inline-flex items-center bg-blue-900/30 text-blue-400 px-1.5 py-0.5 rounded text-[11px] leading-none w-fit">
               {order.company.name}
             </span>

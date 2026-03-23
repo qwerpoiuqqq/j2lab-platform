@@ -209,9 +209,11 @@ export default function OrderDetail({
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 uppercase">소속 회사</p>
+            <p className="text-xs text-gray-400 uppercase">
+              {user?.role === 'sub_account' ? '담당 총판' : '소속 회사'}
+            </p>
             <p className="mt-1 text-sm font-medium text-gray-100">
-              {order.company?.name || '-'}
+              {user?.role === 'sub_account' ? (user?.parent_name || '-') : (order.company?.name || '-')}
             </p>
           </div>
           <div>
