@@ -177,7 +177,7 @@ export default function UsersPage() {
     }
   }, []);
 
-  const openEdit = (user: User) => {
+  const openEdit = (user: User, tab: 'basic' | 'pricing' = 'basic') => {
     setEditingUser(user);
     setEditForm({
       name: user.name,
@@ -186,13 +186,19 @@ export default function UsersPage() {
       parent_id: user.parent_id || undefined,
       is_active: user.is_active,
     });
-    setEditTab('basic');
+    setEditTab(tab);
     setUserPriceProducts([]);
     setUserPriceMap({});
     setEditedUserPrices({});
     setPriceCategory('__all__');
     setShowEditModal(true);
     loadParentCandidates(user.role, user.company_id);
+  };
+
+  const openPriceEdit = (user: User) => {
+    openEdit(user, 'pricing');
+    // Eagerly load prices to avoid flash of empty state
+    void loadUserPrices(user);
   };
 
   const closeEditModal = () => {
@@ -219,25 +225,29 @@ export default function UsersPage() {
     }
   };
 
-  const loadUserPrices = useCallback(async () => {
-    if (!editingUser || !canConfigureUserPrices) return;
+  const loadUserPrices = useCallback(async (targetUser?: User | null) => {
+    const user = targetUser || editingUser;
+    if (!user) return;
     setUserPriceLoading(true);
     try {
       const data = await pricesApi.getUserMatrix();
       setUserPriceProducts(data.products);
       setUserPriceMap(data.prices);
-      setEditedUserPrices(data.prices[editingUser.id] || {});
+      setEditedUserPrices(data.prices[user.id] || {});
     } catch (err: any) {
       alert(err?.response?.data?.detail || '단가 정보를 불러오지 못했습니다.');
     } finally {
       setUserPriceLoading(false);
     }
-  }, [canConfigureUserPrices, editingUser]);
+  }, [editingUser]);
 
   useEffect(() => {
-    if (!showEditModal || editTab !== 'pricing' || !canConfigureUserPrices) return;
+    if (!showEditModal || editTab !== 'pricing' || !canConfigureUserPrices || !editingUser) return;
+    // Skip if already loaded (e.g., from openPriceEdit eager load)
+    if (userPriceProducts.length > 0 || userPriceLoading) return;
     void loadUserPrices();
-  }, [showEditModal, editTab, canConfigureUserPrices, loadUserPrices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showEditModal, editTab, canConfigureUserPrices]);
 
   const hasPriceChanges = useMemo(() => {
     for (const product of userPriceProducts) {

@@ -100,10 +100,10 @@ export const pointsApi = {
   },
 
   getGrantableUsers: async (): Promise<Array<{id: string; name: string; role: string; login_id: string; balance?: number}>> => {
-    const response = await apiClient.get('/users', { params: { role: 'distributor', limit: 100 } });
-    const distributors = response.data.items || response.data;
-    const response2 = await apiClient.get('/users', { params: { role: 'order_handler', limit: 100 } });
-    const handlers = response2.data.items || response2.data;
+    const response = await apiClient.get('/users', { params: { role: 'distributor', size: 100 } });
+    const distributors = response.data.items || [];
+    const response2 = await apiClient.get('/users', { params: { role: 'order_handler', size: 100 } });
+    const handlers = response2.data.items || [];
     return [...distributors, ...handlers];
   },
 };

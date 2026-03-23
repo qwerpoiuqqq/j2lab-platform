@@ -102,8 +102,10 @@ class ExtractionService:
             # Phase 0: Parse URL
             parsed = parse_place_url(job_naver_url)
             if not parsed.is_valid:
-                await self._fail_job(
-                    job_id, f"Invalid URL: {parsed.error_message}"
+                error_message = f"Invalid URL: {parsed.error_message}"
+                await self._fail_job(job_id, error_message)
+                await self._send_callback(
+                    job_id, "failed", 0, db_place_id, error_message=error_message
                 )
                 return
 
@@ -115,12 +117,15 @@ class ExtractionService:
             # Phase 1: Scrape place data
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
+                await self._send_callback(job_id, "cancelled", 0, db_place_id)
                 return
 
             place_data = await self._scrape_place(job_naver_url)
             if not place_data:
-                await self._fail_job(
-                    job_id, "Failed to scrape place data"
+                error_message = "Failed to scrape place data"
+                await self._fail_job(job_id, error_message)
+                await self._send_callback(
+                    job_id, "failed", 0, db_place_id, error_message=error_message
                 )
                 return
 
@@ -147,6 +152,7 @@ class ExtractionService:
             # Phase 2: Generate keyword pool
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
+                await self._send_callback(job_id, "cancelled", 0, db_place_id)
                 return
 
             keyword_pool = generate_keyword_pool(
@@ -163,6 +169,7 @@ class ExtractionService:
             # Phase 3: Rank check with timeout (retry until conditions match)
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
+                await self._send_callback(job_id, "cancelled", 0, db_place_id)
                 return
 
             all_keywords = [item["keyword"] for item in keyword_pool]
@@ -255,6 +262,7 @@ class ExtractionService:
 
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
+                await self._send_callback(job_id, "cancelled", 0, db_place_id)
                 return
 
             if not condition_met:
@@ -284,6 +292,7 @@ class ExtractionService:
             # Phase 4: Save results
             if not self._is_running(job_id):
                 await self._cancel_job(job_id)
+                await self._send_callback(job_id, "cancelled", 0, db_place_id)
                 return
 
             saved_count = await self._save_keywords(
@@ -349,6 +358,7 @@ class ExtractionService:
 
         except asyncio.CancelledError:
             await self._cancel_job(job_id)
+            await self._send_callback(job_id, "cancelled", 0, db_place_id)
         except Exception as e:
             logger.exception("Job %d failed: %s", job_id, e)
             await self._fail_job(job_id, str(e))

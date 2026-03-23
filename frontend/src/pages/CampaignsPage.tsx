@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { campaignsApi } from '@/api/campaigns';
 import { campaignAccountsApi } from '@/api/campaignAccounts';
@@ -15,6 +15,13 @@ export default function CampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [agencyFilter, setAgencyFilter] = useState<string>('');
   const [page, setPage] = useState(1);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
 
   const accountId = activeAccount === 'all' ? undefined : Number(activeAccount);
 
@@ -46,14 +53,14 @@ export default function CampaignsPage() {
     isLoading: campaignsLoading,
     refetch,
   } = useQuery({
-    queryKey: ['campaigns', page, accountId, statusFilter, debouncedSearch || agencyFilter],
+    queryKey: ['campaigns', page, accountId, statusFilter, debouncedSearch, agencyFilter],
     queryFn: () =>
       campaignsApi.list({
         page,
         size: 20,
         account_id: accountId,
         status: statusFilter || undefined,
-        search: debouncedSearch || agencyFilter || undefined,
+        search: [debouncedSearch, agencyFilter].filter(Boolean).join(' ') || undefined,
       }),
   });
 

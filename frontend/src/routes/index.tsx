@@ -27,6 +27,7 @@ import NoticesPage from '@/pages/NoticesPage';
 import SubAccountsPage from '@/pages/SubAccountsPage';
 import DeadlineBatchPage from '@/pages/DeadlineBatchPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import PointsPage from '@/pages/PointsPage';
 
 export const router = createBrowserRouter([
   {
@@ -151,6 +152,20 @@ export const router = createBrowserRouter([
               {
                 path: '/settlements',
                 element: <SettlementPage />,
+              },
+            ],
+          },
+          // Points - system_admin, company_admin, order_handler, distributor
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={['system_admin', 'company_admin', 'order_handler', 'distributor']}
+              />
+            ),
+            children: [
+              {
+                path: '/points',
+                element: <PointsPage />,
               },
             ],
           },

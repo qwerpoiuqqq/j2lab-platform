@@ -235,6 +235,21 @@ async def _advance_to_extraction(
         )
         return
 
+    # Validate place_url format
+    if not (place_url.startswith("http") and ("naver" in place_url or "place" in place_url)):
+        await pipeline_service.transition_stage(
+            db,
+            state=state,
+            to_stage="cancelled",
+            trigger_type="validation_error",
+            error_message=f"유효하지 않은 place_url입니다: {place_url[:100]}",
+        )
+        logger.warning(
+            "OrderItem %s has invalid place_url: %s",
+            item.id, place_url[:100],
+        )
+        return
+
     item_data = item.item_data or {}
     target_count = item_data.get("target_count", 200)
     max_rank = item_data.get("max_rank", 20)
@@ -343,6 +358,12 @@ async def check_and_queue_ready_items(db: AsyncSession) -> dict:
             # Calculate queue time
             deadline_time = product.daily_deadline
             delay_minutes = product.setup_delay_minutes or 0
+
+            if deadline_time is None:
+                # No deadline configured — process immediately
+                await _advance_to_extraction(db, item, state)
+                queued += 1
+                continue
 
             # Use the product's timezone to interpret the deadline, then compare with UTC now
             tz = ZoneInfo(product.deadline_timezone or "Asia/Seoul")
@@ -537,7 +558,7 @@ async def on_assignment_choice(
                 existing_campaign = extension[0]
                 try:
                     duration_days = item_data.get("duration_days", 30)
-                    new_end = (date.today() + timedelta(days=duration_days)).isoformat()
+                    new_end = (_parse_start_date(item_data) + timedelta(days=duration_days)).isoformat()
                     additional_total = item_data.get("total_limit", 3000)
 
                     await dispatch_campaign_extension(
@@ -738,7 +759,7 @@ async def retry_stuck_pipelines(db: AsyncSession) -> dict:
     """Find pipelines stuck for >5 minutes and retry, up to 3 times."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
 
-    stuck_stages = ["extraction_queued", "campaign_registering"]
+    stuck_stages = ["extraction_queued", "extraction_done", "campaign_registering"]
     result = await db.execute(
         select(PipelineState).where(
             PipelineState.current_stage.in_(stuck_stages),
@@ -778,6 +799,17 @@ async def retry_stuck_pipelines(db: AsyncSession) -> dict:
                         min_rank=ej.min_rank,
                         name_keyword_ratio=ej.name_keyword_ratio,
                     )
+            elif state.current_stage == "extraction_done" and state.extraction_job_id:
+                # Re-trigger auto-assignment
+                ej_result = await db.execute(
+                    select(ExtractionJob).where(ExtractionJob.id == state.extraction_job_id)
+                )
+                ej = ej_result.scalar_one_or_none()
+                if ej:
+                    try:
+                        await on_extraction_complete(db, state.order_item_id, ej)
+                    except Exception:
+                        logger.warning("Re-trigger auto-assignment failed for pipeline state %s", state.id)
             elif state.current_stage == "campaign_registering" and state.campaign_id:
                 await dispatch_campaign_registration(campaign_id=state.campaign_id)
 
@@ -803,7 +835,8 @@ def _parse_start_date(item_data: dict | None) -> date:
             return date.fromisoformat(str(item_data["start_date"]))
         except (ValueError, TypeError):
             pass
-    return date.today()
+    from zoneinfo import ZoneInfo
+    return datetime.now(ZoneInfo("Asia/Seoul")).date()
 
 
 def _extract_place_url(item: OrderItem) -> str | None:

@@ -185,6 +185,7 @@ export default function OrderGrid({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [hasTodayRows, setHasTodayRows] = useState(false);
   const user = useAuthStore((s) => s.user);
+  const isSubAccount = user?.role === 'sub_account';
 
   // AI recommendation state per row
   const [aiStates, setAiStates] = useState<RowAIState[]>([{ recommendation: null, loading: false, networkName: '' }]);
@@ -626,27 +627,31 @@ export default function OrderGrid({
               <span className="text-gray-400">총 건수</span>
               <span className="font-medium text-gray-100">{formatNumber(rows.length)}건</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">트래픽 ({formatNumber(trafficTotalQty)}타 x {formatCurrency(combinedConfig.trafficPrice)})</span>
-              <span className="font-medium text-gray-100">{formatCurrency(trafficSubtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">저장하기 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
-              <span className="font-medium text-gray-100">{formatCurrency(saveSubtotal)}</span>
-            </div>
-            <div className="border-t border-border pt-2" />
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">공급가액</span>
-              <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">부가세 (10%)</span>
-              <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
-            </div>
-            <div className="border-t border-border pt-2 flex justify-between">
-              <span className="text-base font-semibold text-gray-100">합계</span>
-              <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
-            </div>
+            {!isSubAccount && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">트래픽 ({formatNumber(trafficTotalQty)}타 x {formatCurrency(combinedConfig.trafficPrice)})</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(trafficSubtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">저장하기 ({formatNumber(saveTotalQty)}타 x {formatCurrency(combinedConfig.savePrice)})</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(saveSubtotal)}</span>
+                </div>
+                <div className="border-t border-border pt-2" />
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">공급가액</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">부가세 (10%)</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
+                </div>
+                <div className="border-t border-border pt-2 flex justify-between">
+                  <span className="text-base font-semibold text-gray-100">합계</span>
+                  <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="bg-surface-raised rounded-xl border border-border p-4 space-y-2">
@@ -654,26 +659,30 @@ export default function OrderGrid({
               <span className="text-gray-400">총 건수</span>
               <span className="font-medium text-gray-100">{formatNumber(rows.length)}건</span>
             </div>
-            {quantityField && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">총 수량 ({quantityField.label})</span>
-                <span className="font-medium text-gray-100">
-                  {formatNumber(rows.reduce((s, r) => s + (Number(r[quantityField.name]) || 0), 0))}
-                </span>
-              </div>
+            {!isSubAccount && (
+              <>
+                {quantityField && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">총 수량 ({quantityField.label})</span>
+                    <span className="font-medium text-gray-100">
+                      {formatNumber(rows.reduce((s, r) => s + (Number(r[quantityField.name]) || 0), 0))}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">공급가액</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">부가세 (10%)</span>
+                  <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
+                </div>
+                <div className="border-t border-border pt-2 flex justify-between">
+                  <span className="text-base font-semibold text-gray-100">합계</span>
+                  <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
+                </div>
+              </>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">공급가액</span>
-              <span className="font-medium text-gray-100">{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">부가세 (10%)</span>
-              <span className="font-medium text-gray-100">{formatCurrency(vat)}</span>
-            </div>
-            <div className="border-t border-border pt-2 flex justify-between">
-              <span className="text-base font-semibold text-gray-100">합계</span>
-              <span className="text-base font-bold text-primary-600">{formatCurrency(total)}</span>
-            </div>
           </div>
         )}
       </div>

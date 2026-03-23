@@ -34,9 +34,9 @@ export default function UserList({ users, allUsers, loading, onEdit }: UserListP
       ),
     },
     {
-      key: 'email',
-      header: '이메일',
-      render: (u) => <span className="text-gray-400">{u.email}</span>,
+      key: 'login_id',
+      header: '아이디',
+      render: (u) => <span className="text-gray-400">{u.login_id || u.email}</span>,
     },
     {
       key: 'role',

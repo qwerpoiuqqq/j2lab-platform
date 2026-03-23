@@ -171,6 +171,22 @@ async def notify_payment_rejected(db: AsyncSession, order, reason: str) -> None:
     )
 
 
+async def notify_order_rejected_by_distributor(db: AsyncSession, order) -> None:
+    """Notify the sub_account user that their order was rejected by a distributor."""
+    sub_account_id = order.user_id
+    if not sub_account_id:
+        return
+    order_num = getattr(order, "order_number", str(order.id))
+    await create_notification(
+        db,
+        user_id=sub_account_id,
+        type="order",
+        title="접수건이 반려되었습니다",
+        message=f"주문 #{order_num}이 총판에 의해 반려되었습니다.",
+        related_id=order.id,
+    )
+
+
 async def notify_campaign_activated(db: AsyncSession, campaign) -> None:
     """Notify handler that a campaign has been activated."""
     from app.models.user import User

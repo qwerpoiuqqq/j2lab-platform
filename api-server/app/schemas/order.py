@@ -296,6 +296,7 @@ class OrderResponse(BaseModel):
     total_quantity: int = 0
     display_order_number: str = ""
     items: list[OrderItemResponse] = []
+    pipeline_warnings: list[str] = []
 
     @field_validator("total_amount", "vat_amount", mode="before")
     @classmethod

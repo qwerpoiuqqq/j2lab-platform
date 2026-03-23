@@ -125,6 +125,7 @@ export default function OrderGridPage() {
     }
   }, [user?.id, user?.role]);
 
+  const isSubAccount = user?.role === 'sub_account';
   const isNoRevenue = orderType === 'monthly_guarantee' || orderType === 'managed';
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
@@ -150,7 +151,7 @@ export default function OrderGridPage() {
   const { data: productSchemaData } = useQuery({
     queryKey: ['productSchema', selectedProduct?.id],
     queryFn: () => pricesApi.getProductSchema(selectedProduct!.id),
-    enabled: !!selectedProduct,
+    enabled: !!selectedProduct && !isSubAccount,
   });
   const effectivePrice = productSchemaData?.effective_price;
 
@@ -415,7 +416,7 @@ export default function OrderGridPage() {
                     <ProductTile
                       key={product.id}
                       title={product.name}
-                      price={formatCurrency(product.base_price)}
+                      price={isSubAccount ? undefined : formatCurrency(product.base_price)}
                       period={(product.min_work_days || product.max_work_days) ? `${product.min_work_days ?? '-'}~${product.max_work_days ?? '-'}일` : undefined}
                       symbol={vt.symbol}
                       symbolBg={vt.symbolBg}
@@ -639,7 +640,7 @@ function ProductTile({
   onClick,
 }: {
   title: string;
-  price: string;
+  price?: string;
   period?: string;
   symbol: string;
   symbolBg: string;
@@ -663,7 +664,7 @@ function ProductTile({
       )}
       <div className="space-y-1">
         <div className="text-[14px] font-semibold text-gray-100">{title}</div>
-        <div className="text-[13px] font-bold text-primary-600">{price}</div>
+        {price && <div className="text-[13px] font-bold text-primary-600">{price}</div>}
       </div>
       {period && (
         <span className="rounded-full bg-surface-raised border border-border-subtle px-2.5 py-0.5 text-[11px] font-medium text-gray-400">

@@ -104,10 +104,11 @@ async def verify_internal_secret(
     """Verify the internal API secret header for worker callbacks."""
     from app.core.config import settings
 
-    # If secret is not configured (default placeholder), allow internal callbacks.
-    # This keeps local/test flows working while avoiding 422 on missing header.
-    if settings.INTERNAL_API_SECRET == "change_me_to_internal_secret":
-        return
+    if not x_internal_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Internal-Secret header",
+        )
 
     if x_internal_secret != settings.INTERNAL_API_SECRET:
         raise HTTPException(

@@ -248,7 +248,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 </p>
                 <p className="text-xs text-gray-500">
                   {user?.role ? getRoleLabel(user.role) : ''}
-                  {user?.company ? ` - ${user.company.name}` : ''}
+                  {user?.role === 'sub_account' && user?.parent_name
+                    ? ` - ${user.parent_name}`
+                    : user?.company
+                      ? ` - ${user.company.name}`
+                      : ''}
                 </p>
               </div>
               <div className="w-9 h-9 bg-primary-900/30 rounded-full flex items-center justify-center">

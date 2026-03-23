@@ -23,10 +23,18 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Get current user's own profile."""
-    return current_user
+    response = UserResponse.model_validate(current_user)
+    if current_user.parent_id:
+        from sqlalchemy import select as sa_select
+        from app.models.user import User as UserModel
+        parent_result = await db.execute(sa_select(UserModel.name).where(UserModel.id == current_user.parent_id))
+        parent_row = parent_result.scalar_one_or_none()
+        response.parent_name = parent_row if parent_row else None
+    return response
 
 
 @router.get("/", response_model=PaginatedResponse[UserResponse])
@@ -66,8 +74,23 @@ async def list_users(
         is_active=is_active,
         current_user=current_user,
     )
+    # Build parent name map
+    parent_ids = [u.parent_id for u in users if u.parent_id]
+    parent_name_map: dict = {}
+    if parent_ids:
+        from sqlalchemy import select as sa_select
+        from app.models.user import User as UserModel
+        p_result = await db.execute(sa_select(UserModel.id, UserModel.name).where(UserModel.id.in_(parent_ids)))
+        parent_name_map = {row[0]: row[1] for row in p_result.all()}
+
+    def _to_user_response(u: User) -> UserResponse:
+        r = UserResponse.model_validate(u)
+        if u.parent_id and u.parent_id in parent_name_map:
+            r.parent_name = parent_name_map[u.parent_id]
+        return r
+
     return PaginatedResponse.create(
-        items=[UserResponse.model_validate(u) for u in users],
+        items=[_to_user_response(u) for u in users],
         total=total,
         page=pagination.page,
         size=pagination.size,

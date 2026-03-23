@@ -814,7 +814,10 @@ async def set_selection_status(
     status: str,  # "included" | "excluded"
     actor: User,
 ) -> Order:
-    """Set the selection_status of an order (distributor action)."""
+    """Set the selection_status of an order (distributor action).
+
+    When excluded, also transitions order.status -> rejected.
+    """
     if status not in ("included", "excluded"):
         raise ValueError(f"Invalid selection status: {status}")
     if order.selection_status not in ("pending", "included", "excluded"):
@@ -823,6 +826,10 @@ async def set_selection_status(
     order.selection_status = status
     order.selected_by = actor.id
     order.selected_at = datetime.now(timezone.utc)
+
+    if status == "excluded":
+        order.status = OrderStatus.REJECTED.value
+        order.reject_reason = "총판에 의해 반려되었습니다."
 
     await db.flush()
     await db.refresh(order)
@@ -1055,3 +1062,77 @@ async def get_sub_account_pending_orders(
 
     result = await db.execute(query)
     return list(result.scalars().unique().all())
+
+
+async def get_distributor_queue(
+    db: AsyncSession,
+    distributor: User,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[dict]:
+    """Get unified queue for a distributor: sub-account pending orders + own draft/submitted orders.
+
+    Returns a list of dicts with an extra 'source' field:
+      - 'sub_account': order from a sub-account awaiting include/exclude
+      - 'own': distributor's own draft or submitted order
+    And 'submitter_name': display name of the order creator.
+    """
+    user_role = UserRole(distributor.role)
+    queue_statuses = ("pending", "included")
+    visible_order_statuses = (
+        OrderStatus.DRAFT.value,
+        OrderStatus.SUBMITTED.value,
+        OrderStatus.PAYMENT_HOLD.value,
+    )
+
+    results: list[dict] = []
+
+    if user_role == UserRole.SYSTEM_ADMIN:
+        # system_admin: all sub-account queue orders
+        sub_order_query = (
+            select(Order)
+            .where(
+                Order.user.has(User.role == UserRole.SUB_ACCOUNT.value),
+                Order.selection_status.in_(queue_statuses),
+                Order.status.in_(visible_order_statuses),
+            )
+            .order_by(Order.created_at.desc())
+        )
+        sub_result = await db.execute(sub_order_query)
+        for o in sub_result.scalars().unique().all():
+            results.append({"order": o, "source": "sub_account"})
+    else:
+        # Sub-account orders for this distributor
+        sub_user_query = select(User.id).where(User.parent_id == distributor.id)
+        sub_order_query = (
+            select(Order)
+            .where(
+                Order.user_id.in_(sub_user_query),
+                Order.selection_status.in_(queue_statuses),
+                Order.status.in_(visible_order_statuses),
+            )
+            .order_by(Order.created_at.desc())
+        )
+        sub_result = await db.execute(sub_order_query)
+        for o in sub_result.scalars().unique().all():
+            results.append({"order": o, "source": "sub_account"})
+
+        # Distributor's own draft/submitted orders
+        own_query = (
+            select(Order)
+            .where(
+                Order.user_id == distributor.id,
+                Order.status.in_((OrderStatus.DRAFT.value, OrderStatus.SUBMITTED.value)),
+            )
+            .order_by(Order.created_at.desc())
+        )
+        own_result = await db.execute(own_query)
+        for o in own_result.scalars().unique().all():
+            results.append({"order": o, "source": "own"})
+
+    # Sort combined list by created_at desc, then apply skip/limit
+    results.sort(
+        key=lambda x: x["order"].created_at or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return results[skip: skip + limit]

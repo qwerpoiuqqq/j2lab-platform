@@ -54,14 +54,14 @@ async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
         campaign = campaign_result.scalar_one_or_none()
         if not campaign:
             continue
-        if campaign.status != "pending" or campaign.campaign_code:
+        if campaign.status not in ("pending", "queued") or campaign.campaign_code:
             continue
 
         try:
             campaign.status = "queued"
             campaign.registration_step = "queued"
             campaign.registration_message = "Registration queued for campaign-worker"
-            await db.commit()
+            await db.flush()
 
             await dispatch_campaign_registration(
                 campaign_id=campaign.id,
@@ -71,7 +71,7 @@ async def _dispatch_pending_campaign_registrations(db: AsyncSession) -> None:
             campaign.status = "failed"
             campaign.registration_step = "failed"
             campaign.registration_message = f"Dispatch failed: {exc}"
-            await db.commit()
+            await db.flush()
             logger.exception(
                 "Post-commit campaign dispatch failed for campaign %s",
                 campaign.id,
@@ -163,8 +163,6 @@ async def extraction_callback(
                             e,
                         )
 
-                    # Dispatch campaign registration after commit
-                    await _dispatch_pending_campaign_registrations(db)
                 except ValueError:
                     pass  # Transition not valid from current state
             elif body.status == "failed":
@@ -319,6 +317,16 @@ async def campaign_callback(
                     )
                 except ValueError:
                     pass
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.exception("Campaign callback commit failed for campaign %s", campaign_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Campaign callback commit failed",
+        )
 
     return {
         "message": f"Campaign callback processed: {body.status}",

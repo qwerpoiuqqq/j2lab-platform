@@ -78,7 +78,7 @@ class AssignmentStatus(str, Enum):
 
 # Valid order status transitions
 VALID_ORDER_TRANSITIONS = {
-    OrderStatus.DRAFT: [OrderStatus.SUBMITTED, OrderStatus.CANCELLED],
+    OrderStatus.DRAFT: [OrderStatus.SUBMITTED, OrderStatus.CANCELLED, OrderStatus.REJECTED],
     OrderStatus.SUBMITTED: [
         OrderStatus.PAYMENT_CONFIRMED,
         OrderStatus.PAYMENT_HOLD,

@@ -474,7 +474,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                               setShowNotifications(false);
                               onClose();
                             } else if (notification.type === 'settlement') {
-                              navigate('/adjustment');
+                              navigate('/settlements');
                               setShowNotifications(false);
                               onClose();
                             }
@@ -531,6 +531,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <p className="text-sm font-medium text-gray-200 truncate">{user?.name || '사용자'}</p>
               <p className="text-xs text-gray-500 truncate">
                 {user?.role ? getRoleLabel(user.role) : ''}
+                {user?.role === 'sub_account' && user?.parent_name
+                  ? ` - ${user.parent_name}`
+                  : user?.company
+                    ? ` - ${user.company.name}`
+                    : ''}
               </p>
             </div>
             <button

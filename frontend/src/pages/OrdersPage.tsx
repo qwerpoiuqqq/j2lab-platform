@@ -11,7 +11,6 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   TrashIcon,
-  InboxStackIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import type { Order, OrderStatus } from '@/types';
@@ -275,16 +274,8 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {/* 접수대기 탭: 하부계정 대기건 (distributor) */}
-      {isPendingTab && isDistributor && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <InboxStackIcon className="h-4 w-4 text-cyan-400" />
-            <h2 className="text-sm font-semibold text-gray-300">하부계정 대기 접수건</h2>
-          </div>
-          <SubAccountOrders />
-        </div>
-      )}
+      {/* 접수대기 탭 (distributor): 통합 큐 — 하부계정 + 내 접수건을 하나의 뷰로 표시 */}
+      {isPendingTab && isDistributor && <SubAccountOrders />}
 
       {/* 일괄 액션 바 */}
       {showBulkActions && (

@@ -37,6 +37,7 @@ from app.models.superap_account import SuperapAccount
 
 # Phase 2 - New features
 from app.models.category import Category
+from app.models.charge_request import ChargeRequest, ChargeRequestStatus, ChargeRequestType
 from app.models.notice import Notice
 from app.models.notification import Notification
 
@@ -77,6 +78,9 @@ __all__ = [
     "VALID_PIPELINE_TRANSITIONS",
     # Phase 2 - New features
     "Category",
+    "ChargeRequest",
+    "ChargeRequestStatus",
+    "ChargeRequestType",
     "Notice",
     "Notification",
 ]

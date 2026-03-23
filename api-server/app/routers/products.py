@@ -143,11 +143,11 @@ async def get_user_price_matrix(
 
     products, _ = await product_service.get_products(db, skip=0, limit=500, is_active=True)
 
-    # Get all active distributor/sub_account users
+    # Get all active order_handler/distributor/sub_account users
     result = await db.execute(
         sa_select(UserModel).where(
             UserModel.is_active == True,
-            UserModel.role.in_(["distributor", "sub_account"]),
+            UserModel.role.in_(["order_handler", "distributor", "sub_account"]),
         )
     )
     users = list(result.scalars().all())
@@ -193,7 +193,7 @@ async def get_user_price_matrix(
             "id": uid,
             "name": user.name,
             "role": user.role,
-            "email": getattr(user, "login_id", getattr(user, "email", "")),
+            "login_id": user.login_id or "",
         })
         user_prices[uid] = {}
         for product in products:

@@ -164,6 +164,14 @@ export const ordersApi = {
     return response.data;
   },
 
+  getDistributorQueue: async (params?: {
+    skip?: number;
+    limit?: number;
+  }): Promise<{ items: any[] }> => {
+    const response = await apiClient.get('/orders/distributor-queue', { params });
+    return response.data;
+  },
+
   includeOrder: async (orderId: number): Promise<any> => {
     const response = await apiClient.post(`/orders/${orderId}/include`);
     return response.data;

@@ -16,6 +16,7 @@ from app.routers import (
     campaign_templates,
     campaigns,
     categories,
+    charge_requests,
     companies,
     dashboard,
     extraction_jobs,
@@ -94,6 +95,7 @@ app.include_router(notices.router, prefix="/api/v1")
 app.include_router(settlements.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")
 app.include_router(scheduler.router, prefix="/api/v1")
+app.include_router(charge_requests.router, prefix="/api/v1")
 
 # Redirect (public, no /api/v1 prefix)
 app.include_router(redirect.router)

@@ -19,6 +19,7 @@ export interface User {
   company?: Company;
   role: UserRole;
   parent_id?: string;
+  parent_name?: string;
   balance: number;
   is_active: boolean;
   created_at: string;
@@ -27,7 +28,7 @@ export interface User {
 }
 
 export interface LoginRequest {
-  email: string;
+  login_id: string;
   password: string;
 }
 

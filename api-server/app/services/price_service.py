@@ -171,7 +171,33 @@ async def create_price_policy(
     db: AsyncSession,
     data: PricePolicyCreate,
 ) -> PricePolicy:
-    """Create a new price policy."""
+    """Create or update a price policy (upsert by product+user+campaign_type)."""
+    # Check for existing policy with same key
+    query = select(PricePolicy).where(
+        PricePolicy.product_id == data.product_id,
+    )
+    if data.user_id:
+        query = query.where(PricePolicy.user_id == data.user_id)
+    else:
+        query = query.where(PricePolicy.user_id.is_(None))
+    if data.campaign_type:
+        query = query.where(PricePolicy.campaign_type == data.campaign_type)
+    else:
+        query = query.where(PricePolicy.campaign_type.is_(None))
+    if data.role and not data.user_id:
+        query = query.where(PricePolicy.role == data.role)
+
+    result = await db.execute(query.order_by(PricePolicy.created_at.desc()).limit(1))
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.unit_price = data.unit_price
+        existing.effective_from = data.effective_from
+        existing.effective_to = data.effective_to
+        await db.flush()
+        await db.refresh(existing)
+        return existing
+
     policy = PricePolicy(
         product_id=data.product_id,
         user_id=data.user_id,

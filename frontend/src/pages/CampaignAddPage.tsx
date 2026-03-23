@@ -78,6 +78,14 @@ export default function CampaignAddPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!verifyOk) {
+      setResult({ success: false, message: '캠페인 번호를 먼저 확인해 주세요.' });
+      return;
+    }
+    if (form.start_date && form.end_date && form.start_date >= form.end_date) {
+      setResult({ success: false, message: '종료일은 시작일 이후여야 합니다.' });
+      return;
+    }
     setSubmitting(true);
     setResult(null);
     try {
@@ -294,7 +302,7 @@ export default function CampaignAddPage() {
           <Button type="button" variant="secondary" onClick={() => setForm(INITIAL)}>
             초기화
           </Button>
-          <Button type="submit" variant="primary" loading={submitting}>
+          <Button type="submit" variant="primary" loading={submitting} disabled={!verifyOk || submitting}>
             추가
           </Button>
         </div>

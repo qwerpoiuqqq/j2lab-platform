@@ -162,6 +162,10 @@ async def get_dashboard_summary(
         stuck_count_q = await db.execute(stuck_q)
         stuck_pipelines = int(stuck_count_q.scalar() or 0)
 
+    # sub_account must never see any revenue/financial data
+    if UserRole(current_user.role) == UserRole.SUB_ACCOUNT:
+        today_revenue = 0
+
     return DashboardSummaryResponse(
         total_orders=total_orders,
         active_campaigns=active_campaigns,

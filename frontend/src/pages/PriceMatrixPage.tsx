@@ -38,7 +38,7 @@ interface MatrixUser {
   id: string;
   name: string;
   role: string;
-  email: string;
+  login_id: string;
 }
 
 interface MatrixProduct {
@@ -146,7 +146,7 @@ function MarginAnalysisTable({
                 참고원가
               </th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
-                세팅 감산 비율
+                감은 타수
               </th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">
                 실세팅 비율
@@ -176,7 +176,7 @@ function MarginAnalysisTable({
               return (
                 <>
                   <tr
-                    key={product.id}
+                    key={product.matrix_key}
                     className={`border-b border-border-subtle hover:bg-surface-raised/50 transition-colors ${
                       idx % 2 === 0 ? '' : 'bg-surface-raised/20'
                     }`}
@@ -203,7 +203,7 @@ function MarginAnalysisTable({
                       )}
                     </td>
 
-                    {/* 세팅 감산 비율 */}
+                    {/* 감은 타수 */}
                     <td className="px-4 py-3 text-center">
                       {editingId === product.id ? (
                         <div className="flex items-center justify-center gap-1">
@@ -373,7 +373,7 @@ function MarginAnalysisTable({
       </div>
       <div className="px-4 py-2 border-t border-border-subtle bg-surface-raised/30">
         <p className="text-xs text-gray-500">
-          <span className="text-purple-400 font-medium">세팅 감산 비율</span> = 주문 타수 중 실제 세팅에서 제외되는 내부 비율.
+          <span className="text-purple-400 font-medium">감은 타수</span> = 주문 타수 중 실제 세팅에서 제외되는 내부 비율.
           {canEdit && ' 클릭하면 수정할 수 있습니다 (system_admin 전용).'}
           {' '}
           <span className="text-emerald-400">≥40%</span>
@@ -426,7 +426,7 @@ function UserCard({
           </Badge>
         </div>
       </div>
-      <p className="text-sm text-gray-400 mb-1">{user.email}</p>
+      <p className="text-sm text-gray-400 mb-1">{user.login_id || ''}</p>
       <p className="text-sm text-gray-400 mb-3">
         {priceCount > 0 ? `${priceCount}개 개별 단가 설정됨` : '기본 단가 적용 중'}
       </p>
@@ -948,9 +948,9 @@ export default function PriceMatrixPage() {
           ) : (
             <>
               <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-4 py-3 text-sm text-purple-300">
-                판매가 대비 원가 기준 판매 마진율과 실세팅 감산 비율을 함께 표시합니다.
+                판매가 대비 원가 기준 판매 마진율과 실세팅 감은 타수를 함께 표시합니다.
                 {canEditMargin && (
-                  <> <strong>세팅 감산 비율</strong>을 클릭하면 인라인 수정할 수 있습니다.</>
+                  <> <strong>감은 타수</strong>를 클릭하면 인라인 수정할 수 있습니다.</>
                 )}
               </div>
               <MarginAnalysisTable
@@ -1102,7 +1102,7 @@ export default function PriceMatrixPage() {
 
                 return (
                   <div
-                    key={product.id}
+                    key={product.matrix_key}
                     className={`flex items-center gap-3 p-3 rounded-lg ${
                       isCustom ? 'bg-blue-900/20' : 'bg-surface-raised'
                     }`}

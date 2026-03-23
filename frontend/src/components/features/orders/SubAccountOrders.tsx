@@ -11,7 +11,7 @@ import {
   HashtagIcon,
 } from '@heroicons/react/24/outline';
 
-interface SubAccountOrder {
+interface DistributorQueueOrder {
   id: number;
   order_number: string;
   user_id: string;
@@ -22,6 +22,8 @@ interface SubAccountOrder {
   intake_blocked?: boolean;
   intake_block_reason?: string | null;
   created_at: string;
+  source: 'sub_account' | 'own';
+  submitter_name?: string | null;
   items?: {
     product?: { name?: string; code?: string };
     item_data?: { place_name?: string; place_url?: string; campaign_type?: string };
@@ -29,7 +31,7 @@ interface SubAccountOrder {
   item_count?: number;
 }
 
-function getCampaignTypeBadge(items?: SubAccountOrder['items']) {
+function getCampaignTypeBadge(items?: DistributorQueueOrder['items']) {
   if (!items || items.length === 0) return null;
   const types = new Set<string>();
   items.forEach((item) => {
@@ -41,7 +43,7 @@ function getCampaignTypeBadge(items?: SubAccountOrder['items']) {
   return Array.from(types);
 }
 
-function getPlaceName(items?: SubAccountOrder['items']): string {
+function getPlaceName(items?: DistributorQueueOrder['items']): string {
   if (!items || items.length === 0) return '-';
   const name = items[0]?.item_data?.place_name;
   return name || '-';
@@ -72,8 +74,23 @@ function getSelectionBadge(status: string) {
   );
 }
 
+function getSourceBadge(source: 'sub_account' | 'own') {
+  if (source === 'own') {
+    return (
+      <span className="inline-block bg-cyan-900/40 text-cyan-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
+        내 접수
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block bg-violet-900/40 text-violet-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
+      하부 접수
+    </span>
+  );
+}
+
 export default function SubAccountOrders() {
-  const [orders, setOrders] = useState<SubAccountOrder[]>([]);
+  const [orders, setOrders] = useState<DistributorQueueOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -84,10 +101,10 @@ export default function SubAccountOrders() {
   const fetchOrders = useCallback(async () => {
     try {
       setError(null);
-      const response = await ordersApi.getSubAccountPending();
-      setOrders(response.items as SubAccountOrder[]);
+      const response = await ordersApi.getDistributorQueue();
+      setOrders(response.items as DistributorQueueOrder[]);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || '하부계정 접수건을 불러오지 못했습니다.');
+      setError(err?.response?.data?.detail || '접수 대기 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -136,16 +153,17 @@ export default function SubAccountOrders() {
   };
 
   // Bulk confirm: submit (if draft) then confirmPayment — pipeline starts immediately
+  // Works for both sub_account and own orders
   const handleBulkSubmit = async () => {
     const toProcess = orders.filter(
       (o) =>
         selectedIds.has(o.id)
-        && o.selection_status === 'included'
         && !o.intake_blocked
         && (o.status === 'draft' || o.status === 'submitted' || o.status === 'payment_hold')
+        && (o.source === 'own' || o.selection_status === 'included')
     );
     if (toProcess.length === 0) {
-      alert('접수할 수 있는 건이 없습니다. 접수건을 선택해 주세요.');
+      alert('접수할 수 있는 건이 없습니다.\n하부 접수건은 포함(included) 상태여야 합니다.');
       return;
     }
     setBulkSubmitting(true);
@@ -208,8 +226,10 @@ export default function SubAccountOrders() {
     return null;
   }
 
-  const pendingCount = orders.filter((o) => o.selection_status === 'pending' || !o.selection_status).length;
-  const includedCount = orders.filter((o) => o.selection_status === 'included').length;
+  const subAccountCount = orders.filter((o) => o.source === 'sub_account').length;
+  const ownCount = orders.filter((o) => o.source === 'own').length;
+  const pendingCount = orders.filter((o) => o.source === 'sub_account' && (o.selection_status === 'pending' || !o.selection_status)).length;
+  const includedCount = orders.filter((o) => o.source === 'sub_account' && o.selection_status === 'included').length;
 
   return (
     <div className="bg-surface rounded-xl border border-border shadow-sm">
@@ -217,11 +237,21 @@ export default function SubAccountOrders() {
       <div className="px-5 py-4 border-b border-border">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold text-gray-100">대기 접수건</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-semibold text-gray-100">접수 대기 통합 뷰</h3>
               <span className="inline-flex items-center bg-cyan-900/40 text-cyan-400 text-xs font-medium px-2 py-0.5 rounded-full">
-                {orders.length}건
+                전체 {orders.length}건
               </span>
+              {subAccountCount > 0 && (
+                <span className="inline-flex items-center bg-violet-900/40 text-violet-400 text-xs font-medium px-2 py-0.5 rounded-full">
+                  하부 {subAccountCount}
+                </span>
+              )}
+              {ownCount > 0 && (
+                <span className="inline-flex items-center bg-cyan-900/40 text-cyan-400 text-xs font-medium px-2 py-0.5 rounded-full">
+                  내 접수 {ownCount}
+                </span>
+              )}
               {pendingCount > 0 && (
                 <span className="inline-flex items-center bg-yellow-900/40 text-yellow-400 text-xs font-medium px-2 py-0.5 rounded-full">
                   대기 {pendingCount}
@@ -234,7 +264,7 @@ export default function SubAccountOrders() {
               )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
-              하부계정 최종 접수 건입니다. 포함 처리 후 총판 단계에서 최종 접수를 넘기면 세팅이 시작됩니다.
+              하부계정 접수건과 내 임시저장 접수건을 함께 확인하고 총판 최종 접수를 진행합니다.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -301,6 +331,7 @@ export default function SubAccountOrders() {
           const campaignTypes = getCampaignTypeBadge(order.items);
           const isSelected = selectedIds.has(order.id);
           const isProcessing = processing === order.id;
+          const isOwnOrder = order.source === 'own';
 
           return (
             <div
@@ -323,13 +354,14 @@ export default function SubAccountOrders() {
                 />
               </div>
 
-              {/* Order number + selection status */}
-              <div className="flex items-center gap-2 mb-2.5 pr-6">
+              {/* Order number + selection status + source */}
+              <div className="flex items-center gap-2 mb-2.5 pr-6 flex-wrap">
                 <span className="inline-block bg-surface-raised px-2 py-0.5 rounded text-xs font-mono text-gray-100">
                   <HashtagIcon className="h-3 w-3 inline mr-0.5 opacity-60" />
                   {order.order_number}
                 </span>
-                {getSelectionBadge(order.selection_status)}
+                {getSourceBadge(order.source)}
+                {!isOwnOrder && getSelectionBadge(order.selection_status)}
                 {order.intake_blocked && (
                   <span className="inline-flex items-center gap-1 bg-red-900/40 text-red-400 px-2 py-0.5 rounded text-[11px] font-medium">
                     <XCircleIcon className="h-3 w-3" />
@@ -344,17 +376,12 @@ export default function SubAccountOrders() {
                 <span className="text-sm font-medium text-gray-100 leading-tight">{placeName}</span>
               </div>
 
-              {/* Orderer name */}
+              {/* Submitter name */}
               <div className="flex items-center gap-1.5 mb-2.5">
                 <UserIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                 <span className="text-xs text-gray-300">
-                  {order.user?.name || order.user_id || '-'}
+                  {order.submitter_name || order.user?.name || order.user_id || '-'}
                 </span>
-                {order.user?.role === 'sub_account' && (
-                  <span className="inline-block bg-violet-900/40 text-violet-400 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none">
-                    하부
-                  </span>
-                )}
               </div>
 
               {/* Campaign type badges + amount */}
@@ -396,22 +423,25 @@ export default function SubAccountOrders() {
                     </p>
                   )}
                 </div>
-                <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="px-2.5 py-1 rounded text-xs font-medium bg-green-900/40 text-green-400 hover:bg-green-900/60 transition-colors disabled:opacity-50"
-                    onClick={() => handleInclude(order.id)}
-                    disabled={isProcessing || order.selection_status === 'included' || order.intake_blocked}
-                  >
-                    {isProcessing ? '처리중...' : '포함'}
-                  </button>
-                  <button
-                    className="px-2.5 py-1 rounded text-xs font-medium bg-red-900/40 text-red-400 hover:bg-red-900/60 transition-colors disabled:opacity-50"
-                    onClick={() => handleExclude(order.id)}
-                    disabled={isProcessing || order.selection_status === 'excluded' || order.intake_blocked}
-                  >
-                    제외
-                  </button>
-                </div>
+                {/* Only sub_account orders need include/exclude actions */}
+                {!isOwnOrder && (
+                  <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="px-2.5 py-1 rounded text-xs font-medium bg-green-900/40 text-green-400 hover:bg-green-900/60 transition-colors disabled:opacity-50"
+                      onClick={() => handleInclude(order.id)}
+                      disabled={isProcessing || order.selection_status === 'included' || order.intake_blocked}
+                    >
+                      {isProcessing ? '처리중...' : '포함'}
+                    </button>
+                    <button
+                      className="px-2.5 py-1 rounded text-xs font-medium bg-red-900/40 text-red-400 hover:bg-red-900/60 transition-colors disabled:opacity-50"
+                      onClick={() => handleExclude(order.id)}
+                      disabled={isProcessing || order.selection_status === 'excluded' || order.intake_blocked}
+                    >
+                      제외
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );

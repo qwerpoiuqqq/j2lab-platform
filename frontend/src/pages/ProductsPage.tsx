@@ -626,13 +626,6 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-4 gap-3">
                 <Input
-                  label="할인 비율(%)"
-                  type="number"
-                  value={formData.reduction_rate}
-                  onChange={(e) => setFormData({ ...formData, reduction_rate: e.target.value })}
-                  placeholder="0-100"
-                />
-                <Input
                   label="최소 작업일"
                   type="number"
                   value={formData.min_work_days}
@@ -651,21 +644,21 @@ export default function ProductsPage() {
                   onChange={(e) => setFormData({ ...formData, min_daily_limit: e.target.value })}
                 />
               </div>
-              {/* 세팅 감산 비율 — system_admin 전용, 절대 총판/하부 노출 금지 */}
+              {/* 감은 타수 — system_admin 전용, 절대 총판/하부 노출 금지 */}
               {user?.role === 'system_admin' && (
                 <div className="border border-amber-800/40 bg-amber-900/10 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold text-amber-400">내부 전용 세팅 감산 비율</span>
+                    <span className="text-xs font-bold text-amber-400">감은 타수</span>
                   </div>
                   <Input
-                    label="세팅 감산 비율(%)"
+                    label="감은 타수(%)"
                     type="number"
                     value={formData.hidden_margin_rate}
                     onChange={(e) => setFormData({ ...formData, hidden_margin_rate: e.target.value })}
                     placeholder="0-100 (0=감산 없음)"
                   />
                   <p className="text-[11px] text-amber-400/70 mt-1">
-                    예: 감산 비율 20%면 100타 주문 시 실제 세팅은 80타입니다. 고객 청구 단가나 판매 마진율과는 별도입니다.
+                    예: 감은 타수 20%면 100타 주문 시 실제 세팅은 80타입니다. 고객 청구 단가나 판매 마진율과는 별도입니다.
                   </p>
                 </div>
               )}

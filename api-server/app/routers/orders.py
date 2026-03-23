@@ -211,7 +211,9 @@ async def create_order(
             detail=str(e),
         )
     # Re-fetch to ensure all nested relationships (items.product) are loaded
-    return await order_service.get_order_by_id(db, order.id)
+    fetched = await order_service.get_order_by_id(db, order.id)
+    order_data = OrderResponse.model_validate(fetched).model_dump()
+    return _mask_prices_for_sub_account(order_data, current_user.role)
 
 
 # === Literal-path routes (must be before /{order_id} to avoid path conflicts) ===
@@ -240,7 +242,9 @@ async def create_simplified_order(
             detail=str(e),
         )
     # Re-fetch to ensure all nested relationships (items.product) are loaded
-    return await order_service.get_order_by_id(db, order.id)
+    fetched = await order_service.get_order_by_id(db, order.id)
+    order_data = OrderResponse.model_validate(fetched).model_dump()
+    return _mask_prices_for_sub_account(order_data, current_user.role)
 
 
 @router.get("/excel-template/{product_id}")
@@ -493,6 +497,63 @@ async def get_sub_account_pending_orders(
     }
 
 
+@router.get("/distributor-queue")
+async def get_distributor_queue(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
+    ),
+):
+    """Get unified queue for a distributor.
+
+    Returns both sub-account pending orders and distributor's own draft/submitted orders.
+    Each item includes a 'source' field: 'sub_account' | 'own',
+    and 'submitter_name': the name of the order creator.
+    """
+    entries = await order_service.get_distributor_queue(
+        db, distributor=current_user, skip=skip, limit=limit,
+    )
+
+    def _serialize(entry: dict) -> dict:
+        o = entry["order"]
+        source = entry["source"]
+        submitter_name = None
+        if o.user:
+            submitter_name = o.user.name
+        items_data = []
+        if o.items:
+            for item in o.items:
+                item_dict = {
+                    "product": {"name": item.product.name if item.product else None,
+                                "code": item.product.code if item.product else None}
+                    if item.product else None,
+                    "item_data": item.item_data,
+                }
+                items_data.append(item_dict)
+        return {
+            "id": o.id,
+            "order_number": o.order_number,
+            "user_id": str(o.user_id),
+            "user": {"name": o.user.name if o.user else None,
+                     "role": o.user.role if o.user else None}
+            if o.user else None,
+            "status": o.status,
+            "total_amount": int(o.total_amount) if o.total_amount else 0,
+            "selection_status": o.selection_status,
+            "intake_blocked": order_service.get_order_intake_block_reason(o) is not None,
+            "intake_block_reason": order_service.get_order_intake_block_reason(o),
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "source": source,
+            "submitter_name": submitter_name,
+            "items": items_data,
+            "item_count": len(o.items) if o.items else 0,
+        }
+
+    return {"items": [_serialize(e) for e in entries]}
+
+
 @router.post("/{order_id}/include")
 async def include_order(
     order_id: int,
@@ -520,7 +581,7 @@ async def exclude_order(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
     ),
 ):
-    """Exclude a sub-account order (pending -> excluded)."""
+    """Exclude a sub-account order (pending -> excluded) and transition to rejected."""
     order = await order_service.get_order_by_id(db, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -528,7 +589,12 @@ async def exclude_order(
         await order_service.set_selection_status(db, order, "excluded", current_user)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return {"message": "Order excluded", "order_id": order.id}
+    try:
+        from app.services import notification_service
+        await notification_service.notify_order_rejected_by_distributor(db, order)
+    except Exception:
+        pass
+    return {"message": "Order excluded", "order_id": order.id, "status": order.status}
 
 
 @router.post("/bulk-include")
@@ -563,7 +629,8 @@ async def bulk_exclude_orders(
         RoleChecker([UserRole.SYSTEM_ADMIN, UserRole.DISTRIBUTOR])
     ),
 ):
-    """Bulk exclude multiple sub-account orders."""
+    """Bulk exclude multiple sub-account orders and transition each to rejected."""
+    from app.services import notification_service
     success = 0
     errors = []
     for oid in body.order_ids:
@@ -574,6 +641,10 @@ async def bulk_exclude_orders(
         try:
             await order_service.set_selection_status(db, order, "excluded", current_user)
             success += 1
+            try:
+                await notification_service.notify_order_rejected_by_distributor(db, order)
+            except Exception:
+                pass
         except ValueError as e:
             errors.append(f"Order {oid}: {str(e)}")
     return MessageResponse(
@@ -732,6 +803,16 @@ async def bulk_payment_confirm(
             success_count += 1
         except ValueError as e:
             errors.append(f"Order {oid}: {str(e)}")
+
+    # Commit all confirmations before dispatching background pipeline tasks
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="일괄 입금확인 커밋 실패",
+        )
 
     # Start pipelines in BACKGROUND (non-blocking)
     for oid in confirmed_order_ids:

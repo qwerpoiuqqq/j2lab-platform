@@ -230,7 +230,8 @@ async def _check_extension(
     new_total: int | None = None,
 ) -> tuple[Campaign, bool] | None:
     """Step 1: Check if this should be an extension of an existing campaign."""
-    today = date.today()
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("Asia/Seoul")).date()
     seven_days_ago = today - timedelta(days=7)
 
     result = await db.execute(

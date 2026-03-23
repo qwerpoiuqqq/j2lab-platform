@@ -2,7 +2,7 @@ import apiClient from './client';
 import type { PriceMatrixRow, ProductSchema } from '@/types';
 
 export interface UserMatrixResponse {
-  users: { id: string; name: string; role: string; email: string }[];
+  users: { id: string; name: string; role: string; login_id: string }[];
   products: {
     id: number;
     matrix_key: string;

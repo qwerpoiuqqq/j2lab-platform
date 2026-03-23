@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CampaignDetailComponent from '@/components/features/campaigns/CampaignDetail';
 import Button from '@/components/common/Button';
+import Modal from '@/components/common/Modal';
 import { ArrowLeftIcon, PencilIcon, TrashIcon, PlusIcon, ClockIcon } from '@heroicons/react/24/outline';
 import type { Campaign, CampaignKeyword, CampaignListItem, ExtensionHistoryItem } from '@/types';
 import { campaignsApi } from '@/api/campaigns';
@@ -344,169 +345,172 @@ export default function CampaignDetailPage() {
       )}
 
       {/* Edit Modal */}
-      {editOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">캠페인 수정</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">플레이스명</label>
-                <input
-                  type="text"
-                  value={editForm.place_name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, place_name: e.target.value }))}
-                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">광고주명</label>
-                <input
-                  type="text"
-                  value={editForm.agency_name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, agency_name: e.target.value }))}
-                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">일일 한도</label>
-                  <input
-                    type="number"
-                    value={editForm.daily_limit}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, daily_limit: Number(e.target.value) }))}
-                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">총 한도</label>
-                  <input
-                    type="number"
-                    value={editForm.total_limit}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, total_limit: Number(e.target.value) }))}
-                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
-                <input
-                  type="date"
-                  value={editForm.end_date}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, end_date: e.target.value }))}
-                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                />
-              </div>
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="캠페인 수정"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setEditOpen(false)}
+              disabled={actionLoading}
+            >
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleEdit}
+              loading={actionLoading}
+            >
+              저장
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">플레이스명</label>
+            <input
+              type="text"
+              value={editForm.place_name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, place_name: e.target.value }))}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">광고주명</label>
+            <input
+              type="text"
+              value={editForm.agency_name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, agency_name: e.target.value }))}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">일일 한도</label>
+              <input
+                type="number"
+                value={editForm.daily_limit}
+                onChange={(e) => setEditForm(prev => ({ ...prev, daily_limit: Number(e.target.value) }))}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+              />
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <Button
-                variant="secondary"
-                onClick={() => setEditOpen(false)}
-                disabled={actionLoading}
-              >
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleEdit}
-                loading={actionLoading}
-              >
-                저장
-              </Button>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">총 한도</label>
+              <input
+                type="number"
+                value={editForm.total_limit}
+                onChange={(e) => setEditForm(prev => ({ ...prev, total_limit: Number(e.target.value) }))}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+              />
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
+            <input
+              type="date"
+              value={editForm.end_date}
+              onChange={(e) => setEditForm(prev => ({ ...prev, end_date: e.target.value }))}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Extend Modal */}
-      {extendOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">캠페인 연장</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">새 종료일</label>
-                <input
-                  type="date"
-                  value={extendForm.new_end_date}
-                  onChange={(e) => setExtendForm(prev => ({ ...prev, new_end_date: e.target.value }))}
-                  className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">추가 총 전환수</label>
-                  <input
-                    type="number"
-                    value={extendForm.additional_total}
-                    onChange={(e) => setExtendForm(prev => ({ ...prev, additional_total: Number(e.target.value) }))}
-                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">새 일일 한도 (선택)</label>
-                  <input
-                    type="number"
-                    value={extendForm.new_daily_limit}
-                    onChange={(e) => setExtendForm(prev => ({ ...prev, new_daily_limit: Number(e.target.value) }))}
-                    className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
-                    placeholder="0 = 변경 안함"
-                  />
-                </div>
-              </div>
+      <Modal
+        isOpen={extendOpen}
+        onClose={() => setExtendOpen(false)}
+        title="캠페인 연장"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setExtendOpen(false)}
+              disabled={actionLoading}
+            >
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleExtend}
+              loading={actionLoading}
+            >
+              연장
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">새 종료일</label>
+            <input
+              type="date"
+              value={extendForm.new_end_date}
+              onChange={(e) => setExtendForm(prev => ({ ...prev, new_end_date: e.target.value }))}
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">추가 총 전환수</label>
+              <input
+                type="number"
+                value={extendForm.additional_total}
+                onChange={(e) => setExtendForm(prev => ({ ...prev, additional_total: Number(e.target.value) }))}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+              />
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <Button
-                variant="secondary"
-                onClick={() => setExtendOpen(false)}
-                disabled={actionLoading}
-              >
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleExtend}
-                loading={actionLoading}
-              >
-                연장
-              </Button>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">새 일일 한도 (선택)</label>
+              <input
+                type="number"
+                value={extendForm.new_daily_limit}
+                onChange={(e) => setExtendForm(prev => ({ ...prev, new_daily_limit: Number(e.target.value) }))}
+                className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-surface text-gray-200"
+                placeholder="0 = 변경 안함"
+              />
             </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Add Keywords Modal */}
-      {keywordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">키워드 추가</h3>
-            <p className="text-sm text-gray-400 mb-3">한 줄에 하나씩 키워드를 입력하세요.</p>
-            <textarea
-              value={newKeywords}
-              onChange={(e) => setNewKeywords(e.target.value)}
-              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 min-h-[150px] bg-surface text-gray-200"
-              placeholder={"키워드1\n키워드2\n키워드3"}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="secondary"
-                onClick={() => { setKeywordOpen(false); setNewKeywords(''); }}
-                disabled={actionLoading}
-              >
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleAddKeywords}
-                loading={actionLoading}
-                disabled={!newKeywords.trim()}
-              >
-                추가
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={keywordOpen}
+        onClose={() => { setKeywordOpen(false); setNewKeywords(''); }}
+        title="키워드 추가"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => { setKeywordOpen(false); setNewKeywords(''); }}
+              disabled={actionLoading}
+            >
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleAddKeywords}
+              loading={actionLoading}
+              disabled={!newKeywords.trim()}
+            >
+              추가
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-400 mb-3">한 줄에 하나씩 키워드를 입력하세요.</p>
+        <textarea
+          value={newKeywords}
+          onChange={(e) => setNewKeywords(e.target.value)}
+          className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 min-h-[150px] bg-surface text-gray-200"
+          placeholder={"키워드1\n키워드2\n키워드3"}
+          autoFocus
+        />
+      </Modal>
     </div>
   );
 }

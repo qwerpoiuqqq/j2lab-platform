@@ -7,7 +7,7 @@ from datetime import datetime
 
 from decimal import Decimal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.user import UserRole
 
@@ -15,7 +15,7 @@ from app.models.user import UserRole
 class UserCreate(BaseModel):
     """Schema for creating a user."""
 
-    email: EmailStr
+    login_id: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
     name: str = Field(..., min_length=1, max_length=50)
     phone: str | None = Field(None, max_length=20)
@@ -27,7 +27,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating a user (all fields optional)."""
 
-    email: EmailStr | None = None
+    login_id: str | None = Field(None, min_length=1, max_length=255)
     password: str | None = Field(None, min_length=8, max_length=128)
     name: str | None = Field(None, min_length=1, max_length=50)
     phone: str | None = Field(None, max_length=20)
@@ -41,12 +41,13 @@ class UserResponse(BaseModel):
     """User response model (no password)."""
 
     id: uuid.UUID
-    email: str
+    login_id: str
     name: str
     phone: str | None = None
     company_id: int | None = None
     role: str
     parent_id: uuid.UUID | None = None
+    parent_name: str | None = None
     balance: int = 0
     is_active: bool = True
     created_at: datetime
@@ -67,7 +68,7 @@ class UserBriefResponse(BaseModel):
     """Brief user info for nested responses."""
 
     id: uuid.UUID
-    email: str
+    login_id: str
     name: str
     role: str
 
@@ -78,7 +79,7 @@ class UserTreeNode(BaseModel):
     """User tree node for hierarchical display."""
 
     id: uuid.UUID
-    email: str
+    login_id: str
     name: str
     role: str
     is_active: bool
