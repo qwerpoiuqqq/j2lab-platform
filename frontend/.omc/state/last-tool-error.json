@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/82104/Desktop/programming/Naver-project/unified-platform\\\" && python3 -c \\\"import ast; [ast.parse(open(f).read()) for f in ['api-server/app/models/order.py','api-server/app/m...",
+  "error": "Exit code 127\n/usr/bin/bash: line 1: python3: command not found\n/usr/bin/bash: line 1: py: command not found",
+  "timestamp": "2026-03-19T03:22:34.172Z",
+  "retry_count": 2
+}

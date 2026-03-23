@@ -677,7 +677,6 @@ async def register_campaign(
 
             try:
                 from app.services.place_data_collector import collect_place_data
-                from app.core.config import settings
 
                 # Collect place data (blog URL, coordinates)
                 place_data = {}
